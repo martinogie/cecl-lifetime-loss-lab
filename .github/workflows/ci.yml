@@ -13,6 +13,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Manual "Run workflow" button. Needed after a visibility change: re-running an old run reuses its
+  # saved event, which still records the old visibility, so the arm64 job wouldn't run.
+  workflow_dispatch:
 
 permissions:
   contents: read
