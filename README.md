@@ -134,4 +134,12 @@ installed on Windows; its checks run in CI and in the dev Docker stack.
 
 Built with AI-assisted coding; the design, analysis and review are my own.
 
+### Contributors
+
+| Contributor | Role |
+|---|---|
+| [Martins Ogiekpolor](https://github.com/martinogie) | Author and owner: design, analysis, review; every commit |
+| [Claude Code](https://www.anthropic.com/claude-code) (Anthropic) | AI coding assistant |
+| [Dependabot](https://github.com/dependabot) | Weekly GitHub Actions updates, proposed as pull requests |
+
 Licence: [MIT](LICENSE) for the code and documentation. Source data keeps its own terms of use.
