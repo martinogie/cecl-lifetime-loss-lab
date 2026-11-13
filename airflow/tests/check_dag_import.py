@@ -26,7 +26,7 @@ import json, logging, warnings
 warnings.filterwarnings("ignore")
 logging.disable(logging.WARNING)
 from airflow.dag_processing.dagbag import DagBag
-bag = DagBag(DAGS, include_examples=False)
+bag = DagBag(DAGS)
 out = {"dag_ids": sorted(bag.dags), "import_errors": {k: str(v)[-600:] for k, v in bag.import_errors.items()}, "dags": {}}
 for dag_id, dag in bag.dags.items():
     schedule = getattr(dag, "schedule", None)
@@ -38,7 +38,8 @@ print("RESULT=" + json.dumps(out))
 
 
 def parse(env: str | None) -> dict:
-    child = dict(os.environ)
+    # Airflow 3's DagBag has no include_examples argument; example DAGs are switched off by setting.
+    child = {**os.environ, "AIRFLOW__CORE__LOAD_EXAMPLES": "False"}
     child.pop("CECL_ENV", None)
     if env is not None:
         child["CECL_ENV"] = env

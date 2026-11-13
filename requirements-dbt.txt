@@ -1,6 +1,7 @@
 # dbt for local work (DuckDB) and CI. dbt-databricks is installed only where dev/prod run
 # (the Airflow image). dbt-core matches Bank Health. Exact versions: the set that installed and
-# passed `dbt build` locally on 12 Nov 2026.
+# passed `dbt build` locally on 12 Nov 2026. The Airflow image uses dbt-core 1.12.5, because
+# dbt-databricks doesn't support 1.12.6 yet (airflow/Dockerfile); a patch-level difference.
 #
 # Windows note: dbt-core needs dbt-core-experimental-parser, which has no Windows wheel on PyPI; its
 # build downloads a file from dbt Labs' GitHub releases. If that fails with CERTIFICATE_VERIFY_FAILED,
