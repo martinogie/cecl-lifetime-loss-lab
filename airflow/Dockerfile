@@ -18,9 +18,11 @@ RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" \
         -r /tmp/requirements.txt --constraint "${CONSTRAINTS}"
 
 # 2. dbt in its own virtualenv so its dependencies can't clash with Airflow's.
-#    dbt-core matches Bank Health; the dbt-databricks version is confirmed by the first CI build.
+#    Exact pair: dbt-databricks 1.12.8 (the newest, Nov 2026) supports dbt-core below 1.12.6, so the
+#    image uses dbt-core 1.12.5. Local and CI use dbt-core 1.12.6 with dbt-duckdb
+#    (requirements-dbt.txt); move the image to 1.12.6 when dbt-databricks supports it.
 RUN python -m venv /home/airflow/dbt_venv \
- && /home/airflow/dbt_venv/bin/pip install --no-cache-dir dbt-core==1.12.6 "dbt-databricks~=1.12.0"
+ && /home/airflow/dbt_venv/bin/pip install --no-cache-dir dbt-core==1.12.5 dbt-databricks==1.12.8
 
 # 3. Startup check: refuses to start unless CECL_ENV is dev or prod
 COPY --chmod=755 include/entrypoint.sh /opt/airflow/include/entrypoint.sh
