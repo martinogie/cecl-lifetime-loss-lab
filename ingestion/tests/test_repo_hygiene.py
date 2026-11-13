@@ -130,6 +130,9 @@ def is_ignored(path: str) -> bool:
         ("notebooks/scratch.csv", True),
         ("ingestion/tests/fixtures/sample_orig_2023.txt", False),
         ("dbt/tests/fixtures/fixture_freddie_origination.csv", False),
+        # The roadmap PDFs are private (prepared for Martins only): never committed.
+        ("docs/CECL_Lifetime_Loss_Lab_Roadmap.pdf", True),
+        ("docs/CECL_Lifetime_Loss_Lab_Roadmap_v2.pdf", True),
         ("requirements-dev.txt", False),
         ("airflow/requirements.txt", False),
     ],

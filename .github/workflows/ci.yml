@@ -203,6 +203,9 @@ jobs:
         run: |
           bad="$(git ls-files | grep -E '^data/|\.(zip|parquet|duckdb)$|(^|/)(sample_)?(orig|perf)_[0-9]{4}(Q[1-4])?\.txt$' | grep -v '/tests/fixtures/' || true)"
           if [ -n "$bad" ]; then echo "data files tracked by git:"; echo "$bad"; exit 1; fi
+          # The roadmap PDFs are private (prepared for Martins only), in any commit of the history.
+          private="$(git log --all --name-only --format= | grep -iE 'Roadmap.*\.pdf$' | sort -u || true)"
+          if [ -n "$private" ]; then echo "private roadmap PDF in git history:"; echo "$private"; exit 1; fi
           big="$(git ls-files -z | xargs -0 -r du -k 2>/dev/null | awk '$1 > 1024 {print $2}')"
           if [ -n "$big" ]; then echo "files over 1 MB:"; echo "$big"; exit 1; fi
           echo "no data files, nothing over 1 MB"

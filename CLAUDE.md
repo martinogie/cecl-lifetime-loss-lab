@@ -3,7 +3,8 @@
 Handover for Claude Code. Read this whole file before doing anything. The full design and roadmap are in
 **`docs/CECL_Lifetime_Loss_Lab_Roadmap_v2.pdf`** (plain English; Part A defines every term; additions in v2
 are marked `[NEW v2]` or `[UPGRADED v2]`). `docs/CECL_Lifetime_Loss_Lab_Roadmap.pdf` is v1, kept as history
-only. If this file and the v2 PDF disagree, ask Martins.
+only. **Both PDFs are private:** prepared for Martins only, kept on his PC, git-ignored, never committed or
+published. If this file and the v2 PDF disagree, ask Martins.
 
 ## Owner
 Martins Ogiekpolor (GitHub `martinogie`, Denton TX, timezone America/Chicago).
@@ -133,6 +134,7 @@ README.md  LICENSE (MIT)  CONTRIBUTING.md  SECURITY.md  CLAUDE.md  .pre-commit-c
 .github/workflows/      ci.yml (ruff, mypy, pytest+coverage, DAG import test, dbt checks, secret scan), site.yml
 docs/                   adr/  governance/  runbook.md  model_card.md  validation_report.md  allowance_memos/
                         CECL_Lifetime_Loss_Lab_Roadmap_v2.pdf (current)  CECL_Lifetime_Loss_Lab_Roadmap.pdf (v1)
+                        (both local only, git-ignored; never in the public repo)
 docs/governance/        controls_matrix.md  model_inventory.md  limitations_log.md  committee_packs/
 airflow/                dags/  include/
 ingestion/              freddie.py  fred.py  fhfa.py  bls.py  fed_scenarios.py  contracts/  tests/

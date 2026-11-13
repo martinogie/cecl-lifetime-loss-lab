@@ -24,6 +24,10 @@ data/
 !requirements*.txt
 !airflow/requirements.txt
 
+# ---------------------------------------------------------------- private documents
+# The roadmap PDFs were prepared for Martins only: they stay on his PC and are never committed.
+docs/CECL_Lifetime_Loss_Lab_Roadmap*.pdf
+
 # ---------------------------------------------------------------- python / tools
 __pycache__/
 *.pyc
