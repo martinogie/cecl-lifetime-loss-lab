@@ -1,0 +1,40 @@
+name: cecl_lab
+version: "0.0.1"
+config-version: 2
+profile: cecl_lab
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests/singular"]
+# Synthetic fixtures are seeds only on local and ci (DuckDB). dev and prod read real bronze tables
+# and must never load fixtures into Databricks, so their seed folder is the (empty) seeds/.
+seed-paths: ["{{ 'tests/fixtures' if env_var('CECL_ENV') in ['local', 'ci'] else 'seeds' }}"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+# Stops every run unless the target matches CECL_ENV (macros/assert_environment.sql).
+on-run-start:
+  - "{{ environment_check_sql() }}"
+
+models:
+  cecl_lab:
+    # Medallion layers: bronze is loaded by Databricks notebooks; dbt builds silver and gold.
+    staging:
+      +schema: silver
+      +materialized: view
+    intermediate:
+      +schema: silver
+      +materialized: view
+    marts:
+      +schema: gold
+      +materialized: table
+
+seeds:
+  cecl_lab:
+    +schema: fixtures
+    fixture_freddie_origination:
+      +column_types:
+        loan_id: varchar
+        first_payment_date: varchar
+        maturity_date: varchar
+        property_state: varchar

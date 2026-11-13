@@ -1,0 +1,173 @@
+# Slim Airflow 3 stack for one machine: LocalExecutor, Postgres metadata database.
+# Based on the official apache/airflow 3.3.2 docker-compose.yaml and Bank Health's stack.
+#
+# THIS FILE IS PROD (CECL_ENV=prod below). PHASE 0 PLACEHOLDER: nothing is deployed yet.
+# (Design and trade-offs: docs/adr/004-environments-and-shared-vm.md.)
+#
+# Prod runs on the Oracle Cloud VM it SHARES with Bank Health (Arm/aarch64, 4 OCPU, 24 GB RAM), as
+# its OWN stack: Compose project `cecl`, its own containers, network, volumes and Airflow metadata
+# database. It never shares an Airflow instance with Bank Health and must never change, restart or
+# slow it. Rules this file follows:
+#   - Resource caps on every container (below): together at most ~6 GB RAM and 2 CPUs, so CECL can
+#     never starve Bank Health.
+#   - UI on VM port 8081, bound to 127.0.0.1 only; reached through an SSH tunnel to local port 8091.
+#     Nothing is opened to the internet. (Bank Health: VM port 8080, local 8090. Dev on the PC: 8082.)
+#   - Schedules never start on a Monday before 13:00 Chicago or between 02:30 and 04:00 any day
+#     (checked in CI and by every task, cecl/scheduling.py).
+#   - restart: unless-stopped, so the stack comes back after the VM's automatic 03:00 reboot.
+#   - Only code, logs and small outputs live on the VM. Freddie files go to Databricks / cloud
+#     storage, not the VM disk.
+#
+# On the VM the stack runs under the role user `cecl` with ROOTLESS Docker (its own Docker daemon,
+# not the root daemon Bank Health uses), and its own folders /srv/cecl/{app,secrets,var} (no access
+# to /srv/bank-health, and Bank Health's users have none to /srv/cecl). The caps below only work
+# under rootless Docker if cgroup v2 delegates the memory and cpu controllers to `cecl` (checked in
+# Phase 1 before the first deploy). Deploys are manual: SSH as cecl, git pull, rebuild, smoke check
+# (docs/runbook.md, Phase 1). Machine-specific paths go in airflow/.env next to this file
+# (git-ignored, no secrets):
+#   CECL_ENV_FILE=/srv/cecl/secrets/.env
+#   CECL_DATA_DIR=/srv/cecl/var/data
+#   AIRFLOW_LOGS_DIR=/srv/cecl/var/logs
+#   AIRFLOW_UID=<uid of the cecl user>
+#
+# The image is built on the VM itself, so it is native Arm (aarch64); CI also builds linux/arm64.
+#
+# Run from the airflow/ folder:
+#   docker compose build
+#   docker compose up airflow-init        (first time only: creates DB + admin user)
+#   docker compose up -d
+#
+# Secrets (AIRFLOW__CORE__FERNET_KEY, AIRFLOW__API_AUTH__JWT_SECRET, the admin password, Databricks
+# token, alert webhooks) are deliberately NOT here: they come from the CECL_ENV_FILE .env.
+name: cecl
+
+x-airflow-common:
+  &airflow-common
+  build: .
+  image: cecl-airflow:3.3.2
+  env_file:
+    - ${CECL_ENV_FILE:-../.env}
+  environment:
+    &airflow-common-env
+    # Set here, not only in .env, so this stack can only ever run as prod. It overrides .env.
+    # The dev override file sets dev. The entrypoint stops the container if it is missing.
+    CECL_ENV: prod
+    # Base of the Airflow UI links in alerts (through the SSH tunnel). Not a secret.
+    AIRFLOW_UI_URL: ${AIRFLOW_UI_URL:-http://localhost:8091}
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__PARALLELISM: 2   # small: the VM is shared with Bank Health
+    AIRFLOW__API__WORKERS: 1
+    AIRFLOW__DAG_PROCESSOR__PARSING_PROCESSES: 1
+    AIRFLOW__DAG_PROCESSOR__MIN_FILE_PROCESS_INTERVAL: 120
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    # Schedules are written in Chicago time; cecl/scheduling.py checks them in Chicago time too.
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: America/Chicago
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
+    AIRFLOW__API_AUTH__JWT_ISSUER: airflow
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ${AIRFLOW_LOGS_DIR:-./logs}:/opt/airflow/logs
+    - ../cecl:/opt/airflow/cecl:ro
+    - ../ingestion:/opt/airflow/ingestion:ro
+    - ../dbt:/opt/airflow/dbt
+    - ${CECL_DATA_DIR:-../data}:/opt/airflow/data   # small outputs and short-lived temp files only
+  user: "${AIRFLOW_UID:-50000}:0"
+  restart: unless-stopped
+  depends_on:
+    &airflow-common-depends-on
+    postgres:
+      condition: service_healthy
+
+# Resource caps. Running total: 4.75 GB RAM and 1.75 CPUs for the four long-running services, plus
+# 1 GB / 0.25 CPU for airflow-init, which runs only during set-up and upgrades: at most 5.75 GB and
+# 2.0 CPUs. Tasks run inside the scheduler (LocalExecutor), so it gets the largest share.
+services:
+  postgres:
+    # Airflow's own metadata database (run history, variables). Not project data.
+    image: postgres:16   # multi-arch image: runs natively on Arm
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow   # only reachable on this stack's private Docker network
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.25
+
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "127.0.0.1:8081:8080"   # VM port 8081, localhost only; SSH tunnel to local 8091
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    mem_limit: 1536m
+    cpus: 0.5
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    mem_limit: 2g
+    cpus: 0.75
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    mem_limit: 768m
+    cpus: 0.25
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-init:
+    # Creates/upgrades the metadata database and the admin user (admin password from .env).
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - exec /opt/airflow/include/entrypoint.sh airflow db migrate
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-admin}
+    restart: "no"
+    mem_limit: 1g
+    cpus: 0.25
+
+volumes:
+  postgres-db-volume:

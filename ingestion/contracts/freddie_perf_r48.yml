@@ -1,0 +1,63 @@
+# Data contract: Freddie Mac Single-Family Loan-Level Dataset, MONTHLY PERFORMANCE file
+# (perf_YYYYQn.txt in the Standard Dataset, sample_perf_YYYY.txt in the sample).
+#
+# Source: General User Guide, Release 48 (October 2026), "Glossary: Monthly Performance Data File".
+# Fields in file order; pipe-delimited, no header. See freddie_orig_r48.yml for levels and versioning.
+# To confirm against Freddie's file layout and header file at the first real download (Phase 1).
+#
+# The fields the definition of default depends on (delinquency status, zero balance code,
+# disaster and assistance flags, modification flag) have strict code lists: an unknown code stops
+# the load, because it could change which loans count as defaulted (ADR-002).
+# Uniqueness of (loan_id, period) is a dbt test, not checked here: the performance files are too
+# large to hold every key in memory.
+source: freddie_performance
+file_kind: perf
+layout: release_48
+valid_from_release: 48
+delimiter: "|"
+header: false
+row_id: loan_id
+unique: []
+fields:
+  - {name: loan_id, type: str, level: key, pattern: '^[FA]\d{2}Q[1-4]\d{7}$'}
+  - {name: period, type: yyyymm, level: key}
+  - {name: current_upb, type: decimal, level: required, min: 0}
+  # 00 current, 01 = 30-59 days, 02 = 60-89, 03 = 90-119 ... capped at 99; RA = REO acquisition; XX = not available
+  - {name: delinquency_status, type: str, level: required, pattern: '^(\d{1,2}|RA|XX)$', show_values: true}
+  - {name: loan_age, type: int, level: required}
+  # Required, but Freddie leaves it empty in a few rows (sample check, Nov 2026: 363 of 76 million
+  # rows, 61 loans, at most 0.06% of one file). Up to 0.1% per file is a warning with the count;
+  # more stops the load. Phase 1 derives it from the maturity date and reporting month (L-013).
+  - {name: remaining_months, type: int, level: required, max_empty_share: 0.001}
+  - {name: defect_settlement_date, type: yyyymm, level: nullable}
+  - {name: modification_flag, type: str, level: nullable, codes: ["Y", "P"]}
+  # 01 prepaid/matured, 02 third-party sale, 03 short sale/charge-off, 09 REO disposition,
+  # 15 whole loan sale, 16 reperforming loan securitization, 96 defect before credit event
+  - {name: zero_balance_code, type: str, level: nullable, codes: ["01", "02", "03", "09", "15", "16", "96"]}
+  - {name: zero_balance_date, type: yyyymm, level: nullable}
+  - {name: current_interest_rate, type: decimal, level: required, min: 0}
+  - {name: non_interest_bearing_upb, type: decimal, level: nullable}
+  - {name: ddlpi, type: yyyymm, level: nullable}   # due date of last paid installment
+  # Loss fields: recoveries negative, expenses positive; populated at disposition only.
+  - {name: mi_recoveries, type: decimal, level: nullable}
+  - {name: net_sale_proceeds, type: decimal, level: nullable}
+  - {name: non_mi_recoveries, type: decimal, level: nullable}
+  - {name: total_expenses, type: decimal, level: nullable}
+  - {name: legal_costs, type: decimal, level: nullable}
+  - {name: maintenance_preservation_costs, type: decimal, level: nullable}
+  - {name: taxes_insurance, type: decimal, level: nullable}
+  - {name: misc_expenses, type: decimal, level: nullable}
+  - {name: actual_loss, type: decimal, level: nullable}
+  - {name: cumulative_modification_cost, type: decimal, level: nullable}
+  - {name: step_modification_flag, type: str, level: nullable, codes: ["Y", "N"]}
+  - {name: payment_deferral_flag, type: str, level: nullable, codes: ["C", "P"]}
+  - {name: eltv, type: int, level: nullable, min: 1, max: 998, not_available: [999]}   # from April 2017
+  - {name: zero_balance_removal_upb, type: decimal, level: nullable}
+  - {name: delinquent_accrued_interest, type: decimal, level: nullable}
+  - {name: delinquency_due_to_disaster, type: str, level: nullable, codes: ["Y"]}   # from January 2014
+  - {name: borrower_assistance_status, type: str, level: nullable, codes: ["F", "R", "T"]}   # F forbearance, R repayment, T trial
+  - {name: current_month_modification_cost, type: decimal, level: nullable}
+  - {name: interest_bearing_upb, type: decimal, level: nullable}
+  - {name: mi_cancellation_flag, type: str, level: nullable, codes: ["Y", "N", "7"]}
+  - {name: servicer_name, type: str, level: info}
+  - {name: bankruptcy_cramdown_costs, type: decimal, level: nullable}   # zero-balance period only, from Oct 2025

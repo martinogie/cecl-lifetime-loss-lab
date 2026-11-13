@@ -1,0 +1,216 @@
+# CI: runs on every pull request and on pushes to main (after a merge).
+#
+# Nothing here deploys, connects to Databricks or the VM, or needs a secret. CI never needs real
+# Freddie Mac data: every test uses small synthetic fixtures committed under tests/fixtures/, and the
+# `no-data` step fails the run if any data file is ever tracked by git.
+#
+# Required checks on main (branch protection, set after the repo is public): lint, types, unit,
+# dag-import, docker (linux/amd64), dbt, secrets, and docker (linux/arm64), which runs only on a
+# public repo (see that job). They are matched by job name.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer run on the same branch (and event) cancels the older one.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"   # Databricks serverless environment 2; the Airflow image has its own (3.12)
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-lint.txt
+      - run: pip install -r requirements-lint.txt
+      - name: ruff check
+        run: ruff check --output-format=github .
+      - name: ruff format --check
+        run: ruff format --check .
+
+  types:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-lint.txt
+      - run: pip install -r requirements-lint.txt
+      - name: mypy (files and settings in pyproject.toml)
+        run: mypy
+
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7   # a git checkout: the hygiene test asks git what it ignores
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: pytest with coverage (offline; synthetic fixtures only)
+        run: pytest -ra --cov --cov-report=term --cov-report=xml
+      - name: "coverage gate: cecl/ >= 80%"
+        run: coverage report --include="cecl/*" --fail-under=80
+      - name: "coverage gate: ingestion/ >= 80%"
+        run: coverage report --include="ingestion/*" --fail-under=80
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  dag-import:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build the Airflow image (linux/amd64, reuses the docker-amd64 job's cache)
+        uses: docker/build-push-action@v7
+        with:
+          context: airflow
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: cecl-airflow:ci
+          cache-from: type=gha,scope=cecl-airflow-linux-amd64
+      - name: Load every DAG as prod and dev; no CECL_ENV and CECL_ENV=local must be refused; no schedule in a blocked window
+        # Same mounts as docker-compose.yaml. The entrypoint is bypassed (it needs CECL_ENV); the
+        # check script sets CECL_ENV itself for each case. Nothing connects while a DAG is parsed.
+        run: |
+          docker run --rm --user "$(id -u):0" --entrypoint python \
+            -v "$PWD/airflow/dags:/opt/airflow/dags:ro" \
+            -v "$PWD/airflow/tests:/opt/airflow/tests:ro" \
+            -v "$PWD/cecl:/opt/airflow/cecl:ro" \
+            -v "$PWD/ingestion:/opt/airflow/ingestion:ro" \
+            cecl-airflow:ci /opt/airflow/tests/check_dag_import.py
+
+  docker-amd64:
+    name: docker (linux/amd64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: airflow
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: cecl-airflow:ci
+          cache-from: type=gha,scope=cecl-airflow-linux-amd64
+          cache-to: type=gha,mode=max,scope=cecl-airflow-linux-amd64
+      - name: Image refuses to start without CECL_ENV
+        run: |
+          if docker run --rm cecl-airflow:ci airflow version > out.txt 2>&1; then
+            cat out.txt; echo "container started without CECL_ENV"; exit 1
+          fi
+          grep -q "CECL_ENV must be dev or prod" out.txt && cat out.txt
+      - name: Tools inside the image
+        run: |
+          docker run --rm --entrypoint bash cecl-airflow:ci -c \
+            "uname -m && airflow version && /home/airflow/dbt_venv/bin/dbt --version"
+
+  docker-arm64:
+    # linux/arm64 is the shared Oracle VM: this build is the check that every package in the image
+    # has an Arm (aarch64) wheel. GitHub's Arm runners (ubuntu-24.04-arm) are free only for public
+    # repositories, so this job runs only when the repo is public. While the repo is private it is
+    # skipped (no runner starts, nothing is billed) and shows as "skipped". It becomes a required
+    # status check only after the switch to public (docs/publish_checklist.md).
+    name: docker (linux/arm64)
+    if: github.event.repository.visibility == 'public'
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: airflow
+          platforms: linux/arm64
+          load: true
+          push: false
+          tags: cecl-airflow:ci
+          cache-from: type=gha,scope=cecl-airflow-linux-arm64
+          cache-to: type=gha,mode=max,scope=cecl-airflow-linux-arm64
+      - name: Image refuses to start without CECL_ENV
+        run: |
+          if docker run --rm cecl-airflow:ci airflow version > out.txt 2>&1; then
+            cat out.txt; echo "container started without CECL_ENV"; exit 1
+          fi
+          grep -q "CECL_ENV must be dev or prod" out.txt && cat out.txt
+      - name: Tools inside the image
+        run: |
+          docker run --rm --entrypoint bash cecl-airflow:ci -c \
+            "uname -m && airflow version && /home/airflow/dbt_venv/bin/dbt --version"
+
+  dbt:
+    # dbt-duckdb on the synthetic seed only. No Databricks, no credentials, no real data.
+    runs-on: ubuntu-24.04
+    env:
+      CECL_ENV: ci
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dbt.txt
+      - run: pip install -r requirements-dbt.txt
+      - name: dbt build (seed, models, tests) on DuckDB
+        working-directory: dbt
+        env:
+          CECL_DUCKDB_PATH: ${{ runner.temp }}/cecl_ci.duckdb
+        run: dbt build --profiles-dir .
+      - name: dbt refuses to run without CECL_ENV
+        working-directory: dbt
+        env:
+          CECL_DUCKDB_PATH: ${{ runner.temp }}/cecl_ci_refuse.duckdb
+        run: |
+          if env -u CECL_ENV dbt parse --profiles-dir . > out.txt 2>&1; then
+            cat out.txt; echo "dbt ran without CECL_ENV"; exit 1
+          fi
+          grep -q "CECL_ENV" out.txt && echo "refused, as required"
+
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # whole history
+      - name: no-data (no data file is ever tracked; fixtures stay tiny)
+        run: |
+          bad="$(git ls-files | grep -E '^data/|\.(zip|parquet|duckdb)$|(^|/)(sample_)?(orig|perf)_[0-9]{4}(Q[1-4])?\.txt$' | grep -v '/tests/fixtures/' || true)"
+          if [ -n "$bad" ]; then echo "data files tracked by git:"; echo "$bad"; exit 1; fi
+          big="$(git ls-files -z | xargs -0 -r du -k 2>/dev/null | awk '$1 > 1024 {print $2}')"
+          if [ -n "$big" ]; then echo "files over 1 MB:"; echo "$big"; exit 1; fi
+          echo "no data files, nothing over 1 MB"
+      - name: gitleaks, every commit in the history
+        run: >-
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2
+          git /repo --redact --verbose --exit-code 1
+      - name: gitleaks, the files as they are in this commit
+        run: >-
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2
+          dir /repo --redact --verbose --exit-code 1

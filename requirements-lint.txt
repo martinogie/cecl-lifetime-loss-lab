@@ -1,0 +1,5 @@
+# Lint and type-check tools (CI jobs lint and types; pre-commit uses the same ruff version).
+# Same versions as Bank Health.
+mypy==2.4.1
+ruff==0.17.3
+types-PyYAML>=6.0.12

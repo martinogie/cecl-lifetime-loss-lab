@@ -1,0 +1,34 @@
+# Dev stack: the same services as docker-compose.yaml, with CECL_ENV=dev, on Martins' PC.
+#   docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
+# UI: http://localhost:8082 (on the PC, 8090 and 8091 are the tunnels to the VM's Bank Health and
+# CECL prod UIs). The project name gives dev its own containers and its own metadata database, so
+# dev runs and variables never mix with prod's. Dev writes cecl_lab_dev only (cecl/environment.py).
+# The prod resource caps apply here too, which keeps dev honest about prod's limits.
+name: cecl-dev
+
+# Own image tag: building dev must never re-tag the image prod runs.
+x-dev-image: &dev-image cecl-airflow:3.3.2-dev
+
+services:
+  airflow-apiserver:
+    image: *dev-image
+    environment:
+      CECL_ENV: dev
+      AIRFLOW_UI_URL: http://localhost:8082
+    ports: !override
+      - "127.0.0.1:8082:8080"
+  airflow-scheduler:
+    image: *dev-image
+    environment:
+      CECL_ENV: dev
+      AIRFLOW_UI_URL: http://localhost:8082
+  airflow-dag-processor:
+    image: *dev-image
+    environment:
+      CECL_ENV: dev
+      AIRFLOW_UI_URL: http://localhost:8082
+  airflow-init:
+    image: *dev-image
+    environment:
+      CECL_ENV: dev
+      AIRFLOW_UI_URL: http://localhost:8082

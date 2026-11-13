@@ -1,0 +1,5 @@
+# Extra packages for the Airflow image. Versions not pinned here are pinned by the official
+# Airflow constraints file in the Dockerfile, so everything stays compatible.
+apache-airflow-providers-databricks
+PyYAML  # data contracts (ingestion/contracts/*.yml)
+tzdata  # America/Chicago for the blocked-window guard (cecl/scheduling.py), whatever the base image has

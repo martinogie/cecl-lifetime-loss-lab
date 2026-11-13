@@ -1,0 +1,73 @@
+# The `cecl` package (all modelling logic) plus tool settings for the whole repo.
+# Databricks gets `cecl` as a wheel built from this file (databricks/databricks.yml, artifacts).
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cecl-lifetime-loss-lab"
+version = "0.0.1"
+description = "Educational CECL lifetime loss model (PD x LGD x EAD) on Freddie Mac conforming mortgages."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Martins Ogiekpolor" }]
+# Databricks serverless environment 2 runs Python 3.11 (same floor as Bank Health).
+requires-python = ">=3.11"
+# Model libraries arrive in Phase 2. tzdata: Windows has no system time-zone database, so
+# zoneinfo needs it to find America/Chicago (the Monday-morning rule).
+dependencies = ["tzdata>=2024.1"]
+
+[tool.setuptools.packages.find]
+include = ["cecl*"]
+exclude = ["cecl.tests*"]
+
+# ------------------------------------------------------------------------------ ruff
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["airflow/logs", "dbt/dbt_packages", "dbt/target", "data"]
+
+[tool.ruff.lint]
+# pycodestyle errors, pyflakes, warnings, import order, modern syntax, likely bugs
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",  # the formatter wraps code; long strings and SQL stay as written
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Databricks notebooks: spark, dbutils and display come from the runtime.
+"databricks/notebooks/**" = ["F821", "E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["cecl", "ingestion"]
+
+# ------------------------------------------------------------------------------ mypy
+[tool.mypy]
+python_version = "3.11"
+files = ["cecl", "ingestion", "airflow/dags", "scripts"]
+exclude = ["cecl/tests/", "ingestion/tests/"]
+# Airflow is not installed in the type-check job (it runs only in the CI image), so its imports
+# are treated as untyped.
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+
+# ------------------------------------------------------------------------------ pytest
+[tool.pytest.ini_options]
+pythonpath = ["."]
+# Plain `pytest` runs only the offline unit tests. The DAG import check runs in CI's Airflow image.
+testpaths = ["cecl/tests", "ingestion/tests"]
+
+# ------------------------------------------------------------------------------ coverage
+[tool.coverage.run]
+source = ["cecl", "ingestion"]
+omit = ["cecl/tests/*", "ingestion/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+# Two gates, both 80% (run by CI after `pytest --cov`):
+#   coverage report --include="cecl/*" --fail-under=80
+#   coverage report --include="ingestion/*" --fail-under=80

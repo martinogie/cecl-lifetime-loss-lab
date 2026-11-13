@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: stg_freddie__origination
+    description: >
+      One row per loan from Freddie's origination file. "Not Available" codes are nulls.
+      Educational model on conforming loans only.
+    columns:
+      - name: loan_id
+        data_tests: [not_null, unique]
+      - name: vintage_year
+        data_tests: [not_null]
+      - name: vintage_quarter
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4]
+      - name: occupancy_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["P", "I", "S", "9"]
+      - name: orig_upb
+        data_tests: [not_null]

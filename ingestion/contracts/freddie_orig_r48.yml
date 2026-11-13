@@ -1,0 +1,63 @@
+# Data contract: Freddie Mac Single-Family Loan-Level Dataset, ORIGINATION file
+# (orig_YYYYQn.txt in the Standard Dataset, sample_orig_YYYY.txt in the sample).
+#
+# Source: Freddie Mac, Single-Family Loan-Level Dataset General User Guide, Release 48 (October 2026),
+# "Glossary: Origination Data File". Fields are listed in file order. The file is pipe-delimited with
+# no header row. Freddie re-issues the whole history in the current layout each release, so one
+# contract per layout version is enough; a new layout gets a new file (freddie_orig_rNN.yml).
+# To confirm against Freddie's file layout and header file at the first real download (Phase 1).
+#
+# Levels:  key       never empty; identifies the row
+#          required  never empty
+#          nullable  may be empty
+#          info      problems are warnings only (not used by the model)
+# not_available: Freddie's "Not Available" codes (e.g. 9999). Allowed, outside min/max, and turned
+# into nulls in silver.
+# max_empty_share: a required field Freddie occasionally leaves empty; up to this share of rows is a
+# warning with the count, above it the load stops. flag_above: values above this are allowed but
+# counted for the run log.
+# show_values: quote unexpected values in contract messages. On by default for fields with a code
+# list (category codes are not loan data); never set it on identifiers, postcodes or amounts.
+source: freddie_origination
+file_kind: orig
+layout: release_48
+valid_from_release: 48
+delimiter: "|"
+header: false
+row_id: loan_id
+unique: [loan_id]
+fields:
+  - {name: credit_score, type: int, level: required, min: 300, max: 850, not_available: [9999]}   # Classic FICO
+  - {name: first_payment_date, type: yyyymm, level: required}
+  - {name: first_time_homebuyer_flag, type: str, level: required, codes: ["Y", "N", "9"]}
+  - {name: maturity_date, type: yyyymm, level: required}
+  - {name: msa, type: str, level: nullable, pattern: '^\d{5}$'}
+  - {name: mi_pct, type: int, level: required, min: 0, max: 55, not_available: [999]}
+  - {name: num_units, type: int, level: required, min: 1, max: 4, not_available: [99]}
+  - {name: occupancy_status, type: str, level: required, codes: ["P", "I", "S", "9"]}
+  - {name: orig_cltv, type: int, level: required, min: 1, max: 998, not_available: [999]}
+  - {name: orig_dti, type: int, level: required, min: 0, max: 65, not_available: [999]}
+  - {name: orig_upb, type: decimal, level: required, min: 0}
+  - {name: orig_ltv, type: int, level: required, min: 1, max: 998, not_available: [999]}
+  - {name: orig_interest_rate, type: decimal, level: required, min: 0}
+  - {name: channel, type: str, level: required, codes: ["R", "B", "C", "T", "9"]}
+  - {name: ppm_flag, type: str, level: nullable, codes: ["Y", "N"]}
+  - {name: amortization_type, type: str, level: required, codes: ["FRM", "ARM"]}
+  - {name: property_state, type: str, level: required, pattern: '^[A-Z]{2}$'}
+  - {name: property_type, type: str, level: required, codes: ["SF", "CO", "PU", "MH", "CP", "99"]}
+  - {name: postal_code, type: str, level: required, pattern: '^\d{3}(00)?$'}   # first 3 digits; 000 = unknown
+  - {name: loan_id, type: str, level: key, pattern: '^[FA]\d{2}Q[1-4]\d{7}$'}   # PYYQnXXXXXXX
+  - {name: loan_purpose, type: str, level: required, codes: ["P", "C", "N", "R", "9"]}
+  # Freddie's guide sets no range; 1-600 is a sanity bound (a typo such as 3600 still stops the load).
+  # Terms over 360 months are allowed but counted (flag); keep or exclude them is a Phase 1 decision (L-014).
+  - {name: orig_loan_term, type: int, level: required, min: 1, max: 600, flag_above: 360}
+  - {name: num_borrowers, type: int, level: required, min: 1, max: 10, not_available: [99]}
+  - {name: seller_name, type: str, level: info}
+  - {name: super_conforming_flag, type: str, level: nullable, codes: ["Y", "N"]}
+  - {name: pre_harp_loan_id, type: str, level: nullable, pattern: '^[FA]\d{2}Q[1-4]\d{7}$'}
+  # Guide lists H, F, R and null; "9" kept because earlier layouts used it for Not Available.
+  - {name: program_indicator, type: str, level: nullable, codes: ["H", "F", "R", "9"]}
+  - {name: relief_refinance_indicator, type: str, level: nullable, codes: ["Y", "N"]}   # HARP indicator
+  - {name: property_valuation_method, type: str, level: nullable, codes: ["1", "2", "3", "4", "7"]}
+  - {name: io_indicator, type: str, level: nullable, codes: ["Y", "N"]}
+  - {name: vantage_score, type: int, level: nullable, min: 300, max: 850, not_available: [9999]}   # VantageScore 4.0

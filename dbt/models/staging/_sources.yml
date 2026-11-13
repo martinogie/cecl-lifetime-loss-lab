@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: >
+      Raw Freddie Mac files as loaded by the Databricks bronze notebook (Phase 1), after their data
+      contract passed. Not used on the local target, which reads synthetic seeds instead.
+    database: "{{ target.database }}"
+    schema: "{{ (('cecl_lab_dev_' if target.name == 'dev' else 'cecl_lab_') ~ 'bronze') if env_var('CECL_DATABRICKS_LAYOUT', 'catalogs') == 'schema_prefix' else 'bronze' }}"
+    tables:
+      - name: freddie_origination
+        description: One row per loan, origination file fields (ingestion/contracts/freddie_orig_r48.yml).

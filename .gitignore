@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------- secrets: never commit
+.env
+.env.*
+!.env.example
+keys/
+*.p8
+*.pem
+
+# ---------------------------------------------------------------- data: never commit
+# Freddie Mac's terms forbid redistributing loan rows, so no data file of any kind goes in git.
+# All local data lives under data/ (raw downloads, DuckDB files, exports).
+data/
+*.parquet
+*.duckdb
+*.duckdb.wal
+*.zip
+# Freddie's files are .txt (pipe-delimited) and other sources are .csv: both are ignored
+# everywhere, except small synthetic fixtures under a tests/fixtures/ folder.
+*.txt
+*.csv
+!**/tests/fixtures/**/*.txt
+!**/tests/fixtures/**/*.csv
+# Dependency pins are .txt files too: keep them.
+!requirements*.txt
+!airflow/requirements.txt
+
+# ---------------------------------------------------------------- python / tools
+__pycache__/
+*.pyc
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ---------------------------------------------------------------- airflow
+logs/
+airflow/logs/
+
+# ---------------------------------------------------------------- dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml
+
+# ---------------------------------------------------------------- databricks
+# Bundle cache; the bundle's state lives in the workspace.
+.databricks/
+
+# ---------------------------------------------------------------- site
+site_build/
+
+# ---------------------------------------------------------------- OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

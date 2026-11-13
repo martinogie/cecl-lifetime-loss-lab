@@ -1,0 +1,14 @@
+# Line endings: store and check out text files with Unix line endings (LF) on every machine, so
+# Windows git settings (core.autocrlf) can't change files that run in Linux containers and CI.
+* text=auto eol=lf
+
+# Shell scripts run inside Linux containers: always LF.
+*.sh text eol=lf
+
+# Binary files: never touch their bytes (a PDF can be mistaken for text and corrupted by line-ending
+# conversion).
+*.pdf binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary

@@ -1,0 +1,15 @@
+# Dependabot: proposes updates to the GitHub Actions used in .github/workflows/, once a week.
+# Each update is a pull request that goes through the same CI; Martins reviews and merges.
+# Wednesday, not Monday, to match the project's schedule rules (it runs on GitHub, not the VM).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "09:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"

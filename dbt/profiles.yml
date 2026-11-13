@@ -1,0 +1,35 @@
+# dbt connections. Every connection value comes from an environment variable (.env locally,
+# the Compose file / secrets in Airflow, the workflow in CI); nothing secret is in this file.
+#
+# The target follows CECL_ENV, which is required (dbt stops if it is not set):
+#   local, ci  -> local   DuckDB file named by CECL_DUCKDB_PATH (synthetic fixtures)
+#   dev        -> dev     Databricks catalog cecl_lab_dev
+#   prod       -> prod    Databricks catalog cecl_lab
+# Catalog names are fixed here, not read from .env, so a wrong .env can't point a target at another
+# environment. The fallback layout (CECL_DATABRICKS_LAYOUT=schema_prefix) uses the workspace's
+# default catalog and prefixes the schema names instead (macros/generate_schema_name.sql).
+# macros/assert_environment.sql checks that target and CECL_ENV agree.
+cecl_lab:
+  target: "{{ 'local' if env_var('CECL_ENV') in ['local', 'ci'] else env_var('CECL_ENV') }}"
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('CECL_DUCKDB_PATH') }}"
+      schema: silver
+      threads: 2
+    dev:
+      type: databricks
+      host: "{{ env_var('DATABRICKS_HOST') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      catalog: "{{ 'workspace' if env_var('CECL_DATABRICKS_LAYOUT', 'catalogs') == 'schema_prefix' else 'cecl_lab_dev' }}"
+      schema: silver
+      threads: 4
+    prod:
+      type: databricks
+      host: "{{ env_var('DATABRICKS_HOST') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      catalog: "{{ 'workspace' if env_var('CECL_DATABRICKS_LAYOUT', 'catalogs') == 'schema_prefix' else 'cecl_lab' }}"
+      schema: silver
+      threads: 4

@@ -1,0 +1,7 @@
+# Local development and unit tests (the Airflow image has its own airflow/requirements.txt;
+# Airflow itself is never installed on Windows, its checks run in CI only).
+pytest>=9.2.0
+pytest-cov>=7.1.0
+PyYAML>=6.0.3
+tzdata>=2024.1   # Windows has no system time-zone database (cecl/scheduling.py)
+pre-commit>=4.0.0

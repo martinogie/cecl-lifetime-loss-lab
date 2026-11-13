@@ -1,0 +1,111 @@
+# Databricks Asset Bundle: the CECL Databricks objects as code. PHASE 0 PLACEHOLDER: not deployed,
+# nothing has been created in the workspace.
+#
+#   databricks bundle validate -t dev --profile cecl
+#   databricks bundle deploy   -t dev --profile cecl      # dev: from Martins' PC (Phase 1)
+#   prod: from CI behind a manual approval (Phase 1 decides)
+#
+# The workspace address is not written here (public repo): the CLI takes it from the login profile
+# (--profile cecl) or DATABRICKS_HOST.
+#
+# Layout (cecl/environment.py, ADR-004):
+#   catalogs (plan)          dev: cecl_lab_dev.<layer>            prod: cecl_lab.<layer>
+#   schema_prefix (fallback) dev: workspace.cecl_lab_dev_<layer>  prod: workspace.cecl_lab_<layer>
+# Switch to the fallback with: --var catalog=workspace --var schema_prefix=cecl_lab_dev_ --var layout=schema_prefix
+# Catalogs are not a bundle resource: if allowed, they are created once by hand (Phase 1).
+#
+# Models: each is registered in <catalog>.<prefix>ml. Training sets the @challenger alias (dev or
+# prod); only prod moves @champion, after a person reviews the challenger (cecl/environment.py
+# assert_can_set_alias).
+
+bundle:
+  name: cecl_lab
+
+variables:
+  env:
+    description: Environment the notebooks run as (dev or prod); checked again inside each notebook
+  catalog:
+    description: Unity Catalog catalog for this environment
+  schema_prefix:
+    description: Empty in the catalogs layout; cecl_lab_dev_ or cecl_lab_ in the schema_prefix fallback
+    default: ""
+  layout:
+    description: catalogs or schema_prefix (same values as CECL_DATABRICKS_LAYOUT)
+    default: catalogs
+  experiment_name:
+    description: MLflow experiment folder name (separate for dev and prod)
+
+artifacts:
+  # The cecl package as a wheel, so notebooks stay thin wrappers that import it.
+  cecl_wheel:
+    type: whl
+    path: ..
+    build: python -m build --wheel
+
+resources:
+  schemas:
+    bronze: {catalog_name: "${var.catalog}", name: "${var.schema_prefix}bronze", comment: "Raw files after their data contract passed"}
+    silver: {catalog_name: "${var.catalog}", name: "${var.schema_prefix}silver", comment: "Cleaned loan and loan-month tables (dbt staging)"}
+    gold: {catalog_name: "${var.catalog}", name: "${var.schema_prefix}gold", comment: "Panel, allowance and stress results (dbt marts)"}
+    ml: {catalog_name: "${var.catalog}", name: "${var.schema_prefix}ml", comment: "Registered models and their aliases"}
+    ops: {catalog_name: "${var.catalog}", name: "${var.schema_prefix}ops", comment: "Run log and data-quality results"}
+
+  experiments:
+    cecl:
+      name: /Users/${workspace.current_user.userName}/${var.experiment_name}
+
+  registered_models:
+    pd_hazard:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.ml.name}
+      name: pd_hazard
+      comment: "Competing-risks monthly default/prepayment hazard (Phase 2). Aliases: @challenger, @champion."
+
+  jobs:
+    pipeline:
+      name: cecl_lab_pipeline_${var.env}
+      description: "CECL Lifetime Loss Lab: setup check only in Phase 0 (bronze, silver, gold and models arrive in later phases)"
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      timeout_seconds: 3600
+      # No schedule here: Airflow triggers the job (never on a Monday).
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: pinned
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+      tasks:
+        - task_key: setup
+          notebook_task:
+            notebook_path: ./notebooks/00_setup.py
+          environment_key: pinned
+          timeout_seconds: 900
+          max_retries: 0
+
+targets:
+  dev:
+    # Development mode: resources get a [dev <user>] prefix and any schedules are paused.
+    mode: development
+    default: true
+    variables:
+      env: dev
+      catalog: cecl_lab_dev
+      experiment_name: cecl-lifetime-loss-lab-dev
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/prod
+    variables:
+      env: prod
+      catalog: cecl_lab
+      experiment_name: cecl-lifetime-loss-lab

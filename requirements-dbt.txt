@@ -1,0 +1,11 @@
+# dbt for local work (DuckDB) and CI. dbt-databricks is installed only where dev/prod run
+# (the Airflow image). dbt-core matches Bank Health. Exact versions: the set that installed and
+# passed `dbt build` locally on 12 Nov 2026.
+#
+# Windows note: dbt-core needs dbt-core-experimental-parser, which has no Windows wheel on PyPI; its
+# build downloads a file from dbt Labs' GitHub releases. If that fails with CERTIFICATE_VERIFY_FAILED,
+# point Python at pip's Mozilla CA bundle (verification stays on), then install:
+#   $env:SSL_CERT_FILE = "$PWD\.venv\Lib\site-packages\pip\_vendor\certifi\cacert.pem"
+dbt-core==1.12.6
+dbt-duckdb==1.11.1
+duckdb==2.0.0
