@@ -99,8 +99,11 @@ Freddie's underwriting and mortgage insurance shape losses; 2020 to 2021 forbear
 explicitly; recent vintages have incomplete losses; the peer comparison is a range, not a target (real
 bank books are riskier and more mixed); educational model, not an audited reserve.
 
-Definition of default (finalise in ADR-002): 90+ days delinquent or a loss event (foreclosure, short sale,
-REO disposition, similar), used everywhere. ADR-002 also settles disaster/COVID forbearance treatment.
+Definition of default (settled in ADR-002, used everywhere): 90+ days delinquent, `RA` (REO acquisition), or
+a loss-event zero balance code (`02`, `03`, `09`); code `15` only if already 90+ days late; `16` and `96`
+are censored, not defaults. First default only. A modification while 60+ days late (stopped-clock lateness)
+counts as a default. Disaster/COVID forbearance stops the clock (flags exist only from 2014, L-016). Status
+`XX` is carried forward up to 3 months, then the loan is censored.
 
 ## Environments
 Every component reads `CECL_ENV` and fails loudly if it is missing. Dev runs on Martins's PC (Docker,
@@ -112,12 +115,14 @@ tiny made-up fixtures and needs no Databricks credentials or real data. Website 
 `CECL_ENV=prod`. Details: README "Environments" and ADR-004.
 
 ## Architecture (reuses the Bank Health patterns)
-- **Airflow** on the Oracle VM (CECL's own stack, see rule 6): downloads, data contracts, scheduling,
-  run log, alerts to Slack and Discord (`[CECL]` / `[CECL dev]` channels), backfill command.
+- **Airflow** on the Oracle VM (CECL's own stack, see rule 6): economic-data downloads, data contracts,
+  scheduling, run log, alerts to Slack and Discord (`[CECL]` / `[CECL dev]` channels), backfill command.
 - **Databricks** lakehouse: bronze / silver / gold Delta tables, PySpark, MLflow tracking and registry
   (`@challenger` / `@champion`); the job defined as a Databricks Asset Bundle with `dev` and `prod` targets.
-  Free Edition has restricted outbound internet, so Airflow (or Martins's PC, if Freddie only allows browser
-  downloads) does the downloads. Delta time travel provides quarter-end snapshots.
+  Free Edition has restricted outbound internet, so Airflow downloads the public economic data. **Freddie
+  files are downloaded manually by Martins in the browser** (Freddie's terms don't cover scripted downloads;
+  ADR-001) and go from his PC to Databricks storage, never via the VM. Delta time travel provides
+  quarter-end snapshots.
 - **dbt** with `dbt-databricks` (dev/prod) and `dbt-duckdb` (local and CI).
 - **DuckDB + Parquet** for fast local work on samples.
 - **`cecl` Python package** holds all logic (panel, pd, prepay, lgd, ead, engine, scenarios, weighting,
@@ -125,8 +130,9 @@ tiny made-up fixtures and needs no Databricks credentials or real data. Website 
   are thin wrappers.
 - **Website**: static site, data published to Cloudflare R2 after a successful prod run, served via the
   finance router. No tracking, no cookies, strict CSP.
-- **Phase 0 sizing decision (ADR-001):** develop and test on Freddie's sample files; run the full dataset
-  only for chosen vintages within Databricks Free Edition limits.
+- **Phase 0 sizing decision (ADR-001):** develop and test on Freddie's sample files, read straight from the
+  zips (never unzipped); run the full dataset only for chosen vintages (2005–2008 for the crisis backtest,
+  plus 2020 or 2021 for COVID), one year at a time into Databricks, within Free Edition limits.
 
 ## Repository layout
 ```
@@ -171,9 +177,12 @@ site/                   website source;  scripts/export_site_data.py
   in a downturn.
 - **EAD:** projected balance from the amortisation schedule, adjusted for partial and full prepayment.
 - **CECL engine:** survival x monthly PD x LGD x EAD, summed over months and loans. Forecast period 2 years,
-  then 1-year straight-line reversion (configurable; ADR-003). **Scenario weighting** of baseline / adverse /
-  severely adverse paths (ADR-005). Benchmarks: loss-rate and vintage methods. **Overlays** tied to standard
-  qualitative factors, quantified, capped, logged, approved (ADR-006). **Rollforward** reconciled to the
+  then 1-year straight-line reversion of the economic inputs to long-run averages from 1990 onward
+  (configurable; ADR-003); reserve date 30 June 2026, Fed paths applied from July 2026. **Scenario weighting**
+  of baseline / adverse (halfway path) / severely adverse: losses weighted, fixed 60/30/10, severe weight
+  floor 5% and cap 25%, reviewed yearly (ADR-005). Benchmarks: loss-rate and vintage methods. **Overlays**
+  tied to standard qualitative factors, sized by re-running the model, capped at 5% each and 10% in total,
+  expiring each quarter, logged, maker/checker approved (ADR-006). **Rollforward** reconciled to the
   cent, plus the reserve bridge (new loans, payoffs, credit quality, economic forecast, model changes,
   overlays). **Disclosure tables** (aggregates only).
 - **Stress testing:** Fed 2026 baseline and severely adverse paths (state detail mapped and documented);

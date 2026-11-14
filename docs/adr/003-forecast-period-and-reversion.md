@@ -1,6 +1,6 @@
 # ADR-003: Forecast period and reversion
 
-- **Status:** draft, waiting for Martins' decision (Phase 0, November 2026)
+- **Status:** accepted, 14 November 2026
 - **Related:** ADR-005 (scenario weighting), the Phase 5 sensitivity table
 
 ## Context
@@ -72,7 +72,28 @@ configurable.
 
 ## Decision
 
-*To be written by Martins.*
+**Decision (Martins, 14 November 2026).**
 
-<!-- Points to settle: A (forecast length), B (reversion method and length), C (inputs or outputs),
-D (long-run window), and how to align the Fed paths with the 30 June 2026 reserve date. -->
+**A. Forecast length: 2 years.** Common practice, and it makes good use of the Fed's paths. Three
+years is hard to call "supportable"; one year ignores a downturn that is still building.
+
+**B. Reversion: straight-line over 1 year.** Smooth, common and easy to explain. An instant jump
+creates an odd cliff in the numbers.
+
+**C. What reverts: the economic inputs (C1).** Unemployment, house prices and rates slide back to
+their long-run averages, and the models keep running on each loan's own details.
+
+*Why:* each loan's credit score, age and LTV keep mattering. The other option throws that detail away
+after year 2.
+
+**D. The long-run averages: a longer economic history (D2), from 1990 onward**, from FRED, FHFA and
+BLS.
+
+*Why:* 1990 onward covers four downturns (1990–91, 2001, 2008 and 2020), so "normal" isn't dominated
+by 2008, and FRED, FHFA and BLS state data all reach back that far. Excluding the crisis would be hard
+to defend, since a reserve exists precisely for crises.
+
+**Timing.** The reserve date is 30 June 2026, when the data ends. Real data is used for January to
+June 2026, and the Fed's path from July 2026. The Fed's quarter-by-quarter changes are applied
+starting from the real June values, so there is no sudden jump. The 2-year forecast then runs to
+mid-2028, still inside the Fed's paths.

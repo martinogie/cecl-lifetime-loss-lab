@@ -1,6 +1,6 @@
 # ADR-001: Tools and data sizing
 
-- **Status:** draft, waiting for the VM check below and Martins' decision (Phase 0, November 2026)
+- **Status:** accepted, 14 November 2026
 - **Related:** ADR-004 (environments and shared VM)
 
 ## Context
@@ -26,11 +26,10 @@ The address, hostname, OCIDs and user names are never written here (placeholder:
 **Planned CECL share** (ADR-004): at most about 6 GB RAM and 2 CPUs, through Docker caps. Disk use
 is limited to code, Docker images, logs and small outputs. Freddie files never stay on the VM.
 
-#### Step for Martins: confirm current free capacity
+#### VM capacity check (done by Martins, 14 November 2026)
 
-Run on the VM yourself, **not on a Monday morning** (Bank Health's run) and not between 02:30 and
-04:00 (reboot window). Then paste the output into the table below. Remove anything that looks like an
-address, hostname or user name before pasting.
+Run on the VM by Martins, outside Bank Health's Monday window and the 02:30–04:00 reboot window.
+Results below, with any address, hostname or user name left out.
 
 ```bash
 df -h /                      # disk: size, used, free on the boot volume
@@ -40,9 +39,11 @@ docker stats --no-stream     # what Bank Health's containers use right now (CPU 
 
 | Check | Date / time checked (Chicago) | Result |
 |---|---|---|
-| Disk free (`df -h /`) | *to fill* | *to fill* |
-| Memory available (`free -h`) | *to fill* | *to fill* |
-| Bank Health containers, total memory and CPU (`docker stats`) | *to fill* | *to fill* |
+| Disk free (`df -h /`) | Sat 14 Nov 2026, 11:54 | 96 GB volume, 19 GB used, **78 GB free** (19%) |
+| Memory available (`free -h`) | Sat 14 Nov 2026, 11:54 | 23 GiB total, 1.6 GiB used, **21 GiB available**; 4 GiB swap, unused |
+| Bank Health containers, total memory and CPU (`docker stats`) | Sat 14 Nov 2026, 11:54 | 4 containers (scheduler, DAG processor, API server, Postgres): **about 1.0 GiB memory, under 10% CPU** in total; CPUs: 4 |
+
+Notes on the check: Bank Health was idle (its run is on Mondays), so these are resting figures. Docker images use 4.4 GB and the build cache 4.3 GB (`docker system df`). **Result: passes.** About 15 GB of memory stays free even after CECL's 6 GB cap, and about 78 GB of disk is free, far above the 15 GB needed. CECL never runs during Bank Health's Monday window.
 
 **Pass if:** at least 6 GB of memory stays available beyond Bank Health's use, and enough free disk
 for the CECL image, logs and a temporary download buffer. Sizes will be measured when the image is
@@ -126,4 +127,17 @@ straight out of their zips, streaming one file at a time; nothing is ever extrac
 
 ## Decision
 
-*To be written by Martins, after the VM check above.*
+**Decision (Martins, 14 November 2026): Option 1.**
+
+All development and testing use Freddie's sample files (50,000 loans per year, 1999–2026), read
+straight from the zips and never unzipped. Once the pipeline is proven, full data is loaded only for
+chosen vintages: 2005–2008 for the crisis backtest, plus 2020 or 2021 for COVID, one year at a time
+into Databricks, never kept on the PC or the VM. Freddie files are downloaded manually through the
+browser, unless Freddie grants API access.
+
+The shared VM check (14 November 2026) passes: 21 GB of memory and 78 GB of disk free, against
+CECL's caps of about 6 GB and 2 CPUs. CECL runs its own Airflow alongside Bank Health (ADR-004).
+
+**Why:** the samples are enough to build and test every phase quickly. The free Databricks allowance
+(shared with Bank Health) is saved for the crisis years, where more data matters most. And my PC's
+limited disk space never holds large files.

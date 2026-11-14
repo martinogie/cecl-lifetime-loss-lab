@@ -1,6 +1,6 @@
 # ADR-005: Scenario weighting
 
-- **Status:** draft, waiting for Martins' decision (Phase 0, November 2026)
+- **Status:** accepted, 14 November 2026
 - **Related:** ADR-003 (forecast and reversion), the Phase 5 sensitivity table, ADR-006 (overlays)
 
 ## Context
@@ -65,7 +65,29 @@ weights matter.
 
 ## Decision
 
-*To be written by Martins.*
+**Decision (Martins, 14 November 2026).**
 
-<!-- Points to settle: A (adverse path), B (weight losses or inputs), C (how weights are set, with
-floor/cap for severely adverse), and the starting weights. -->
+**A. The adverse scenario: A1**, halfway between the Fed's baseline and its severely adverse path,
+quarter by quarter.
+
+*Why:* simple, repeatable, and it updates automatically each February when the Fed publishes. A
+custom scenario would be my own guess, which is harder to defend.
+
+**B. What gets weighted: B1, the losses, not the economy.** The model runs three times, once per
+scenario, and the three reserves are averaged with the weights.
+
+*Why:* losses grow much faster than the economy worsens. A deep recession costs far more than twice a
+mild one, so averaging the economy first would understate the reserve. This is the textbook-correct
+way.
+
+**C. How the weights are set: C1, fixed weights, reviewed once a year.** An earlier change is allowed
+only if something big happens (for example unemployment jumps sharply), with a written reason.
+
+*Why:* stable, easy to audit, and it can't be used to nudge the number each quarter.
+
+**Starting weights:** 60% baseline, 30% adverse, 10% severely adverse. The severely adverse weight
+has a floor of 5% and a cap of 25%.
+
+*Why:* the normal economy is most likely, a mild downturn is plausible, and a severe crash is a small
+but real tail. The floor means disaster is never ignored; the cap stops the reserve being driven by
+worst-case thinking.
