@@ -273,3 +273,27 @@ def test_xx_as_first_record_at_a_later_age_is_still_censored():
 def test_loan_age_0_with_a_real_status_is_unaffected():
     rows = build_loan_panel(months("00", "00", m0={"loan_age": 0}))
     assert not rows[0].status_not_yet_due
+
+
+# --------------------------------------------------------------------------- L-020: 90+ days late in the payoff month
+def test_90_days_late_in_the_payoff_month_is_a_default_that_lost_nothing():
+    rows = build_loan_panel(months("00", "01", "02", "03", m3={"zero_balance_code": "01"}))
+    assert last(rows) == ("defaulted", "default_90_days_at_payoff", 4)
+
+
+def test_60_days_late_in_the_payoff_month_is_still_a_prepayment():
+    rows = build_loan_panel(months("00", "01", "02", m2={"zero_balance_code": "01"}))
+    assert last(rows) == ("prepaid", "prepaid", 3)
+
+
+def test_payoff_while_90_days_late_only_during_forbearance_is_a_prepayment():
+    # Freddie reports 3 months late, but all of it built up in flagged months: stopped clock = 0
+    flags = paused_months(3)
+    flags["m3"] = {"borrower_assistance_status": "F", "zero_balance_code": "01"}
+    rows = build_loan_panel(months("00", "01", "02", "03", **flags))
+    assert last(rows) == ("prepaid", "prepaid", 4)
+
+
+def test_90_days_late_in_the_defect_month_stays_censored():
+    rows = build_loan_panel(months("00", "01", "02", "03", m3={"zero_balance_code": "96"}))
+    assert last(rows) == ("censored", "censored_defect", 4)

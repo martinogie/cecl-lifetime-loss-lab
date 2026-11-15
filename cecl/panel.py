@@ -11,6 +11,9 @@ A. Default when effective lateness reaches 3 months (90+ days), or the status is
    the house), or the loan ends with a loss code: 02 third-party sale, 03 short sale, 09 REO
    disposition. Code 15 (note sale) is a default only if the loan is 90+ days late; codes 16
    (reperforming sale) and 96 (seller defect) are censored. Code 01 is a prepayment.
+   Clarification (L-020, decided 15 November 2026): a loan 90+ days late (stopped clock) in the same
+   month it pays off (01) is a default that lost nothing, not a prepayment. A loan 90+ days late in
+   the month it gets a defect code (96) stays censored.
 B. First default only: the loan's rows stop at its first default.
 C. A modification while 60+ days late (2+ months) is a default, using the STOPPED-CLOCK lateness
    from D. So a COVID borrower modified as forbearance ends is not a default.
@@ -148,7 +151,13 @@ def build_loan_panel(months: Sequence[LoanMonth]) -> list[PanelRow]:
             exit_row(m, "censored", CENSOR_CODES[code], reported, carried_fwd)
             return rows
         if code == PREPAID:
-            exit_row(m, "prepaid", "prepaid", reported, carried_fwd)
+            # L-020 (decided 15 Nov 2026): 90+ days late (stopped clock) in the payoff month is a
+            # default under rule A, read strictly; LGD records it as a default that lost nothing.
+            # (A same-month defect code 96 stays censored: handled above.)
+            if effective >= DEFAULT_MONTHS:
+                exit_row(m, "defaulted", "default_90_days_at_payoff", reported, carried_fwd)
+            else:
+                exit_row(m, "prepaid", "prepaid", reported, carried_fwd)
             return rows
 
         # A. 90+ days late on the stopped clock

@@ -133,7 +133,7 @@ tiny made-up fixtures and needs no Databricks credentials or real data. Website 
   finance router. No tracking, no cookies, strict CSP.
 - **Phase 0 sizing decision (ADR-001):** develop and test on Freddie's sample files, read straight from the
   zips (never unzipped); run the full dataset only for chosen vintages (2005–2008 for the crisis backtest,
-  plus 2020 or 2021 for COVID), one year at a time into Databricks, within Free Edition limits.
+  plus 2019 for COVID, optionally 2017), one year at a time into Databricks, within Free Edition limits.
 
 ## Repository layout
 ```
