@@ -1,0 +1,8 @@
+loan_id,period,current_upb,delinquency_status,loan_age,remaining_months,modification_flag,zero_balance_code,zero_balance_date,defect_settlement_date,current_interest_rate,payment_deferral_flag,borrower_assistance_status,delinquency_due_to_disaster,eltv,net_sale_proceeds,mi_recoveries,non_mi_recoveries,total_expenses,actual_loss,zero_balance_removal_upb,delinquent_accrued_interest
+F23Q49999901,202402,250000.00,00,1,359,,,,,6.875,,,,80,,,,,,,
+F23Q49999901,202403,249700.00,00,2,,,,,,6.875,,,,80,,,,,,,
+F23Q49999902,202404,180000.00,01,2,358,,,,,7.125,,F,Y,96,,,,,,,
+F23Q49999902,202406,180000.00,03,4,356,,,,,7.125,,,,999,,,,,,,
+F23Q49999903,202401,418000.00,00,2,178,,,,,7.500,,,,88,,,,,,,
+F23Q49999903,202402,0.00,00,3,177,,01,202402,,7.500,,,,999,,,,,,417500.00,
+F07Q29999905,200705,300000.00,00,1,479,,,,,6.250,,,,85,,,,,,,

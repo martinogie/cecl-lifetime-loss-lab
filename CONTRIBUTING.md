@@ -75,6 +75,21 @@ docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
 
 Dev has its own Compose project (`cecl-dev`), so its runs and metadata never mix with prod's.
 
+## Local data pipeline (Freddie sample files)
+
+The sample zips sit in `data/raw/freddie/sample/` (downloaded by hand; git-ignored). Nothing is ever
+unzipped: every step streams straight from the zips (ADR-001).
+
+```powershell
+$env:CECL_ENV = "local"
+python -m scripts.check_freddie_samples                 # 1. data contracts, all years (read-only)
+python -m scripts.load_freddie_bronze --years 1999-2026 # 2. bronze Parquet (checks free disk first)
+$env:CECL_DUCKDB_PATH = "$PWD\data\local\cecl_lab.duckdb"
+$env:CECL_BRONZE_PATH = "$PWD\data\local\bronze"        # absolute path
+cd dbt ; dbt build --profiles-dir . ; cd ..              # 3. silver views and tests
+python -m scripts.build_panel --years 1999-2026         # 4. the ADR-002 monthly loan panel
+```
+
 ## Schedules
 
 Prod shares a VM with Bank Health. No run may start on a Monday before 13:00 Chicago (Bank Health's

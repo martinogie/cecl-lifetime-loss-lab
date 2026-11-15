@@ -5,4 +5,5 @@ pytest-cov>=7.1.0
 PyYAML>=6.0.3
 tzdata>=2024.1   # Windows has no system time-zone database (cecl/scheduling.py)
 pyarrow==26.0.1  # bronze loader: streams Freddie files from the zips into Parquet (ingestion/freddie.py)
+duckdb==2.0.0    # panel builder reads silver from the local DuckDB database (ingestion/panel_build.py)
 pre-commit>=4.0.0

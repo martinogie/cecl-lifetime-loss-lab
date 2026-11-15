@@ -18,7 +18,8 @@ on-run-start:
 
 models:
   cecl_lab:
-    # Medallion layers: bronze is loaded by Databricks notebooks; dbt builds silver and gold.
+    # Medallion layers: bronze is loaded by ingestion/freddie.py (locally) or Databricks notebooks;
+    # dbt builds silver and gold.
     staging:
       +schema: silver
       +materialized: view
@@ -32,9 +33,24 @@ models:
 seeds:
   cecl_lab:
     +schema: fixtures
+    # Codes and YYYYMM months are text: "00" must not become the number 0.
     fixture_freddie_origination:
       +column_types:
         loan_id: varchar
         first_payment_date: varchar
         maturity_date: varchar
         property_state: varchar
+        occupancy_status: varchar
+        loan_purpose: varchar
+    fixture_freddie_performance:
+      +column_types:
+        loan_id: varchar
+        period: varchar
+        delinquency_status: varchar
+        modification_flag: varchar
+        zero_balance_code: varchar
+        zero_balance_date: varchar
+        defect_settlement_date: varchar
+        payment_deferral_flag: varchar
+        borrower_assistance_status: varchar
+        delinquency_due_to_disaster: varchar

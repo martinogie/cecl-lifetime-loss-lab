@@ -4,7 +4,7 @@ models:
   - name: stg_freddie__origination
     description: >
       One row per loan from Freddie's origination file. "Not Available" codes are nulls.
-      Educational model on conforming loans only.
+      term_over_360 flags long-term loans (L-014). Educational model on conforming loans only.
     columns:
       - name: loan_id
         data_tests: [not_null, unique]
@@ -22,3 +22,28 @@ models:
                 values: ["P", "I", "S", "9"]
       - name: orig_upb
         data_tests: [not_null]
+      - name: term_over_360
+        data_tests: [not_null]
+
+  - name: stg_freddie__performance
+    description: >
+      One row per loan per month from Freddie's monthly performance file. Codes kept as Freddie
+      wrote them; cecl/panel.py applies the ADR-002 default rules.
+    columns:
+      - name: loan_id
+        data_tests:
+          - not_null
+          # every monthly loan must have an origination row (otherwise the panel would drop it)
+          - relationships:
+              arguments:
+                to: ref('stg_freddie__origination')
+                field: loan_id
+      - name: period_index
+        data_tests: [not_null]
+      - name: delinquency_status
+        data_tests: [not_null]
+      - name: zero_balance_code
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["01", "02", "03", "09", "15", "16", "96"]

@@ -103,7 +103,8 @@ Definition of default (settled in ADR-002, used everywhere): 90+ days delinquent
 a loss-event zero balance code (`02`, `03`, `09`); code `15` only if already 90+ days late; `16` and `96`
 are censored, not defaults. First default only. A modification while 60+ days late (stopped-clock lateness)
 counts as a default. Disaster/COVID forbearance stops the clock (flags exist only from 2014, L-016). Status
-`XX` is carried forward up to 3 months, then the loan is censored.
+`XX` is carried forward up to 3 months, then the loan is censored; `XX` at loan age 0 (the month before the
+first payment, Freddie's convention from October 2025) means "not yet due" and counts as current (L-017).
 
 ## Environments
 Every component reads `CECL_ENV` and fails loudly if it is missing. Dev runs on Martins's PC (Docker,
