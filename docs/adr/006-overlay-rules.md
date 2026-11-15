@@ -1,6 +1,6 @@
 # ADR-006: Overlay rules (qualitative adjustments)
 
-- **Status:** draft, waiting for Martins' decision (Phase 0, November 2026)
+- **Status:** accepted, 14 November 2026
 - **Related:** ADR-005 (scenario weighting), the limitations log and change log
   ([docs/governance/](../governance/)), the reserve bridge (Phase 4)
 
@@ -70,7 +70,28 @@ statement before the first overlay is booked):
 
 ## Decision
 
-*To be written by Martins.*
+**Decision (Martins, 14 November 2026).**
 
-<!-- Points to settle: A, then each rule in B (especially the cap numbers, direction and expiry),
-and confirm the factor list against the 2020 statement's exact wording. -->
+**A: A2.** Adjustments are allowed, only under strict rules. Regulators expect a framework; "no
+adjustments ever" is unrealistic.
+
+The rules (B):
+
+- **Reason:** every adjustment names one of the nine standard factors. Factors Q4 and Q6 are not
+  applicable, since there are no real bank staff.
+- **Sizing:** the numbers method: re-run the model with one input stressed and take the difference. A
+  plain percentage is allowed only with extra written justification.
+  *Why:* "I re-ran it with Florida house prices down 5%" is easy to defend; "I added 3% because I felt
+  like it" isn't.
+- **Caps:** at most 5% of the modelled reserve per adjustment, and 10% in total. Anything above that
+  needs a separate written justification and is flagged in the memo.
+- **Direction:** both increases and decreases are allowed, but a decrease needs the numbers method and
+  the checker's written sign-off.
+  *Why:* decreases are where reserves get "managed", so they get extra scrutiny.
+- **Expiry:** every adjustment ends at quarter-end unless renewed with fresh evidence.
+- **Persistence:** if the same adjustment is renewed for more than two quarters, the model is fixed
+  instead, logged with a fix date.
+  *Why:* this stops adjustments from hiding a weak model, and it is a rule validators look for.
+- **Approval:** maker/checker. Martins prepares each adjustment, then reviews it on a different day
+  against a written checklist.
+  *Why:* one person plays both roles, so a time gap is the honest way to make the second look real.

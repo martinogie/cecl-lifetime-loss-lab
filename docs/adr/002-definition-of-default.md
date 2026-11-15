@@ -1,6 +1,6 @@
 # ADR-002: Definition of default
 
-- **Status:** draft, waiting for Martins' decision (Phase 0, November 2026)
+- **Status:** accepted, 14 November 2026
 - **Related:** data contracts ([freddie_perf_r48.yml](../../ingestion/contracts/freddie_perf_r48.yml)),
   ADR-003 (forecast and reversion), the Phase 6 forbearance test
 
@@ -95,7 +95,44 @@ or treat the month as missing.
 
 ## Decision
 
-*To be written by Martins.*
+**Decision (Martins, 14 November 2026).**
 
-<!-- Points to settle: A (trigger, plus codes 15/16/96), B (absorbing or not), C (modifications),
-D (forbearance rule, and how long after the flags clear), E (XX months). -->
+**A. What triggers a default: A1.** A loan defaults when it is 90+ days late, when the lender takes
+the house (`RA`), or when it ends in a loss (codes `02` third-party sale, `03` short sale, `09`
+foreclosed house sold). The other loan-ending codes:
+
+- `15` (sold as a bad loan): a default only if the loan was already 90+ days late.
+- `16` (resold once performing again) and `96` (seller defect): not defaults. The loan is treated as
+  having left the data (censored).
+
+*Why:* 90 days is the bank-standard rule, and it gives enough defaults to model well.
+
+**B. One default per loan: B1 (first default only).** Once a loan defaults, it leaves the PD model.
+Whatever happens after (it recovers, is modified, or loses money) is used by the LGD model.
+
+*Why:* this is the standard way lifetime PD models work. It is simpler and avoids counting the same
+trouble twice. Recoveries still appear, as "defaults that lost nothing".
+
+**C. Modifications: C2.** A loan whose terms are changed while it is 60+ days late counts as a
+default. The lateness used here is the "stopped clock" lateness from D; otherwise COVID borrowers
+whose payments were legitimately deferred would wrongly count as defaults.
+
+*Why:* in 2009–2012, millions of struggling loans were modified just before they reached 90 days.
+Under C1 they would look as if they never defaulted, and PD would come out too low.
+
+**D. Disaster and COVID payment pauses: D2 (stop the clock).** Months Freddie flags as an agreed
+pause (forbearance) or as disaster-related don't count toward "90 days late". When the pause ends:
+if the loan gets a payment deferral or modification, its lateness resets to current; if not, the late
+count picks up where it stopped, and default is triggered once it passes 90 days.
+
+*Why:* without this, 2020 looks like a huge wave of defaults that almost never lost money. That would
+push PD too high, LGD too low, and ruin the backtest.
+
+*Limit:* Freddie's flags exist only from January 2014, so earlier disasters can't get the same
+treatment. Recorded in the limitations log (L-016).
+
+**E. Months with missing status (`XX`): carry forward up to 3 months.** The previous month's status
+is carried forward for up to 3 months. If the gap is longer, the loan is treated as having left the
+data (censored).
+
+*Why:* it fills small reporting gaps without inventing long histories.

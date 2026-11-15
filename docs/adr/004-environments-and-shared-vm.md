@@ -1,6 +1,6 @@
 # ADR-004: Environments and shared VM
 
-- **Status:** draft, waiting for Martins' decision (Phase 0, November 2026)
+- **Status:** accepted, part D pending (until Martins checks Databricks service principals)
 - **Related:** ADR-001 (tools and data sizing: the VM's size and free capacity)
 
 ## Context
@@ -117,8 +117,17 @@ and never on pull requests. The fork-PR risk above applies to it today.
 
 ## Decision
 
-*To be written by Martins.*
+**Decision (Martins, 14 November 2026), part D pending.**
 
-<!-- Suggested points to cover: A (where prod runs), B (isolation, incl. the docker-group caveat),
-C (catalogs or fallback, after checking catalog creation), D (credentials, after Martins checks
-whether Free Edition has service principals), E (manual deploys). -->
+- **A: A1.** CECL's own Airflow on the shared VM. It is free and fully separate from Bank Health.
+- **B:** its own `cecl` user with rootless Docker (so it can't reach Bank Health's files), memory
+  and CPU caps, and the blocked time windows.
+- **C:** two catalogs (`cecl_lab_dev`, `cecl_lab`), with the default-catalog fallback only if Free
+  Edition can't create catalogs.
+- **E:** manual deploys over SSH. No self-hosted runner, so no risk of strangers' pull requests
+  running on the VM.
+- **D (credentials): pending.** To be written after Martins checks whether Free Edition has service
+  principals. If it doesn't, this section will state plainly that dev and prod are separated by code
+  checks, not by permissions.
+
+*Why:* it costs nothing, Bank Health is protected, and every risk is written down.
