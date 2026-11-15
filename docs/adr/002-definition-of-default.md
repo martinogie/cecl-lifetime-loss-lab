@@ -136,3 +136,17 @@ is carried forward for up to 3 months. If the gap is longer, the loan is treated
 data (censored).
 
 *Why:* it fills small reporting gaps without inventing long histories.
+
+**Clarification (November 2026):** From the October 2025 release, Freddie reports the month before a
+loan's first payment is due (loan age 0) as `XX`. No payment is due yet, so the loan can't be late:
+this month is treated as current, not as a missing status. Rule E (carry forward for up to 3 months)
+applies only to `XX` after the first payment is due. The number of loans affected is recorded on every
+run.
+
+*Why:* in the Release 48 sample, all 34,989 `XX` months are at loan age 0, from October 2025 onward;
+before October 2025, Freddie reported the same pre-payment month as `00` (current) in 99.99% of cases.
+Reading this `XX` as missing censored almost every 2025–2026 loan in its first month. Freddie's
+documents are consistent with this but don't state it outright: the Release 47 notes (July 2026) list
+"enumeration updates" to the Current Loan Delinquency Status field, and the General User Guide
+(Release 48) says that "for periods on or before September 2025, 00 could mean either Current or
+Cycle before first payment date". So the rule is based on the observed data.
