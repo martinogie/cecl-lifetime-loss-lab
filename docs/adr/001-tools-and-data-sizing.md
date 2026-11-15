@@ -131,7 +131,7 @@ straight out of their zips, streaming one file at a time; nothing is ever extrac
 
 All development and testing use Freddie's sample files (50,000 loans per year, 1999–2026), read
 straight from the zips and never unzipped. Once the pipeline is proven, full data is loaded only for
-chosen vintages: 2005–2008 for the crisis backtest, plus 2020 or 2021 for COVID, one year at a time
+chosen vintages: 2005–2008 for the crisis backtest, plus 2019 for COVID (optionally 2017), one year at a time
 into Databricks, never kept on the PC or the VM. Freddie files are downloaded manually through the
 browser, unless Freddie grants API access.
 
@@ -141,3 +141,7 @@ CECL's caps of about 6 GB and 2 CPUs. CECL runs its own Airflow alongside Bank H
 **Why:** the samples are enough to build and test every phase quickly. The free Databricks allowance
 (shared with Bank Health) is saved for the crisis years, where more data matters most. And my PC's
 limited disk space never holds large files.
+
+*Change (Martins, 15 November 2026):* the COVID full-data vintage is 2019 (optionally 2017), not 2020 or
+2021. Step 6 showed that COVID forbearance fell mostly on the 2015–2019 vintages, the loans outstanding
+in 2020, not on loans originated in 2020–2021.

@@ -107,6 +107,16 @@ foreclosed house sold). The other loan-ending codes:
 
 *Why:* 90 days is the bank-standard rule, and it gives enough defaults to model well.
 
+**Clarification (November 2026):** If a loan is 90+ days late (using the stopped-clock count) in the
+same month it pays off in full, it counts as a default with zero loss, because the borrower genuinely
+reached 90 days late before paying off. Loans that pass 90 days only during a forbearance pause stay
+prepaid. If the same month carries code 96 (seller defect), the loan stays censored.
+
+*Effect (Release 48 sample):* 1,440 loans move from prepaid to defaulted, mostly 1999–2008 vintages;
+73 loans that paid off while 90+ days behind only during forbearance stay prepaid; 18 loans 90+ days
+late in their defect month stay censored. Default rates rise by at most 0.4 points (1999: 3.04% to
+3.44%), less than 0.2 points from 2005 onward.
+
 **B. One default per loan: B1 (first default only).** Once a loan defaults, it leaves the PD model.
 Whatever happens after (it recovers, is modified, or loses money) is used by the LGD model.
 
