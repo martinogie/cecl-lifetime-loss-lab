@@ -2,4 +2,5 @@
 # Airflow constraints file in the Dockerfile, so everything stays compatible.
 apache-airflow-providers-databricks
 PyYAML  # data contracts (ingestion/contracts/*.yml)
+pyarrow  # bronze loader (ingestion/freddie.py); version pinned by the Airflow constraints
 tzdata  # America/Chicago for the blocked-window guard (cecl/scheduling.py), whatever the base image has
