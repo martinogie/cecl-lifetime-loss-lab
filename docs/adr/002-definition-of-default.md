@@ -137,11 +137,11 @@ data (censored).
 
 *Why:* it fills small reporting gaps without inventing long histories.
 
-<!-- PROPOSED WORDING (drafted by Claude Code; Martins to replace with his own words before merging) -->
-**Clarification to E (Martins, 14 November 2026): `XX` at loan age 0 means "not yet due".** At loan
-age 0 only (the month before the first payment is due), `XX` is not a missing status: it is treated as
-current, and it does not count toward E's 3-month limit. `XX` at any later loan age follows E as
-before. The number of loans using this rule is recorded in the run log on every run.
+**Clarification (November 2026):** From the October 2025 release, Freddie reports the month before a
+loan's first payment is due (loan age 0) as `XX`. No payment is due yet, so the loan can't be late:
+this month is treated as current, not as a missing status. Rule E (carry forward for up to 3 months)
+applies only to `XX` after the first payment is due. The number of loans affected is recorded on every
+run.
 
 *Why:* in the Release 48 sample, all 34,989 `XX` months are at loan age 0, from October 2025 onward;
 before October 2025, Freddie reported the same pre-payment month as `00` (current) in 99.99% of cases.
