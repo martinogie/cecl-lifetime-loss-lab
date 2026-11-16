@@ -1,5 +1,5 @@
-# Databricks Asset Bundle: the CECL Databricks objects as code. PHASE 0 PLACEHOLDER: not deployed,
-# nothing has been created in the workspace.
+# Databricks Asset Bundle: the CECL Databricks objects as code. Deployed to dev in Phase 1 step 9
+# (16 November 2026); prod later.
 #
 #   databricks bundle validate -t dev --profile cecl
 #   databricks bundle deploy   -t dev --profile cecl      # dev: from Martins' PC (Phase 1)
@@ -61,20 +61,26 @@ resources:
       name: pd_hazard
       comment: "Competing-risks monthly default/prepayment hazard (Phase 2). Aliases: @challenger, @champion."
 
+  volumes:
+    # Freddie's sample zips, uploaded from Martins's PC (never via the VM; ADR-001), plus the
+    # notebooks' staging files and result files. Raw loan data stays inside the workspace.
+    raw:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.bronze.name}
+      name: raw
+      comment: "Freddie sample zips (raw/freddie/sample), staging Parquet and tie-out results"
+
   jobs:
-    pipeline:
-      name: cecl_lab_pipeline_${var.env}
-      description: "CECL Lifetime Loss Lab: setup check only in Phase 0 (bronze, silver, gold and models arrive in later phases)"
+    # Step 9 runs in three parts: bronze_load (zips -> bronze Delta), then dbt (silver, from the
+    # Airflow dev image), then panel_build (panel + tie-outs).
+    bronze_load:
+      name: cecl_lab_bronze_load_${var.env}
+      description: "Freddie zips -> bronze Delta: data contracts, streamed from the zips, row tie-outs (ingestion.freddie)"
+      timeout_seconds: 7200
       max_concurrent_runs: 1
       queue:
         enabled: true
-      timeout_seconds: 3600
-      # No schedule here: Airflow triggers the job (never on a Monday).
-      parameters:
-        - name: env
-          default: ${var.env}
-        - name: layout
-          default: ${var.layout}
+      # No schedule here: run by hand or by Airflow (never on a Monday before 13:00 Chicago).
       tags:
         project: cecl_lab
         env: ${var.env}
@@ -84,6 +90,15 @@ resources:
             environment_version: "2"
             dependencies:
               - ../dist/*.whl
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: years
+          default: "1999-2026"
+        - name: release
+          default: "48"
       tasks:
         - task_key: setup
           notebook_task:
@@ -91,11 +106,59 @@ resources:
           environment_key: pinned
           timeout_seconds: 900
           max_retries: 0
+        - task_key: bronze
+          depends_on: [{task_key: setup}]
+          notebook_task:
+            notebook_path: ./notebooks/10_bronze_freddie.py
+          environment_key: pinned
+          timeout_seconds: 7200
+          max_retries: 0
+
+    panel_build:
+      name: cecl_lab_panel_build_${var.env}
+      description: "silver loan-months -> gold.loan_panel (cecl.panel), then the C02 tie-outs bronze vs silver vs panel"
+      timeout_seconds: 7200
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      # No schedule here: run by hand or by Airflow (never on a Monday before 13:00 Chicago).
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: pinned
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: years
+          default: "1999-2026"
+      tasks:
+        - task_key: panel
+          notebook_task:
+            notebook_path: ./notebooks/20_panel.py
+          environment_key: pinned
+          timeout_seconds: 7200
+          max_retries: 0
+        - task_key: tie_outs
+          depends_on: [{task_key: panel}]
+          notebook_task:
+            notebook_path: ./notebooks/30_tie_outs.py
+          environment_key: pinned
+          timeout_seconds: 3600
+          max_retries: 0
 
 targets:
   dev:
-    # Development mode: resources get a [dev <user>] prefix and any schedules are paused.
-    mode: development
+    # Not "mode: development": that mode prefixes every name with dev_<user>_ (schemas, volume,
+    # model), which breaks the fixed names the code uses (cecl_lab_dev.bronze, ...) and puts a
+    # username into table names. The environment is already in every name (catalog cecl_lab_dev,
+    # job names ..._dev), and the jobs have no schedules to pause. (Found 16 Nov 2026, step 9.)
     default: true
     variables:
       env: dev

@@ -1,6 +1,6 @@
 # ADR-004: Environments and shared VM
 
-- **Status:** accepted, part D pending (until Martins checks Databricks service principals)
+- **Status:** accepted (parts A, B, C, E on 14 November 2026; part D on 16 November 2026)
 - **Related:** ADR-001 (tools and data sizing: the VM's size and free capacity)
 
 ## Context
@@ -76,12 +76,22 @@ exactly one new catalog can be created is not planned for.
 Both are built in (`CECL_DATABRICKS_LAYOUT=catalogs` or `schema_prefix`); C2 is a configuration
 switch, not a rewrite.
 
+**Result (Phase 1 step 9, 16 November 2026): C1 works; the fallback is not needed.** Free Edition
+allows catalogs: the workspace already had Bank Health's two (`bank_health`, `bank_health_dev`),
+and `cecl_lab_dev` was created on 16 November 2026, before the first CECL deploy. The dev bundle then
+created `cecl_lab_dev.bronze`, `.silver`, `.gold`, `.ml` and `.ops`, and the whole step 9 pipeline
+ran there (`CECL_DATABRICKS_LAYOUT=catalogs`). `cecl_lab` (prod) is created the same way when prod
+is set up.
+
 ### D. Dev and prod credentials on Free Edition
 
 A user can create several personal access tokens, but each token has **all of that user's
 permissions**. A "dev token" made by the same user can still write the prod catalog. Real separation
-needs a service principal (a non-human identity) with grants on `cecl_lab_dev` only. Whether Free
-Edition offers service principals is **not yet verified** (Martins checks in Phase 1).
+needs a service principal (a non-human identity) with grants on `cecl_lab_dev` only.
+
+**Checked 16 November 2026: Free Edition offers service principals.** The workspace settings show
+the page (Identity and access → Service principals: 0 total), the CLI's service-principals list
+answers (empty), and Martins is a workspace admin, so he can create them. None exist yet.
 
 - If it does: a dev identity with no rights on `cecl_lab`, and a prod identity.
 - If it doesn't: record the limitation here. Separation then rests on code guards only (the
@@ -117,17 +127,23 @@ and never on pull requests. The fork-PR risk above applies to it today.
 
 ## Decision
 
-**Decision (Martins, 14 November 2026), part D pending.**
+**Decision (Martins, 14 November 2026; part D 16 November 2026).**
 
 - **A: A1.** CECL's own Airflow on the shared VM. It is free and fully separate from Bank Health.
 - **B:** its own `cecl` user with rootless Docker (so it can't reach Bank Health's files), memory
   and CPU caps, and the blocked time windows.
 - **C:** two catalogs (`cecl_lab_dev`, `cecl_lab`), with the default-catalog fallback only if Free
-  Edition can't create catalogs.
+  Edition can't create catalogs. *(Result, 16 Nov 2026: catalogs work; `cecl_lab_dev` is in use, see
+  part C.)*
 - **E:** manual deploys over SSH. No self-hosted runner, so no risk of strangers' pull requests
   running on the VM.
-- **D (credentials): pending.** To be written after Martins checks whether Free Edition has service
-  principals. If it doesn't, this section will state plainly that dev and prod are separated by code
-  checks, not by permissions.
+- **D (credentials).** Free Edition offers service principals (checked 16 November 2026). When prod
+  is set up, CECL will use two service principals instead of Martins's personal token: a dev
+  identity with rights on `cecl_lab_dev` only, and a prod identity with rights on `cecl_lab`, whose
+  token lives only on the VM. Until then, dev runs use Martins's own token, so dev and prod are kept
+  apart by the code's checks (the environment module, the dbt environment macro, fixed catalog
+  names), not by permissions.
+
+  *Why:* separate identities make "dev can't write prod" a permission, not just a rule in the code.
 
 *Why:* it costs nothing, Bank Health is protected, and every risk is written down.

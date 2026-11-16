@@ -152,6 +152,30 @@ def panel_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+INT_FIELDS = ("vintage_year", "loan_age", "remaining_months")
+
+
+def _clean(record: dict[str, Any]) -> dict[str, Any]:
+    """Undo pandas' habits when records arrive from Spark: a missing integer becomes NaN (a float)
+    and present integers become floats; turn them back into None and int."""
+    out = dict(record)
+    for key in INT_FIELDS:
+        value = out.get(key)
+        if isinstance(value, float):
+            out[key] = None if value != value else int(value)  # NaN is the only value != itself
+    return out
+
+
+def loan_panel_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One loan's silver records, in any order, to its panel rows (same rules as the local build).
+
+    Used by the Databricks panel notebook through Spark's applyInPandas, one loan per call: the
+    notebook turns the loan's rows into records and the result back into a table with PANEL_SCHEMA.
+    """
+    ordered = sorted((_clean(r) for r in records), key=lambda r: str(r["period_ym"]))
+    return panel_records(ordered)
+
+
 def build_vintage(
     batches: Iterable[pa.RecordBatch], vintage: int, loans_in_silver: int, out_path: Path
 ) -> VintageSummary:

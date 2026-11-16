@@ -10,3 +10,8 @@ sources:
     tables:
       - name: freddie_origination
         description: One row per loan, origination file fields (ingestion/contracts/freddie_orig_r48.yml).
+      - name: freddie_performance
+        description: >
+          One row per loan per month, monthly performance fields
+          (ingestion/contracts/freddie_perf_r48.yml). Declared in step 9, when dbt first ran on
+          Databricks: the local and CI targets read Parquet or seeds and never needed it.

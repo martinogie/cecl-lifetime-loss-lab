@@ -391,3 +391,33 @@ def test_success_text_and_duration() -> None:
     assert alerts.success_text("cecl_health_check", "r", 3, "macro: stale", warning=True).startswith(
         "WARNING "
     )
+
+
+def test_databricks_relations_follow_the_layout() -> None:
+    rel = tie_outs.databricks_relations(lambda layer: f"cecl_lab_dev.{layer}")
+    assert rel == {"silver": "cecl_lab_dev.silver", "bronze_orig": "cecl_lab_dev.bronze.freddie_origination",
+                   "bronze_perf": "cecl_lab_dev.bronze.freddie_performance", "panel": "cecl_lab_dev.gold.loan_panel"}  # fmt: skip
+    assert tie_outs.local_relations(Path("b"), Path("p"))["silver"] == "silver"
+
+
+def test_outcomes_comparable_and_differences(tmp_path: Path) -> None:
+    con = _freddie_layers(tmp_path)
+    query = lambda sql: con.execute(sql).fetchall()  # noqa: E731
+    panel = tie_outs.local_relations(tmp_path / "bronze", tmp_path / "panel")["panel"]
+    outcomes = tie_outs.panel_outcomes(query, panel, [2007, 2008])
+    assert outcomes == {"2007": {"defaulted": 1, "prepaid": 1, "censored": 0},
+                        "2008": {"defaulted": 0, "prepaid": 0, "censored": 0}}  # fmt: skip
+    checks, watch, _ = tie_outs.freddie_tie_outs(con, tmp_path / "bronze", tmp_path / "panel", [2007, 2008])
+    pc = tie_outs.comparable(checks, watch, outcomes)
+    same = json.loads(json.dumps(pc))  # what comes back from Databricks as JSON
+    assert tie_outs.differences(pc, same) == []
+    other = json.loads(json.dumps(pc))
+    other["outcomes"]["2007"]["defaulted"] = 2
+    other["tie_outs"]["vintage 2007: original balance, bronze vs silver"] = ["300000.0000", "300000.00"]
+    del other["watch"]["2008"]
+    found = tie_outs.differences(pc, other)
+    assert found == [
+        "/outcomes/2007/defaulted: 1 vs 2",
+        "/watch/2008: only in first",
+    ]  # 300000.0000 = 300000.00
+    assert tie_outs.differences({"a": "x"}, {"a": "y", "b": 1}) == ["/a: x vs y", "/b: only in second"]
