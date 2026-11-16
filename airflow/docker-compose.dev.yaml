@@ -9,26 +9,31 @@ name: cecl-dev
 # Own image tag: building dev must never re-tag the image prod runs.
 x-dev-image: &dev-image cecl-airflow:3.3.2-dev
 
+# Dev settings for every service. The repo's .env also feeds these containers (env_file), and it
+# holds the PC's Windows paths for local scripts (CECL_BRONZE_PATH, CECL_DUCKDB_PATH); inside the
+# Linux containers they must point at the mounted data folder instead, so they are overridden here.
+x-dev-env: &dev-env
+  CECL_ENV: dev
+  AIRFLOW_UI_URL: http://localhost:8082
+  CECL_BRONZE_PATH: /opt/airflow/data/local/bronze
+  CECL_DUCKDB_PATH: /opt/airflow/data/local/cecl_lab.duckdb
+
 services:
   airflow-apiserver:
     image: *dev-image
     environment:
-      CECL_ENV: dev
-      AIRFLOW_UI_URL: http://localhost:8082
+      <<: *dev-env
     ports: !override
       - "127.0.0.1:8082:8080"
   airflow-scheduler:
     image: *dev-image
     environment:
-      CECL_ENV: dev
-      AIRFLOW_UI_URL: http://localhost:8082
+      <<: *dev-env
   airflow-dag-processor:
     image: *dev-image
     environment:
-      CECL_ENV: dev
-      AIRFLOW_UI_URL: http://localhost:8082
+      <<: *dev-env
   airflow-init:
     image: *dev-image
     environment:
-      CECL_ENV: dev
-      AIRFLOW_UI_URL: http://localhost:8082
+      <<: *dev-env
