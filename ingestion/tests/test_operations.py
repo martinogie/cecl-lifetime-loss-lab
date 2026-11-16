@@ -18,6 +18,14 @@ import pytest
 from cecl import controls
 from ingestion import alerts, health, macro_build, retention, run_log, snapshot, tie_outs
 
+
+@pytest.fixture(autouse=True)
+def ci_environment(monkeypatch):
+    """These tests run as CECL_ENV=ci, whatever the shell has (CI's unit job sets none)."""
+    monkeypatch.setenv("CECL_ENV", "ci")
+    monkeypatch.delenv("CECL_WINDOW_EXCEPTION", raising=False)
+
+
 # ------------------------------------------------------------------ run log
 
 

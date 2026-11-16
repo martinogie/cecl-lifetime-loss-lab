@@ -54,7 +54,25 @@ IDENTIFIERS = {
 ALLOWED_IPS = {"127.0.0.1", "0.0.0.0"}
 
 
+def is_secrets_file(name: str) -> bool:
+    """.env and .env.<anything> hold secrets and are never committed; only .env.example is."""
+    return (name == ".env" or name.startswith(".env.")) and name != ".env.example"
+
+
+def publishable(paths: list[Path]) -> list[Path]:
+    """Keep only files git could publish (not ignored). Without git, keep them all."""
+    if shutil.which("git") is None or not (ROOT / ".git").exists():
+        return paths
+    rel = "\n".join(p.relative_to(ROOT).as_posix() for p in paths)
+    ignored = subprocess.run(
+        ["git", "check-ignore", "--no-index", "--stdin"], cwd=ROOT, input=rel, capture_output=True, text=True
+    ).stdout.splitlines()
+    return [p for p in paths if p.relative_to(ROOT).as_posix() not in set(ignored)]
+
+
 def repo_text_files() -> list[Path]:
+    """Text files that could reach the public repo. Secrets files are never opened: this test
+    guards what can be published, and .env is git-ignored (gitleaks and the ignore tests cover it)."""
     files = []
     # os.walk prunes skipped folders before entering them: Airflow's logs hold Linux symlinks that
     # Windows can't even open, so they must never be scanned.
@@ -62,9 +80,16 @@ def repo_text_files() -> list[Path]:
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for name in names:
             path = Path(folder) / name
+            if is_secrets_file(name):
+                continue
             if (path.suffix.lower() in TEXT_SUFFIXES or name.startswith(".")) and path.is_file():
                 files.append(path)
-    return files
+    return publishable(files)
+
+
+def test_secrets_files_are_never_scanned():
+    assert is_secrets_file(".env") and is_secrets_file(".env.dev") and not is_secrets_file(".env.example")
+    assert ".env" not in {p.name for p in repo_text_files()}
 
 
 def test_there_are_files_to_scan():
