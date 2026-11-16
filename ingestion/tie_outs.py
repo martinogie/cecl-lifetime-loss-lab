@@ -27,7 +27,7 @@ Vintage, on every side, is the year in the loan ID (L-018), as in the dbt stagin
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -53,22 +53,57 @@ def _dec(value: Any) -> Decimal:
     return Decimal(0) if value is None else Decimal(value)
 
 
+Query = Callable[[str], list[tuple[Any, ...]]]  # SQL text -> result rows (DuckDB or Spark)
+
+
+def databricks_relations(schema: Callable[[str], str]) -> dict[str, str]:
+    """The same layers on Databricks. `schema` is cecl.environment.databricks_schema, so both
+    catalog layouts work (cecl_lab_dev.bronze or workspace.cecl_lab_dev_bronze). The same SQL runs
+    there and on the PC: only these names differ."""
+    return {
+        "silver": schema("silver"),
+        "bronze_orig": f"{schema('bronze')}.freddie_origination",
+        "bronze_perf": f"{schema('bronze')}.freddie_performance",
+        "panel": f"{schema('gold')}.loan_panel",
+    }
+
+
+def local_relations(bronze: Path, panel: Path) -> dict[str, str]:
+    """The same layers on the PC: bronze and panel Parquet read in place by DuckDB."""
+    b, p = Path(bronze).as_posix(), Path(panel).as_posix()
+    return {
+        "silver": "silver",
+        "bronze_orig": f"read_parquet('{b}/freddie_orig/*/*.parquet', hive_partitioning = true)",
+        "bronze_perf": f"read_parquet('{b}/freddie_perf/*/*.parquet', hive_partitioning = true)",
+        "panel": f"read_parquet('{p}/vintage=*/panel.parquet')",
+    }
+
+
 def freddie_tie_outs(
     con: Any, bronze: Path, panel: Path, vintages: Sequence[int]
 ) -> tuple[list[TieOut], dict[str, Any], dict[str, int]]:
+    """Local version: `con` is an open DuckDB connection to the database dbt built."""
+    return layer_tie_outs(lambda sql: con.execute(sql).fetchall(), local_relations(bronze, panel), vintages)
+
+
+def layer_tie_outs(
+    query: Query, relations: dict[str, str], vintages: Sequence[int]
+) -> tuple[list[TieOut], dict[str, Any], dict[str, int]]:
     """(tie-outs, watch counts by vintage, rows per layer) for the chosen vintages.
 
-    `con` is an open DuckDB connection to the database dbt built (schema `silver`).
+    `query` runs SQL; `relations` names the silver schema and the bronze and panel tables
+    (local_relations or databricks_relations).
     """
     years = _years(vintages)
-    b = Path(bronze).as_posix()
-    p = Path(panel).as_posix()
-    bronze_orig = f"read_parquet('{b}/freddie_orig/*/*.parquet', hive_partitioning = true)"
-    bronze_perf = f"read_parquet('{b}/freddie_perf/*/*.parquet', hive_partitioning = true)"
-    panel_rows = f"read_parquet('{p}/vintage=*/panel.parquet')"
+    silver = relations["silver"]
+    bronze_orig, bronze_perf, panel_rows = (
+        relations["bronze_orig"],
+        relations["bronze_perf"],
+        relations["panel"],
+    )
 
     def by_vintage(sql: str) -> dict[int, tuple[Any, ...]]:
-        return {int(r[0]): tuple(r[1:]) for r in con.execute(sql).fetchall()}
+        return {int(r[0]): tuple(r[1:]) for r in query(sql)}
 
     b_orig = by_vintage(
         f"select {ID_VINTAGE} as v, count(*), sum(orig_upb), count(*) filter (where vintage <> {ID_VINTAGE}) "
@@ -76,7 +111,7 @@ def freddie_tie_outs(
     )
     s_orig = by_vintage(
         "select vintage_year, count(*), sum(orig_upb), "
-        "count(*) filter (where term_over_360) from silver.stg_freddie__origination "
+        f"count(*) filter (where term_over_360) from {silver}.stg_freddie__origination "
         f"where vintage_year in ({years}) group by 1"
     )
     b_perf = by_vintage(
@@ -85,13 +120,13 @@ def freddie_tie_outs(
     )
     s_perf = by_vintage(
         "select vintage_year, count(*), sum(current_upb), count(distinct loan_id), "
-        "count(*) filter (where remaining_months_derived) from silver.int_freddie__loan_months "
+        f"count(*) filter (where remaining_months_derived) from {silver}.int_freddie__loan_months "
         f"where vintage_year in ({years}) group by 1"
     )
     no_months = by_vintage(
-        "select o.vintage_year, count(*) from silver.stg_freddie__origination o "
+        f"select o.vintage_year, count(*) from {silver}.stg_freddie__origination o "
         f"where o.vintage_year in ({years}) and not exists "
-        "(select 1 from silver.stg_freddie__performance m where m.loan_id = o.loan_id) group by 1"
+        f"(select 1 from {silver}.stg_freddie__performance m where m.loan_id = o.loan_id) group by 1"
     )
     pan = by_vintage(
         f"select vintage_year, count(*), count(distinct loan_id), "
@@ -129,6 +164,53 @@ def freddie_tie_outs(
         rows["silver_loan_months"] += int(sp[0])
         rows["panel_rows"] += int(pn[0])
     return tie_outs, watch, rows
+
+
+def panel_outcomes(query: Query, panel: str, vintages: Sequence[int]) -> dict[str, dict[str, int]]:
+    """How each vintage's loans ended (defaulted / prepaid / censored), from the panel's final rows:
+    the basis of default rates by vintage, compared between the PC and Databricks."""
+    rows = query(
+        f"select vintage_year, status, count(*) from {panel} "
+        f"where vintage_year in ({_years(vintages)}) and status in {FINAL} group by 1, 2"
+    )
+    out: dict[str, dict[str, int]] = {str(int(v)): dict.fromkeys(FINAL, 0) for v in vintages}
+    for v, status, n in rows:
+        out[str(int(v))][str(status)] = int(n)
+    return out
+
+
+def comparable(tie_outs: Sequence[TieOut], watch: dict[str, Any], outcomes: dict[str, Any]) -> dict[str, Any]:
+    """Every number behind a run's tie-outs, as plain JSON: two runs (PC and Databricks) on the same
+    data must produce identical dictionaries."""
+    return {
+        "tie_outs": {t.name: [str(t.expected), str(t.actual)] for t in tie_outs},
+        "watch": watch,
+        "outcomes": outcomes,
+    }
+
+
+def differences(a: dict[str, Any], b: dict[str, Any], path: str = "") -> list[str]:
+    """Where two `comparable` results differ (empty list: identical). Numbers are compared as
+    exact decimals, so 100.10 and 100.1000 are equal."""
+    found: list[str] = []
+    for key in sorted(set(a) | set(b)):
+        where = f"{path}/{key}"
+        if key not in a or key not in b:
+            found.append(f"{where}: only in {'second' if key not in a else 'first'}")
+        elif isinstance(a[key], dict) and isinstance(b[key], dict):
+            found += differences(a[key], b[key], where)
+        elif _norm(a[key]) != _norm(b[key]):
+            found.append(f"{where}: {a[key]} vs {b[key]}")
+    return found
+
+
+def _norm(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_norm(v) for v in value]
+    try:
+        return Decimal(str(value))
+    except ArithmeticError:
+        return value
 
 
 def totals(watch: dict[str, Any]) -> dict[str, int]:

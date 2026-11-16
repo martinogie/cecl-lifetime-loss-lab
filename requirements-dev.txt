@@ -8,3 +8,4 @@ pyarrow==26.0.1  # bronze loader: streams Freddie files from the zips into Parqu
 duckdb==2.0.0    # panel builder reads silver from the local DuckDB database (ingestion/panel_build.py)
 pre-commit>=4.0.0
 openpyxl==3.1.5  # step 6: reads Freddie's Clarity summary exports (.xlsx)
+build>=1.2.2      # builds the wheel the Databricks bundle deploys (databricks/databricks.yml)

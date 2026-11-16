@@ -126,3 +126,18 @@ def test_new_loan_with_xx_at_age_0_is_counted_in_the_run_log(tmp_path):
     assert s.exits == {"censored_data_end": 1}
     first = pq.read_table(tmp_path / "p.parquet").to_pylist()[0]
     assert first["status_not_yet_due"] and first["status"] == "current"
+
+
+def test_loan_panel_rows_as_on_spark():
+    """What Spark's applyInPandas hands over: one loan, rows in any order, integers as floats."""
+    loan_b = [r for r in RECORDS if r["loan_id"] == "B"]
+    expected = pb.panel_records(loan_b)
+    from_pandas = [
+        {**r, "loan_age": float(r["loan_age"]), "vintage_year": 2020.0, "remaining_months": float("nan")}
+        for r in reversed(loan_b)
+    ]
+    got = pb.loan_panel_rows(from_pandas)
+    assert [r["status"] for r in got] == [r["status"] for r in expected]
+    assert got[-1]["status"] == "defaulted" and len(got) == 3  # first default only, months after dropped
+    assert got[0]["loan_age"] == 1 and isinstance(got[0]["loan_age"], int)
+    assert got[0]["remaining_months"] is None and got[0]["vintage_year"] == 2020

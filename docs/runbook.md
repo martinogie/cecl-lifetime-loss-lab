@@ -4,8 +4,8 @@ How to run, re-run, check and recover the CECL Lifetime Loss Lab. Commands run f
 root with the virtual environment active and `CECL_ENV` set (`local` on the PC). Everything under
 `data/` is git-ignored; no command prints loan rows.
 
-Status: Phase 1 (local and dev Airflow). The Databricks steps (Phase 1 step 9) and the VM deploy
-(prod) are added when they exist.
+Status: Phase 1 (local, dev Airflow and Databricks dev). The VM deploy (prod) is added when it
+exists.
 
 ## Schedule rules (always)
 
@@ -107,6 +107,32 @@ trigger it with the option `simulate_failure` = true (a FAILED alert arrives; re
 `DISCORD_WEBHOOK_URL` in each stack's `.env` (Martins sets them). A missing or placeholder webhook
 is skipped cleanly. Only the Airflow stacks post; laptop and CI runs never do. The outcome per
 channel is in the run log.
+
+## Databricks dev (`cecl_lab_dev`)
+
+Uses the Databricks CLI profile `cecl` (Martins's; the token is never in the repo) and, for dbt,
+`DATABRICKS_HOST`, `DATABRICKS_TOKEN` and `DATABRICKS_HTTP_PATH` from `.env` in the Airflow
+containers. Shared workspace: never on a Monday before 13:00 Chicago unless Martins confirms Bank
+Health's run has finished; check the compute allowance first (L-009).
+
+```
+cd databricks
+databricks bundle deploy -t dev --profile cecl                       # schemas, volume, jobs, wheel
+cd ..
+databricks fs cp data/raw/freddie/sample/sample_2007.zip   dbfs:/Volumes/cecl_lab_dev/bronze/raw/freddie/sample/sample_2007.zip --profile cecl   # each zip
+cd databricks
+databricks bundle run bronze_load -t dev --profile cecl --params years=1999-2026     # ~16 min
+cd ..
+docker exec -w /opt/airflow/dbt cecl-dev-airflow-scheduler-1 sh -c '"$DBT_EXECUTABLE" build --profiles-dir .'
+cd databricks
+databricks bundle run panel_build -t dev --profile cecl --params years=1999-2026     # ~38 min
+cd ..
+python -m scripts.compare_databricks --years 1999-2026     # must say: 0 differences
+```
+
+(In Git Bash, prefix the `docker exec -w /opt/...` line with `MSYS_NO_PATHCONV=1`.) A backfill is
+the same with fewer years: each notebook replaces only the vintages it is given. The comparison
+writes a run-log record with the Databricks minutes.
 
 ## Dev Airflow on the PC
 

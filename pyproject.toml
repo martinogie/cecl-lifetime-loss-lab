@@ -19,8 +19,13 @@ requires-python = ">=3.11"
 dependencies = ["tzdata>=2024.1"]
 
 [tool.setuptools.packages.find]
-include = ["cecl*"]
-exclude = ["cecl.tests*"]
+# The wheel the Databricks notebooks install: the model logic (cecl) and the loaders with their data
+# contracts (ingestion), so bronze on Databricks runs the same contracts and tie-outs as the PC.
+include = ["cecl*", "ingestion*"]
+exclude = ["cecl.tests*", "ingestion.tests*"]
+
+[tool.setuptools.package-data]
+ingestion = ["contracts/*.yml"]
 
 # ------------------------------------------------------------------------------ ruff
 [tool.ruff]
