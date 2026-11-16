@@ -10,10 +10,17 @@ blocked, in America/Chicago time (Airflow's default timezone in every CECL stack
 `schedule_problems(cron)` is used by the DAG import check in CI: a DAG whose schedule can fire in a
 blocked window fails CI. `refuse_blocked_window()` is the first thing every task runs, so a manual
 trigger in a blocked window also stops.
+
+Dated exception (dev only). Martins may allow dev runs on one Monday morning by setting
+CECL_WINDOW_EXCEPTION=<that date, YYYY-MM-DD> in the dev stack. It is honoured only when CECL_ENV is
+dev, only on that exact Chicago date (so it expires by itself), and only for the Monday window (the
+reboot window stays blocked); every task that uses it says so in its log. Prod never honours it.
+First granted 16 November 2026, to finish the step 8 alert tests.
 """
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -22,6 +29,7 @@ MONDAY = 0  # datetime.weekday()
 CRON_MONDAY = 1  # cron day-of-week numbering (0 or 7 = Sunday)
 MONDAY_BLOCK_ENDS_HOUR = 13  # Monday runs may start at 13:00 Chicago at the earliest
 REBOOT_WINDOW = ((2, 30), (4, 0))  # [02:30, 04:00) Chicago, every day
+EXCEPTION_VAR = "CECL_WINDOW_EXCEPTION"  # dev only, one date: see the module docstring
 
 CRON_ALIASES = {
     "@hourly": "0 * * * *",
@@ -108,10 +116,27 @@ def blocked_reason(now: datetime) -> str | None:
     return None
 
 
+def dated_exception(moment: datetime) -> bool:
+    """True if Martins's dated exception covers this moment: dev, that exact date, Monday window only."""
+    local = moment.astimezone(TZ)
+    granted = os.environ.get(EXCEPTION_VAR, "").strip()
+    return (
+        os.environ.get("CECL_ENV") == "dev"
+        and granted == local.date().isoformat()
+        and local.weekday() == MONDAY
+        and not _in_reboot_window(local.hour, local.minute)
+    )
+
+
 def refuse_blocked_window(now: datetime | None = None) -> None:
     """Called first by every task: stop if this moment is in a blocked window."""
     moment = now or datetime.now(TZ)
     reason = blocked_reason(moment)
+    if reason and dated_exception(moment):
+        print(
+            f"WARNING: {reason}; running anyway under {EXCEPTION_VAR}={os.environ[EXCEPTION_VAR]} (dev only)"
+        )
+        return
     if reason:
         raise BlockedWindow(
             f"{moment.astimezone(TZ):%a %Y-%m-%d %H:%M} America/Chicago: {reason}. Not starting."
