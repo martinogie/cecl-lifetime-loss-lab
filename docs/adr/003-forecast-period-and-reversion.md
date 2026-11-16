@@ -1,6 +1,6 @@
 # ADR-003: Forecast period and reversion
 
-- **Status:** accepted, 14 November 2026
+- **Status:** accepted, 14 November 2026; amended 15 November 2026 (timing of the Fed paths)
 - **Related:** ADR-005 (scenario weighting), the Phase 5 sensitivity table
 
 ## Context
@@ -97,3 +97,16 @@ to defend, since a reserve exists precisely for crises.
 June 2026, and the Fed's path from July 2026. The Fed's quarter-by-quarter changes are applied
 starting from the real June values, so there is no sudden jump. The 2-year forecast then runs to
 mid-2028, still inside the Fed's paths.
+
+**Amendment (Martins, 15 November 2026).** The Fed’s scenario paths are applied starting at the
+reserve date: the Fed’s first projection quarter becomes the quarter after 30 June 2026 (Q3 2026).
+The changes are applied from real June 2026 values. This keeps the full severity of the Fed’s shock
+(about 10% unemployment and −30% house prices in the severe case), rather than losing the first
+quarters because the real economy didn’t follow the Fed’s assumed early-2026 downturn.
+
+*Effect, recorded 15 November 2026 (Phase 1 step 7, finding T):* the Fed's changes are measured
+from its own starting point, 2025 Q4 (the last quarter of its published history file), and its 13
+quarters land on 2026 Q3 to 2029 Q3. The severely adverse path now peaks at 9.7% unemployment
+(2028 Q1) with house prices 29.7% below June 2026 at the worst (2028 Q2), against 7.0% and −19.7%
+under the timing as first written. The first-written timing stays available in code (`calendar`)
+only for the Phase 5 sensitivity table.

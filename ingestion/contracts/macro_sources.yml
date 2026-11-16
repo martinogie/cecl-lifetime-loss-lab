@@ -1,0 +1,76 @@
+# Data contract: public economic series (Phase 1 step 7, docs/phase1/step7_economic_data.md).
+#
+# Checked by ingestion/macro_contracts.py after each download and before bronze is written. Any
+# error stops the load. Freshness (max_age_days) is reported, not enforced: old public data is still
+# valid, so a stale series is flagged in the run summary (and alerted in step 8) instead.
+#
+#   start            the series must have a value on or before this date (ADR-003 D2: 1990 onward)
+#   frequency        monthly: every month present; weekly: 5 to 9 days between observations
+#                    (Freddie Mac's survey moves around holidays); quarterly: every quarter present
+#   min / max        sanity range for every value
+#   known_gaps       months the source never published; allowed empty, filled and marked in silver
+#   max_age_days     run date minus the latest observation's period END (month or quarter end)
+
+fred:
+  # FRED API (api.stlouisfed.org), key from the FRED_API_KEY environment variable.
+  start: "1990-01-01"
+  national:
+    - {id: UNRATE, name: unemployment_rate, frequency: monthly, min: 1, max: 30, max_age_days: 50,
+       known_gaps: ["2025-10-01"]}   # no October 2025 survey (federal shutdown); L-021
+    - {id: MORTGAGE30US, name: mortgage_rate_30y, frequency: weekly, min: 1, max: 20, max_age_days: 14}
+    - {id: GS10, name: treasury_10y, frequency: monthly, min: 0, max: 20, max_age_days: 50}
+    - {id: GS5, name: treasury_5y, frequency: monthly, min: 0, max: 20, max_age_days: 50}
+    - {id: TB3MS, name: tbill_3m, frequency: monthly, min: 0, max: 20, max_age_days: 50}
+  # State unemployment, seasonally adjusted (FRED republishes BLS LAUS). Released about three weeks
+  # after the national figure, hence the longer max age.
+  state_unemployment:
+    {id_pattern: "{state}UR", name: unemployment_rate, frequency: monthly, min: 0.5, max: 35,
+     max_age_days: 80, known_gaps: ["2025-10-01"]}
+
+states: [AK, AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA, HI, IA, ID, IL, IN, KS, KY, LA, MA, MD, ME, MI,
+         MN, MO, MS, MT, NC, ND, NE, NH, NJ, NM, NV, NY, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VA, VT,
+         WA, WI, WV, WY]
+
+fhfa:
+  # All-transactions house price index (not seasonally adjusted). Headerless CSV: geo,year,quarter,index.
+  # FHFA publishes a quarter about two months after it ends (Q2 in late August, Q3 in late November).
+  state_url: https://www.fhfa.gov/hpi/download/quarterly_datasets/hpi_at_state.csv
+  us_url: https://www.fhfa.gov/hpi/download/quarterly_datasets/hpi_at_us_and_census.csv
+  us_geo: USA
+  start: "1990-01-01"
+  frequency: quarterly
+  min: 1
+  max: 5000
+  max_age_days: 160   # Q3 arrives late November, about 148 days after Q2 ends
+
+fed:
+  # Federal Reserve supervisory scenarios, domestic variables, one CSV per scenario.
+  year: 2026
+  files:
+    baseline: https://www.federalreserve.gov/supervisionreg/files/2026_Final_Supervisory_Baseline_Domestic.csv
+    severely_adverse: https://www.federalreserve.gov/supervisionreg/files/2026_Final_Supervisory_Severely_Adverse_Domestic.csv
+  scenario_names:
+    baseline: Supervisory Baseline
+    severely_adverse: Supervisory Severely Adverse
+  quarters: 13          # 2026 Q1 to 2029 Q1
+  first_quarter: "2026 Q1"
+  # The Fed's history file (same columns, scenario name "Actual"). Its last quarter is the Fed's
+  # starting point, from which the shifted paths are measured (ADR-003 amendment, 15 Nov 2026).
+  history:
+    url: https://www.federalreserve.gov/supervisionreg/files/2026_Final_Historic_Domestic.csv
+    scenario_name: Actual
+    last_quarter: "2025 Q4"   # must be the quarter just before first_quarter
+  columns: ["Scenario Name", "Date", "Real GDP growth", "Nominal GDP growth",
+            "Real disposable income growth", "Nominal disposable income growth", "Unemployment rate",
+            "CPI inflation rate", "3-month Treasury rate", "5-year Treasury yield",
+            "10-year Treasury yield", "BBB corporate yield", "Mortgage rate", "Prime rate",
+            "Dow Jones Total Stock Market Index (Level)", "House Price Index (Level)",
+            "Commercial Real Estate Price Index (Level)", "Market Volatility Index (Level)"]
+  # Ranges for the variables the models use (others are kept in bronze but not range-checked).
+  ranges:
+    "Unemployment rate": [1, 30]
+    "3-month Treasury rate": [-2, 20]
+    "5-year Treasury yield": [-2, 20]
+    "10-year Treasury yield": [-2, 20]
+    "Mortgage rate": [1, 20]
+    "House Price Index (Level)": [10, 5000]

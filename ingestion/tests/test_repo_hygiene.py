@@ -11,6 +11,7 @@ does not flag.
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -55,11 +56,14 @@ ALLOWED_IPS = {"127.0.0.1", "0.0.0.0"}
 
 def repo_text_files() -> list[Path]:
     files = []
-    for path in ROOT.rglob("*"):
-        if not path.is_file() or any(part in SKIP_DIRS for part in path.relative_to(ROOT).parts):
-            continue
-        if path.suffix.lower() in TEXT_SUFFIXES or path.name.startswith("."):
-            files.append(path)
+    # os.walk prunes skipped folders before entering them: Airflow's logs hold Linux symlinks that
+    # Windows can't even open, so they must never be scanned.
+    for folder, dirs, names in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for name in names:
+            path = Path(folder) / name
+            if (path.suffix.lower() in TEXT_SUFFIXES or name.startswith(".")) and path.is_file():
+                files.append(path)
     return files
 
 
