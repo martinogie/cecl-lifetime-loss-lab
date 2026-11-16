@@ -1,6 +1,6 @@
 # ADR-004: Environments and shared VM
 
-- **Status:** accepted, part D pending (service principals confirmed available 16 Nov 2026; Decision wording awaits Martins)
+- **Status:** accepted (parts A, B, C, E on 14 November 2026; part D on 16 November 2026)
 - **Related:** ADR-001 (tools and data sizing: the VM's size and free capacity)
 
 ## Context
@@ -127,7 +127,7 @@ and never on pull requests. The fork-PR risk above applies to it today.
 
 ## Decision
 
-**Decision (Martins, 14 November 2026), part D pending.**
+**Decision (Martins, 14 November 2026; part D 16 November 2026).**
 
 - **A: A1.** CECL's own Airflow on the shared VM. It is free and fully separate from Bank Health.
 - **B:** its own `cecl` user with rootless Docker (so it can't reach Bank Health's files), memory
@@ -137,8 +137,13 @@ and never on pull requests. The fork-PR risk above applies to it today.
   part C.)*
 - **E:** manual deploys over SSH. No self-hosted runner, so no risk of strangers' pull requests
   running on the VM.
-- **D (credentials): pending.** To be written after Martins checks whether Free Edition has service
-  principals. If it doesn't, this section will state plainly that dev and prod are separated by code
-  checks, not by permissions.
+- **D (credentials).** Free Edition offers service principals (checked 16 November 2026). When prod
+  is set up, CECL will use two service principals instead of Martins's personal token: a dev
+  identity with rights on `cecl_lab_dev` only, and a prod identity with rights on `cecl_lab`, whose
+  token lives only on the VM. Until then, dev runs use Martins's own token, so dev and prod are kept
+  apart by the code's checks (the environment module, the dbt environment macro, fixed catalog
+  names), not by permissions.
+
+  *Why:* separate identities make "dev can't write prod" a permission, not just a rule in the code.
 
 *Why:* it costs nothing, Bank Health is protected, and every risk is written down.
