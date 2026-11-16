@@ -1,6 +1,6 @@
 # ADR-004: Environments and shared VM
 
-- **Status:** accepted, part D pending (until Martins checks Databricks service principals)
+- **Status:** accepted, part D pending (service principals confirmed available 16 Nov 2026; Decision wording awaits Martins)
 - **Related:** ADR-001 (tools and data sizing: the VM's size and free capacity)
 
 ## Context
@@ -87,8 +87,11 @@ is set up.
 
 A user can create several personal access tokens, but each token has **all of that user's
 permissions**. A "dev token" made by the same user can still write the prod catalog. Real separation
-needs a service principal (a non-human identity) with grants on `cecl_lab_dev` only. Whether Free
-Edition offers service principals is **not yet verified** (Martins checks in Phase 1).
+needs a service principal (a non-human identity) with grants on `cecl_lab_dev` only.
+
+**Checked 16 November 2026: Free Edition offers service principals.** The workspace settings show
+the page (Identity and access → Service principals: 0 total), the CLI's service-principals list
+answers (empty), and Martins is a workspace admin, so he can create them. None exist yet.
 
 - If it does: a dev identity with no rights on `cecl_lab`, and a prod identity.
 - If it doesn't: record the limitation here. Separation then rests on code guards only (the
