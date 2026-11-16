@@ -76,6 +76,13 @@ exactly one new catalog can be created is not planned for.
 Both are built in (`CECL_DATABRICKS_LAYOUT=catalogs` or `schema_prefix`); C2 is a configuration
 switch, not a rewrite.
 
+**Result (Phase 1 step 9, 16 November 2026): C1 works; the fallback is not needed.** Free Edition
+allows catalogs: the workspace already had Bank Health's two (`bank_health`, `bank_health_dev`),
+and `cecl_lab_dev` was created on 16 November 2026, before the first CECL deploy. The dev bundle then
+created `cecl_lab_dev.bronze`, `.silver`, `.gold`, `.ml` and `.ops`, and the whole step 9 pipeline
+ran there (`CECL_DATABRICKS_LAYOUT=catalogs`). `cecl_lab` (prod) is created the same way when prod
+is set up.
+
 ### D. Dev and prod credentials on Free Edition
 
 A user can create several personal access tokens, but each token has **all of that user's
@@ -123,7 +130,8 @@ and never on pull requests. The fork-PR risk above applies to it today.
 - **B:** its own `cecl` user with rootless Docker (so it can't reach Bank Health's files), memory
   and CPU caps, and the blocked time windows.
 - **C:** two catalogs (`cecl_lab_dev`, `cecl_lab`), with the default-catalog fallback only if Free
-  Edition can't create catalogs.
+  Edition can't create catalogs. *(Result, 16 Nov 2026: catalogs work; `cecl_lab_dev` is in use, see
+  part C.)*
 - **E:** manual deploys over SSH. No self-hosted runner, so no risk of strangers' pull requests
   running on the VM.
 - **D (credentials): pending.** To be written after Martins checks whether Free Edition has service

@@ -36,6 +36,15 @@ Commands: [runbook](../runbook.md), "Databricks dev".
 3. **A typo in `DATABRICKS_HTTP_PATH`** (two extra characters) made dbt's connection fail; found by
    comparing the value's shape (IDs masked) with the warehouse's real path; Martins fixed `.env`.
 
+**Guards added so these can't recur** (CI, no Databricks access needed):
+`ingestion/tests/test_dbt_sources.py` checks that every bronze table the dbt models, the bronze
+notebook and the tie-outs use is declared in the dbt sources, and that the local target's Parquet
+folders match what the loader writes (shown to fail when `freddie_performance` is removed);
+`ingestion/tests/test_databricks_bundle.py` checks that no bundle job has a schedule, trigger or
+continuous mode unless paused (development mode used to pause them in dev), and that the dev
+target never uses development mode again. The deployed dev jobs were also checked: no schedule,
+trigger or continuous mode.
+
 **Shared workspace.** The Databricks work ran on Monday 16 November from about 08:40 Chicago, inside
 the Monday window, after Martins confirmed that Bank Health's weekly run had already finished that
 day, so the workspace and the shared compute allowance were free.
