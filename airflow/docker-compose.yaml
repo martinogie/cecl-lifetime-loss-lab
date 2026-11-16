@@ -126,11 +126,15 @@ services:
     <<: *airflow-common
     command: scheduler
     healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      # The scheduler's own health page (AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK, port 8974): a
+      # quick curl. Not `airflow jobs check`: under the CPU cap each check outlived Docker's timeout
+      # and Docker doesn't stop timed-out checks, so they piled up (dozens, ~100 MB each) until
+      # the scheduler ran out of memory (found 16 Nov 2026).
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "10", "http://localhost:8974/health"]
       interval: 30s
-      timeout: 30s
+      timeout: 15s
       retries: 5
-      start_period: 30s
+      start_period: 60s
     mem_limit: 2g
     cpus: 0.75
     depends_on:
@@ -142,11 +146,15 @@ services:
     <<: *airflow-common
     command: dag-processor
     healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
-      interval: 30s
-      timeout: 30s
-      retries: 5
-      start_period: 30s
+      # The dag-processor has no health page, so the CLI check stays, but wrapped in `timeout`: with
+      # a quarter of a CPU it can take over 30 s, and Docker doesn't stop a check that outlives its
+      # own timeout, so unbounded checks piled up and used the memory (found 16 Nov 2026). Checked
+      # every 2 minutes rather than raising the CPU cap (the VM is shared with Bank Health).
+      test: ["CMD-SHELL", 'timeout 80 airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 120s
+      timeout: 90s
+      retries: 3
+      start_period: 120s
     mem_limit: 768m
     cpus: 0.25
     depends_on:

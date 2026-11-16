@@ -105,3 +105,23 @@ def test_guard_uses_now_by_default():
         s.refuse_blocked_window()
     except s.BlockedWindow:
         pass
+
+
+def test_dated_exception_dev_only_one_date_monday_window_only(monkeypatch, capsys):
+    monday_9am = datetime(2026, 11, 16, 15, 0, tzinfo=UTC)  # 09:00 Chicago
+    monday_3am = datetime(2026, 11, 16, 9, 0, tzinfo=UTC)  # 03:00 Chicago: reboot window
+    monkeypatch.setenv(s.EXCEPTION_VAR, "2026-11-16")
+    monkeypatch.setenv("CECL_ENV", "dev")
+    s.refuse_blocked_window(monday_9am)  # allowed, and said so
+    assert "running anyway under CECL_WINDOW_EXCEPTION=2026-11-16" in capsys.readouterr().out
+    with pytest.raises(s.BlockedWindow):
+        s.refuse_blocked_window(monday_3am)  # the reboot window is never excepted
+    with pytest.raises(s.BlockedWindow):
+        s.refuse_blocked_window(datetime(2026, 11, 23, 15, 0, tzinfo=UTC))  # another Monday
+    monkeypatch.setenv("CECL_ENV", "prod")
+    with pytest.raises(s.BlockedWindow):
+        s.refuse_blocked_window(monday_9am)  # prod never
+    monkeypatch.delenv(s.EXCEPTION_VAR)
+    monkeypatch.setenv("CECL_ENV", "dev")
+    with pytest.raises(s.BlockedWindow):
+        s.refuse_blocked_window(monday_9am)  # no exception set

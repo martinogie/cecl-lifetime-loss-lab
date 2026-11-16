@@ -17,6 +17,10 @@ x-dev-env: &dev-env
   AIRFLOW_UI_URL: http://localhost:8082
   CECL_BRONZE_PATH: /opt/airflow/data/local/bronze
   CECL_DUCKDB_PATH: /opt/airflow/data/local/cecl_lab.duckdb
+  # Martins's dated exception to the Monday-morning window (cecl/scheduling.py): empty unless given
+  # when starting the stack, e.g. CECL_WINDOW_EXCEPTION=2026-11-16 docker compose ... up -d; it
+  # only ever works for that date, in dev. Never set in the prod stack.
+  CECL_WINDOW_EXCEPTION: ${CECL_WINDOW_EXCEPTION:-}
 
 services:
   airflow-apiserver:

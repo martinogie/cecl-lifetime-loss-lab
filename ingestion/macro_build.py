@@ -204,6 +204,57 @@ def load_fed(
     return _summary("fed", findings, written)
 
 
+def replay_fetch(folder: Path) -> http.Fetch:
+    """A `fetch` that reads a saved raw download instead of the internet (backfill, snapshot check).
+
+    FRED files are saved as <series id>.json; FHFA and Fed files under the URL's file name.
+    """
+
+    def get(url: str) -> bytes:
+        if url.startswith(fred.API_URL):
+            from urllib.parse import parse_qs, urlparse
+
+            name = parse_qs(urlparse(url).query)["series_id"][0] + ".json"
+        else:
+            name = url.rsplit("/", 1)[-1]
+        path = Path(folder) / name
+        if not path.exists():
+            raise FileNotFoundError(f"raw file {name} is not in {folder}")
+        return path.read_bytes()
+
+    return get
+
+
+def replay(root: Path, run_date: date, sources: tuple[str, ...] = ("fred", "fhfa", "fed")) -> dict[str, Any]:
+    """Rebuild bronze from the raw files saved on `run_date` (no download, no key), then silver.
+
+    Contracts run again, and freshness is judged against the original run date, so a replay
+    reaches the same verdicts as the original run.
+    """
+    out: dict[str, Any] = {}
+    for source in sources:
+        get = replay_fetch(raw_dir(root, source, run_date))
+        if source == "fred":
+            out[source] = load_fred(root, run_date, key="replay", fetch=get, pause=lambda s: None)
+        elif source == "fhfa":
+            out[source] = load_fhfa(root, run_date, fetch=get)
+        elif source == "fed":
+            out[source] = load_fed(root, run_date, fetch=get)
+        else:
+            raise ValueError(f"unknown source {source!r}")
+    out["silver"] = build_silver(root)
+    return out
+
+
+def stale_sources(summaries: dict[str, Any]) -> dict[str, Any]:
+    """{series or file: days old} gathered from the loaders' summaries (for alerts and the log)."""
+    stale: dict[str, Any] = {}
+    for summary in summaries.values():
+        if isinstance(summary, dict):
+            stale.update(summary.get("stale") or {})
+    return stale
+
+
 def _summary(source: str, findings: list[mc.Findings], rows: int) -> dict[str, Any]:
     stale = {f.what: f.stale for f in findings if f.stale}
     latest = [f.latest for f in findings if f.latest]
