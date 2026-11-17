@@ -33,6 +33,7 @@ TUNING_GRID: dict[str, list[dict[str, Any]]] = {
 INNER_TRAIN_LAST, INNER_VALID_FIRST = "201312", "201401"
 HORIZONS = (12, 24, 36)
 REASON_CHECK_ROWS = 2000
+PSI_BASELINE_ROWS = 200_000  # training rows scored for the PSI baseline (fixed sample)
 
 
 def columns(frame: Any) -> dict[str, np.ndarray]:
@@ -67,8 +68,20 @@ def _fit(name: str, frame: Any, settings: dict[str, Any]) -> Any:
     )
 
 
-def train(name: str, frame: Any, tune: bool = True) -> tuple[Any, dict[str, Any]]:
-    """Fit a family on `frame` (training months); returns (model, tuning record)."""
+def train(
+    name: str, frame: Any, tune: bool = True, settings: dict[str, Any] | None = None
+) -> tuple[Any, dict[str, Any]]:
+    """Fit a family on `frame` (training months); returns (model, tuning record).
+
+    `settings` fixes the family's settings and skips tuning (for example to re-run with the setting
+    an earlier run's tuning chose, without spending the allowance on tuning again)."""
+    if settings is not None:
+        return _fit(name, frame, settings), {
+            "grid": [settings],
+            "scores": [],
+            "chosen": settings,
+            "fixed": True,
+        }
     grid = TUNING_GRID[name] if tune else [{}]
     record: dict[str, Any] = {"grid": grid, "scores": []}
     best = grid[0]
@@ -100,6 +113,8 @@ def evaluate(model: Any, frame: Any, horizon: Any | None, train_frame: Any, star
         "auc_default": metrics.auc(y == fx.DEFAULT, p[:, fx.DEFAULT], w),
         "auc_prepay": metrics.auc(y == fx.PREPAY, p[:, fx.PREPAY], w),
     }
+    out["gini_default"] = metrics.gini(out["auc_default"])  # Gini = 2 x AUC - 1, next to every AUC
+    out["gini_prepay"] = metrics.gini(out["auc_prepay"])
     calibration: dict[str, Any] = {}
     passes = True
     for by, groups in (("year", frame["period_ym"].str[:4]), ("vintage", frame["vintage_year"].astype(str))):
@@ -109,10 +124,13 @@ def evaluate(model: Any, frame: Any, horizon: Any | None, train_frame: Any, star
             passes = passes and all(r.passes for r in rows)
     out["calibration"] = calibration
     out["calibration_passes"] = passes
-    p_train = model.predict_proba(columns(train_frame))[:, fx.DEFAULT]
+    # PSI needs only the training score distribution: a fixed sample of the training rows gives it
+    # (scoring all 2.2 million training rows was most of the evaluation time, 17 Nov 2026).
+    baseline = train_frame.sample(n=min(PSI_BASELINE_ROWS, len(train_frame)), random_state=7)
+    p_train = model.predict_proba(columns(baseline))[:, fx.DEFAULT]
     out["psi_by_year"] = {
         year: metrics.psi(p_train, p[(frame["period_ym"].str[:4] == year).to_numpy(), fx.DEFAULT],
-                          train_frame["weight"], w[(frame["period_ym"].str[:4] == year).to_numpy()])
+                          baseline["weight"], w[(frame["period_ym"].str[:4] == year).to_numpy()])
         for year in sorted(frame["period_ym"].str[:4].unique())
     }  # fmt: skip
     if horizon is not None and len(horizon):
@@ -123,7 +141,11 @@ def evaluate(model: Any, frame: Any, horizon: Any | None, train_frame: Any, star
             if metrics._add_months(start, months - 1) <= last:
                 value, loans = metrics.horizon_auc(horizon["loan_id"].to_numpy(), horizon["period_ym"].to_numpy(),
                                                    horizon["outcome"].to_numpy(), ph, start, months)  # fmt: skip
-                out["auc_by_horizon"][str(months)] = {"auc": value, "loans": loans}
+                out["auc_by_horizon"][str(months)] = {
+                    "auc": value,
+                    "gini": metrics.gini(value),
+                    "loans": loans,
+                }
     sample = frame.head(REASON_CHECK_ROWS)
     try:
         codes = reasons.top_reasons(model.contributions(columns(sample)), columns(sample))
@@ -136,12 +158,21 @@ def evaluate(model: Any, frame: Any, horizon: Any | None, train_frame: Any, star
 
 
 def scalar_metrics(result: dict[str, Any], prefix: str) -> dict[str, float]:
-    keys = ("log_loss", "log_loss_default", "log_loss_prepay", "auc_default", "auc_prepay")
+    keys = (
+        "log_loss",
+        "log_loss_default",
+        "log_loss_prepay",
+        "auc_default",
+        "auc_prepay",
+        "gini_default",
+        "gini_prepay",
+    )
     out = {f"{prefix}_{k}": float(result[k]) for k in keys}
     out[f"{prefix}_calibration_passes"] = float(result["calibration_passes"])
     out[f"{prefix}_reason_codes"] = float(result["reason_codes"])
     for h, v in (result.get("auc_by_horizon") or {}).items():
         out[f"{prefix}_auc_{h}m"] = float(v["auc"])
+        out[f"{prefix}_gini_{h}m"] = metrics.gini(float(v["auc"]))
     return out
 
 
@@ -178,11 +209,12 @@ def log_run(mlflow: Any, name: str, model: Any, tuning: dict[str, Any], result: 
             )
         sample_in = example[list(fx.FEATURE_NAMES)].head(50)
         wrapper = PDModel(model)
-        mlflow.pyfunc.log_model(
-            name="model",
-            python_model=_PyfuncAdapter(wrapper),
-            signature=infer_signature(sample_in, wrapper.predict(None, sample_in)),
-        )
+        model_args = {"python_model": _PyfuncAdapter(wrapper),
+                      "signature": infer_signature(sample_in, wrapper.predict(None, sample_in))}  # fmt: skip
+        try:  # MLflow 3 names the model `name`; MLflow 2 (Databricks serverless) uses `artifact_path`
+            mlflow.pyfunc.log_model(name="model", **model_args)
+        except TypeError:
+            mlflow.pyfunc.log_model(artifact_path="model", **model_args)
         return str(run.info.run_id)
 
 

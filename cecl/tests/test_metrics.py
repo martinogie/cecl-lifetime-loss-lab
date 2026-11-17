@@ -81,3 +81,23 @@ def test_weighted_sample_measures_match_the_full_table() -> None:
     sample_cal = metrics.calibration(["all"] * int(keep.sum()), y[keep], proba[keep], weight)[0]
     assert sample_cal.events == full_cal.events  # actual defaults: exactly the same
     assert sample_cal.predicted == pytest.approx(full_cal.predicted, rel=0.02)
+
+
+def test_auc_matches_the_pairwise_definition() -> None:
+    """The vectorised AUC equals the brute-force pairwise count, ties and weights included."""
+    rng = np.random.default_rng(3)
+    for _ in range(5):
+        n = 300
+        y = rng.uniform(size=n) < 0.3
+        s = np.round(rng.uniform(size=n), 2)  # rounding creates ties
+        w = rng.uniform(0.5, 3, n)
+        pos, neg = np.where(y)[0], np.where(~y)[0]
+        num = sum(
+            w[i] * w[j] * (1.0 if s[i] > s[j] else 0.5 if s[i] == s[j] else 0.0) for i in pos for j in neg
+        )
+        assert metrics.auc(y, s, w) == pytest.approx(num / (w[pos].sum() * w[neg].sum()))
+
+
+def test_gini() -> None:
+    assert metrics.gini(0.5) == 0.0 and metrics.gini(1.0) == 1.0 and metrics.gini(0.75) == pytest.approx(0.5)
+    assert math.isnan(metrics.gini(float("nan")))

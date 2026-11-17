@@ -62,7 +62,8 @@ def write(df, kind: str, vintage: int) -> dict[str, int]:
     holdout = F.col("split").isin(list(fx.HOLDOUT))
     for is_holdout, part in ((False, df.where(~holdout)), (True, df.where(holdout))):
         table = TABLES[(kind, is_holdout)]
-        writer = part.write.format("delta").partitionBy("vintage_year")
+        # mergeSchema: a new feature column (e.g. relief_refinance, 17 Nov) is added to the table
+        writer = part.write.format("delta").partitionBy("vintage_year").option("mergeSchema", "true")
         if spark.catalog.tableExists(table):
             writer.mode("overwrite").option("replaceWhere", f"vintage_year = {vintage}").saveAsTable(table)
         else:

@@ -227,6 +227,8 @@ resources:
           default: "1"
         - name: tune
           default: "true"
+        - name: settings
+          default: ""
         - name: code_version
           default: unknown
         - name: data_snapshot
@@ -278,6 +280,41 @@ resources:
             notebook_path: ./notebooks/60_out_of_time_test.py
           environment_key: ml
           timeout_seconds: 3600
+          max_retries: 0
+
+    diagnostics:
+      name: cecl_lab_diagnostics_${var.env}
+      description: "Score the trained models on the training and validation rows and run the calibration diagnostics (no training; never the test months)"
+      timeout_seconds: 2400
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      # No schedule here: started by hand (never on a Monday before 13:00 Chicago).
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - interpret-core==0.7.8
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: runs
+          default: "{}"
+      tasks:
+        - task_key: diagnostics
+          notebook_task:
+            notebook_path: ./notebooks/55_diagnostics.py
+          environment_key: ml
+          timeout_seconds: 2400
           max_retries: 0
 
 targets:

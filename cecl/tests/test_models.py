@@ -145,6 +145,8 @@ def test_pipeline_train_evaluate_and_downsample() -> None:
     assert result["reason_codes"] is True and set(result["auc_by_horizon"]) == {"12", "24"}
     scalars = pipeline.scalar_metrics(result, "val")
     assert "val_log_loss_default" in scalars and "val_auc_12m" in scalars
+    assert scalars["val_gini_default"] == pytest.approx(2 * scalars["val_auc_default"] - 1)
+    assert scalars["val_gini_12m"] == pytest.approx(2 * scalars["val_auc_12m"] - 1)
     small = pipeline.downsample_no_events(train, 4)
     events = (train["outcome"] != fx.NONE).sum()
     assert (small["outcome"] != fx.NONE).sum() == events and len(small) < len(train)
@@ -201,3 +203,33 @@ def test_evaluate_records_a_family_that_cannot_explain_itself() -> None:
 
     result = pipeline.evaluate(Mute(), frame, None, frame, "201701")
     assert result["reason_codes"] is False and "NotImplementedError" in result["reason_error"]
+
+
+def test_train_with_fixed_settings_skips_tuning() -> None:
+    frame = book(2000)
+    model, record = pipeline.train("logistic", frame, settings={"C": 1.0})
+    assert record == {"grid": [{"C": 1.0}], "scores": [], "chosen": {"C": 1.0}, "fixed": True}
+    assert model.C == 1.0
+
+
+def test_diagnostics_split_status_years_and_hurricane_states() -> None:
+    from cecl.models import diagnostics
+
+    frame = book(4000)
+    frame["property_state"] = np.where(np.arange(len(frame)) % 3 == 0, "FL", "OH")
+    train = frame[frame["period_ym"] <= "201612"]
+    valid = frame[frame["period_ym"] >= "201701"]
+    model, _ = pipeline.train("logistic", train, tune=False)  # fitted on the training years only
+    out = diagnostics.run_all(model, train, valid, pipeline.columns)
+    status = out["start_status_validation"]
+    assert set(status) == {"current", "delinquent"}
+    assert status["current"]["share_of_defaults"] + status["delinquent"][
+        "share_of_defaults"
+    ] == pytest.approx(1.0)
+    assert set(out["calendar_year_training"]) == {str(y) for y in range(2010, 2017)}
+    # logistic regression with an intercept: in-sample predicted defaults add up to the actual ones
+    yrs = out["calendar_year_training"].values()
+    assert sum(r["predicted"] for r in yrs) == pytest.approx(sum(r["events"] for r in yrs), rel=0.02)
+    assert set(out["hurricanes_2017_2018"]) == {"hurricane_states", "other_states"}
+    assert set(out["prepay_by_year_training"]) == {str(y) for y in range(2010, 2017)}
+    assert all("ratio" in r for r in out["prepay_by_year_validation"].values())

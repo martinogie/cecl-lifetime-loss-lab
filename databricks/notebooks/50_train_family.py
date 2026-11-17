@@ -20,7 +20,7 @@ import os
 import time
 
 for name, default in (("env", ""), ("layout", "catalogs"), ("family", "logistic"), ("include_covid", "false"),
-                      ("ebm_sample_every", "1"), ("tune", "true"), ("code_version", "unknown"),
+                      ("ebm_sample_every", "1"), ("tune", "true"), ("settings", ""), ("code_version", "unknown"),
                       ("data_snapshot", "cecl-2026Q2-data-v1")):  # fmt: skip
     dbutils.widgets.text(name, default)
 os.environ["CECL_ENV"] = dbutils.widgets.get("env")
@@ -38,6 +38,7 @@ family = dbutils.widgets.get("family")
 include_covid = dbutils.widgets.get("include_covid").lower() == "true"
 ebm_every = int(dbutils.widgets.get("ebm_sample_every"))
 tune = dbutils.widgets.get("tune").lower() == "true"
+settings = json.loads(dbutils.widgets.get("settings")) if dbutils.widgets.get("settings").strip() else None
 user = spark.sql("select current_user()").collect()[0][0]
 mlflow.set_registry_uri("databricks-uc")
 mlflow.set_experiment(environment.mlflow_experiment_path(user))
@@ -53,6 +54,7 @@ started = time.monotonic()
 train = spark.sql(f"select {cols} from {GOLD}.features where split in ({in_list})").toPandas()
 valid = spark.sql(f"select {cols} from {GOLD}.features where split = '{fx.VALIDATE}'").toPandas()
 horizon = spark.sql(f"select {cols} from {GOLD}.features_horizon where split = '{fx.VALIDATE}'").toPandas()
+stages = {"load": round((time.monotonic() - started) / 60, 2)}
 print(f"rows: train {len(train):,}, validate {len(valid):,}, horizon {len(horizon):,}")
 if family == "ebm" and ebm_every > 1:
     train_fit = pipeline.downsample_no_events(train, ebm_every)
@@ -62,17 +64,21 @@ if family == "ebm" and ebm_every > 1:
 else:
     train_fit = train
 
-model, tuning = pipeline.train(family, train_fit, tune=tune)
+t = time.monotonic()
+model, tuning = pipeline.train(family, train_fit, tune=tune, settings=settings)
+stages["fit"] = round((time.monotonic() - t) / 60, 2)
+t = time.monotonic()
 result = pipeline.evaluate(model, valid, horizon, train, "201701")
+stages["evaluate"] = round((time.monotonic() - t) / 60, 2)
 minutes = round((time.monotonic() - started) / 60, 1)
 tags = {"cecl_env": os.environ["CECL_ENV"], "git_commit": dbutils.widgets.get("code_version"),
         "data_snapshot": dbutils.widgets.get("data_snapshot"),
         "sensitivity": "covid_in_training" if include_covid else "none"}  # fmt: skip
 extra = {"train_splits": ",".join(train_splits), "ebm_sample_every": ebm_every if family == "ebm" else 1,
          "train_rows": len(train_fit), "validate_rows": len(valid), "minutes": minutes,
-         "sample_every": fx.SAMPLE_EVERY, "sample_seed": fx.SAMPLE_SEED}  # fmt: skip
+         "sample_every": fx.SAMPLE_EVERY, "sample_seed": fx.SAMPLE_SEED, "stage_minutes": stages}  # fmt: skip
 run_id = pipeline.log_run(mlflow, family, model, tuning, result, tags, extra, valid)
-summary = {"run_id": run_id, "family": family, "minutes": minutes,
+summary = {"run_id": run_id, "family": family, "minutes": minutes, "stages": stages,
            **{k: result[k] for k in ("log_loss_default", "auc_default", "calibration_passes", "reason_codes")}}  # fmt: skip
 print(json.dumps(summary, indent=1, default=str))
 dbutils.notebook.exit(json.dumps(summary, default=str))

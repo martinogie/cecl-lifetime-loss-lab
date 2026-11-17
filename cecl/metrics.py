@@ -52,18 +52,13 @@ def auc(label: Sequence[int], score: Sequence[float], weight: Sequence[float] | 
     pos, neg = w[y].sum(), w[~y].sum()
     if pos == 0 or neg == 0:
         return float("nan")
-    order = np.argsort(s, kind="mergesort")
-    s, y, w = s[order], y[order], w[order]
-    # group equal scores: each positive beats the negatives below it, and half of the tied ones
-    _, start = np.unique(s, return_index=True)
-    ends = np.append(start[1:], len(s))
-    neg_below = 0.0
-    total = 0.0
-    for a, b in zip(start, ends, strict=True):
-        wp = w[a:b][y[a:b]].sum()
-        wn = w[a:b][~y[a:b]].sum()
-        total += wp * (neg_below + wn / 2)
-        neg_below += wn
+    # Vectorised: group equal scores; each positive beats the negatives in lower groups and half of
+    # the negatives tied with it (the same result as the pairwise definition, in a few array steps).
+    _, group = np.unique(s, return_inverse=True)
+    wp = np.bincount(group, weights=w * y)
+    wn = np.bincount(group, weights=w * ~y)
+    neg_below = np.cumsum(wn) - wn
+    total = float((wp * (neg_below + wn / 2)).sum())
     return float(total / (pos * neg))
 
 
@@ -107,6 +102,12 @@ def psi(expected: Sequence[float], actual: Sequence[float], w_expected: Sequence
     pa = np.histogram(a, edges, weights=wa)[0] / wa.sum()
     pe, pa = np.clip(pe, 1e-6, None), np.clip(pa, 1e-6, None)
     return float(((pa - pe) * np.log(pa / pe)).sum())
+
+
+def gini(auc_value: float) -> float:
+    """Gini coefficient (accuracy ratio) = 2 x AUC - 1: what bank risk teams usually quote.
+    0 = no ranking power, 1 = perfect; NaN stays NaN."""
+    return 2.0 * auc_value - 1.0
 
 
 def horizon_auc(loan_id: Sequence[str], period_ym: Sequence[str], outcome: Sequence[int], pd_month: Sequence[float],

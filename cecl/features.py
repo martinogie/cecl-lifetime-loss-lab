@@ -129,7 +129,8 @@ def rate_incentive(rate_prev: float | None, market_prev: float | None) -> float 
 RANGES: dict[str, tuple[float | None, float | None]] = {
     "loan_age": (0, 600),
     "credit_score": (300, 850),
-    "current_ltv": (0, 400),
+    # HARP 2.0 relief refinances had no LTV cap: 7 real rows sit between 446% and 665% (17 Nov 2026)
+    "current_ltv": (0, 1000),
     "orig_dti": (0, 100),
     "rate_incentive": (-15, 15),
     "months_late_prev": (0, 400),
