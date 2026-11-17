@@ -46,6 +46,10 @@ WORDING: dict[str, Callable[[float], str]] = {
     "occupancy_investor": lambda v: "Investment property" if v else "Not an investment property",
     "occupancy_second": lambda v: "Second home" if v else "Not a second home",
     "relief_refinance": lambda v: "HARP relief refinance" if v else "Not a relief refinance",
+    "originated_2009_on": lambda v: (
+        "Originated 2009 or later (post-crisis underwriting)" if v else "Originated before 2009"
+    ),
+    "era_2005_2008": lambda v: "Originated 2005-2008 (bubble years)" if v else "Not originated in 2005-2008",
     "calendar_month": lambda v: f"Month of the year: {v:.0f}",
 }
 
@@ -72,5 +76,6 @@ def wording_table() -> list[dict[str, str]]:
     examples = {"loan_age": 40, "credit_score": 640, "current_ltv": 112, "orig_dti": 45, "rate_incentive": 1.5,
                 "months_late_prev": 2, "late_months_12": 3, "unemployment": 7.8, "unemployment_change_12": 3.1,
                 "forbearance_prev": 1, "mi_pct": 25, "orig_upb": 250000, "term_over_360": 1, "purpose_cashout": 1,
-                "purpose_refi": 1, "occupancy_investor": 1, "occupancy_second": 1, "relief_refinance": 1, "calendar_month": 7}  # fmt: skip
-    return [{"feature": f, "example": sentence(f, examples[f])} for f in fx.FEATURE_NAMES]
+                "purpose_refi": 1, "occupancy_investor": 1, "occupancy_second": 1, "relief_refinance": 1, "originated_2009_on": 1, "era_2005_2008": 1, "calendar_month": 7}  # fmt: skip
+    names = [f.name for f in fx.model_features("buckets")]
+    return [{"feature": f, "example": sentence(f, examples[f])} for f in names]

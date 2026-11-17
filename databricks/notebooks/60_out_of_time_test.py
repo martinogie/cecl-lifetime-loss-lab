@@ -26,7 +26,7 @@ import mlflow
 
 from cecl import environment
 from cecl import features as fx
-from cecl.models import pipeline, reasons
+from cecl.models import families, pipeline, reasons
 
 environment.require_airflow_env()
 GOLD = environment.databricks_schema("gold")
@@ -63,7 +63,11 @@ for label, run_id in runs.items():
     results[label] = pipeline.evaluate(model, test, horizon, baseline, "202207")
     if label == chosen:
         sample = test.head(5000)
-        codes = reasons.top_reasons(model.contributions(pipeline.columns(sample)), pipeline.columns(sample))
+        codes = reasons.top_reasons(
+            model.contributions(pipeline.inputs(model, sample)),
+            pipeline.inputs(model, sample),
+            features=families.feature_list(model),
+        )
         reason_examples = codes[:50]
 
 with mlflow.start_run(run_name="out-of-time-test") as run:

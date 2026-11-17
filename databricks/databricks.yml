@@ -229,6 +229,14 @@ resources:
           default: "true"
         - name: settings
           default: ""
+        - name: era
+          default: none
+        - name: learning_curve
+          default: "false"
+        - name: curve_fractions
+          default: "0.1;0.25;0.5;1.0"
+        - name: ebm_curve_outer_bags
+          default: "1"
         - name: code_version
           default: unknown
         - name: data_snapshot

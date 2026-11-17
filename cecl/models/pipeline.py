@@ -36,8 +36,21 @@ REASON_CHECK_ROWS = 2000
 PSI_BASELINE_ROWS = 200_000  # training rows scored for the PSI baseline (fixed sample)
 
 
-def columns(frame: Any) -> dict[str, np.ndarray]:
-    return {f: frame[f].to_numpy(dtype=float) for f in fx.FEATURE_NAMES}
+def columns(frame: Any, features: tuple[str, ...] = fx.FEATURE_NAMES) -> dict[str, np.ndarray]:
+    """The model inputs from a feature-table frame; derived features (the origination era, ADR-010)
+    are computed from `vintage_year`."""
+    out = {}
+    for f in features:
+        if f in frame:
+            out[f] = frame[f].to_numpy(dtype=float)
+        else:
+            out[f] = fx.DERIVED[f](frame["vintage_year"].to_numpy())
+    return out
+
+
+def inputs(model: Any, frame: Any) -> dict[str, np.ndarray]:
+    """The inputs for a trained model (its own feature list)."""
+    return columns(frame, families.feature_list(model))
 
 
 def downsample_no_events(frame: Any, every: int) -> Any:
@@ -61,22 +74,32 @@ def downsample_no_events(frame: Any, every: int) -> Any:
     return out
 
 
-def _fit(name: str, frame: Any, settings: dict[str, Any]) -> Any:
-    model = families.make(name, **settings)
-    return model.fit(
-        columns(frame), frame["outcome"].to_numpy(dtype=int), frame["weight"].to_numpy(dtype=float)
-    )
+def _fit(name: str, frame: Any, settings: dict[str, Any], features: tuple[str, ...] = fx.FEATURE_NAMES,
+         eval_frame: Any = None) -> Any:  # fmt: skip
+    model = families.make(name, features=features, **settings)
+    eval_set = None
+    if eval_frame is not None:
+        eval_set = (columns(eval_frame, features), eval_frame["outcome"].to_numpy(dtype=int),
+                    eval_frame["weight"].to_numpy(dtype=float))  # fmt: skip
+    return model.fit(columns(frame, features), frame["outcome"].to_numpy(dtype=int),
+                     frame["weight"].to_numpy(dtype=float), eval_set=eval_set)  # fmt: skip
 
 
 def train(
-    name: str, frame: Any, tune: bool = True, settings: dict[str, Any] | None = None
+    name: str,
+    frame: Any,
+    tune: bool = True,
+    settings: dict[str, Any] | None = None,
+    features: tuple[str, ...] = fx.FEATURE_NAMES,
+    eval_frame: Any = None,
 ) -> tuple[Any, dict[str, Any]]:
     """Fit a family on `frame` (training months); returns (model, tuning record).
 
     `settings` fixes the family's settings and skips tuning (for example to re-run with the setting
-    an earlier run's tuning chose, without spending the allowance on tuning again)."""
+    an earlier run's tuning chose, without spending the allowance on tuning again). `eval_frame`
+    (validation rows) is only recorded as a training curve (LightGBM), never used to fit or tune."""
     if settings is not None:
-        return _fit(name, frame, settings), {
+        return _fit(name, frame, settings, features, eval_frame), {
             "grid": [settings],
             "scores": [],
             "chosen": settings,
@@ -90,20 +113,20 @@ def train(
         inner_valid = frame[frame["period_ym"] >= INNER_VALID_FIRST]
         scores = []
         for settings in grid:
-            m = _fit(name, inner_train, settings)
-            p = m.predict_proba(columns(inner_valid))
+            m = _fit(name, inner_train, settings, features)
+            p = m.predict_proba(columns(inner_valid, features))
             scores.append(metrics.cause_log_loss(inner_valid["outcome"], p, inner_valid["weight"], "default"))
         record["scores"] = scores
         best = grid[int(np.argmin(scores))]
     record["chosen"] = best
-    return _fit(name, frame, best), record
+    return _fit(name, frame, best, features, eval_frame), record
 
 
 def evaluate(model: Any, frame: Any, horizon: Any | None, train_frame: Any, start: str) -> dict[str, Any]:
     """All measures on one period (validation, or the test months), weighted."""
     y = frame["outcome"].to_numpy(dtype=int)
     w = frame["weight"].to_numpy(dtype=float)
-    p = model.predict_proba(columns(frame))
+    p = model.predict_proba(inputs(model, frame))
     out: dict[str, Any] = {
         "rows": int(len(frame)),
         "weighted_months": float(w.sum()),
@@ -127,14 +150,14 @@ def evaluate(model: Any, frame: Any, horizon: Any | None, train_frame: Any, star
     # PSI needs only the training score distribution: a fixed sample of the training rows gives it
     # (scoring all 2.2 million training rows was most of the evaluation time, 17 Nov 2026).
     baseline = train_frame.sample(n=min(PSI_BASELINE_ROWS, len(train_frame)), random_state=7)
-    p_train = model.predict_proba(columns(baseline))[:, fx.DEFAULT]
+    p_train = model.predict_proba(inputs(model, baseline))[:, fx.DEFAULT]
     out["psi_by_year"] = {
         year: metrics.psi(p_train, p[(frame["period_ym"].str[:4] == year).to_numpy(), fx.DEFAULT],
                           baseline["weight"], w[(frame["period_ym"].str[:4] == year).to_numpy()])
         for year in sorted(frame["period_ym"].str[:4].unique())
     }  # fmt: skip
     if horizon is not None and len(horizon):
-        ph = model.predict_proba(columns(horizon))[:, fx.DEFAULT]
+        ph = model.predict_proba(inputs(model, horizon))[:, fx.DEFAULT]
         out["auc_by_horizon"] = {}
         last = horizon["period_ym"].max()
         for months in HORIZONS:
@@ -148,7 +171,10 @@ def evaluate(model: Any, frame: Any, horizon: Any | None, train_frame: Any, star
                 }
     sample = frame.head(REASON_CHECK_ROWS)
     try:
-        codes = reasons.top_reasons(model.contributions(columns(sample)), columns(sample))
+        feats = families.feature_list(model)
+        codes = reasons.top_reasons(
+            model.contributions(inputs(model, sample)), inputs(model, sample), features=feats
+        )
         out["reason_codes"] = bool(codes) and all(isinstance(c, list) for c in codes)
         out["reason_examples"] = codes[:5]
     except Exception as e:  # noqa: BLE001 - a family that can't explain itself fails ADR-009, it doesn't crash
@@ -185,13 +211,15 @@ class PDModel:
     def predict(self, context: Any, model_input: Any, params: Any = None) -> Any:  # noqa: ARG002
         import pandas as pd
 
-        p = self.model.predict_proba(columns(model_input))
+        p = self.model.predict_proba(inputs(self.model, model_input))
         return pd.DataFrame(p, columns=["p_none", "p_default", "p_prepay"])
 
 
 def log_run(mlflow: Any, name: str, model: Any, tuning: dict[str, Any], result: dict[str, Any], tags: dict[str, str],
-            extra_params: dict[str, Any], example: Any) -> str:  # fmt: skip
-    """Log one family's training and validation to MLflow; returns the run id."""
+            extra_params: dict[str, Any], example: Any, curve_data: dict[str, Any] | None = None) -> str:  # fmt: skip
+    """Log one family's training and validation to MLflow; returns the run id. `curve_data` (from the
+    notebook: LightGBM rounds, a learning curve, the training-vs-validation fit row) is logged as
+    `curves.json`, PNG charts and, for LightGBM, per-round metric histories."""
     from mlflow import pyfunc  # noqa: F401 (loads the flavour, so mlflow.pyfunc exists)
     from mlflow.models import infer_signature
 
@@ -203,11 +231,30 @@ def log_run(mlflow: Any, name: str, model: Any, tuning: dict[str, Any], result: 
         mlflow.log_dict(result, "validation.json")
         mlflow.log_dict(tuning, "tuning.json")
         mlflow.log_dict({"wording": reasons.wording_table()}, "reason_wording.json")
+        if curve_data:
+            from cecl.models import curves
+
+            mlflow.log_dict(curve_data, "curves.json")
+            if curve_data.get("rounds"):
+                curves.log_rounds(mlflow, curve_data["rounds"])
+                mlflow.log_figure(
+                    curves.round_figure(curve_data["rounds"], name), "curves/boosting_rounds.png"
+                )
+            if curve_data.get("learning"):
+                mlflow.log_figure(
+                    curves.learning_figure(curve_data["learning"], name), "curves/learning_curve.png"
+                )
+            fit = curve_data.get("fit")
+            if fit:
+                mlflow.log_metrics({f"fit_train_{k}": float(v) for k, v in fit["train"].items()})
+                mlflow.set_tag("fit_verdict", curves.verdict(fit["train"], fit["valid"])[:250])
         if hasattr(model, "bins"):
             mlflow.log_dict(
                 {b.name: {"edges": b.edges, "rates": b.rates} for b in model.bins}, "scorecard_bins.json"
             )
-        sample_in = example[list(fx.FEATURE_NAMES)].head(50)
+        feats = families.feature_list(model)
+        derived = any(f in fx.DERIVED for f in feats)  # the era is derived from the origination year
+        sample_in = example[list(fx.FEATURE_NAMES) + (["vintage_year"] if derived else [])].head(50)
         wrapper = PDModel(model)
         model_args = {"python_model": _PyfuncAdapter(wrapper),
                       "signature": infer_signature(sample_in, wrapper.predict(None, sample_in))}  # fmt: skip

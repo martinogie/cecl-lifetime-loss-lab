@@ -95,7 +95,33 @@ FEATURES: tuple[Feature, ...] = (
     Feature("relief_refinance", "1 if a HARP / relief refinance (its DTI is always missing, L-024)", 0, 0),
     Feature("calendar_month", "month of the year of t (prepayment seasonality)", 0, 0),
 )  # fmt: skip
-FEATURE_NAMES = tuple(f.name for f in FEATURES)
+FEATURE_NAMES = tuple(f.name for f in FEATURES)  # the feature table's columns
+
+# Origination-era features (ADR-010, Option E): derived at model time from the loan's origination year
+# (`vintage_year`), so the feature table needs no rebuild. "binary": originated 2009 or later (post-crisis
+# underwriting); "buckets": 2005-2008 (bubble years) and 2009 on, with before-2005 as the reference.
+# No monotonic constraint: the era's effect is for the data to show.
+ERA_FEATURES: dict[str, tuple[Feature, ...]] = {
+    "none": (),
+    "binary": (
+        Feature("originated_2009_on", "1 if originated in 2009 or later (post-crisis underwriting)", 0, 0),
+    ),
+    "buckets": (
+        Feature("era_2005_2008", "1 if originated 2005-2008 (bubble years)", 0, 0),
+        Feature("originated_2009_on", "1 if originated in 2009 or later (post-crisis underwriting)", 0, 0),
+    ),
+}
+DERIVED = {
+    "originated_2009_on": lambda vintage: (vintage >= 2009).astype(float),
+    "era_2005_2008": lambda vintage: ((vintage >= 2005) & (vintage <= 2008)).astype(float),
+}
+
+
+def model_features(era: str = "none") -> tuple[Feature, ...]:
+    """The features a model uses: the feature table's plus, optionally, the origination era."""
+    if era not in ERA_FEATURES:
+        raise ValueError(f"era must be one of {', '.join(ERA_FEATURES)}, got {era!r}")
+    return FEATURES + ERA_FEATURES[era]
 
 
 def current_ltv(

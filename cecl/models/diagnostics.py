@@ -67,9 +67,10 @@ def hurricane_states(frame: Any, proba: np.ndarray, states: Any = None) -> dict[
             "other_states": _ratio(frame, proba, in_years & ~hit)}  # fmt: skip
 
 
-def run_all(model: Any, train: Any, valid: Any, columns: Any) -> dict[str, Any]:
-    """All three diagnostics for one model; `columns` turns a frame into the model's inputs."""
-    p_train, p_valid = model.predict_proba(columns(train)), model.predict_proba(columns(valid))
+def run_all(model: Any, train: Any, valid: Any, inputs: Any) -> dict[str, Any]:
+    """All three diagnostics for one model; `inputs(model, frame)` gives the model's inputs
+    (cecl.models.pipeline.inputs)."""
+    p_train, p_valid = model.predict_proba(inputs(model, train)), model.predict_proba(inputs(model, valid))
     return {
         "start_status_validation": by_start_status(valid, p_valid),
         "start_status_training": by_start_status(train, p_train),

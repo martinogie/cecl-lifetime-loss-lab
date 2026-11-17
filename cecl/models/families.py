@@ -26,21 +26,33 @@ import numpy as np
 from cecl import features as fx
 from cecl.models.binning import FeatureBins, fit_bins, one_hot
 
-FEATURES = fx.FEATURE_NAMES
+FEATURES = fx.FEATURE_NAMES  # the default list (models trained before the era feature use it)
 SIMPLICITY_ORDER = ("logistic", "ebm", "lightgbm")  # ties go to the simpler family (ADR-009 C1)
 
 
 class Family(Protocol):
     name: str
 
-    def fit(self, X: dict[str, np.ndarray], outcome: np.ndarray, weight: np.ndarray) -> Family: ...
+    def fit(
+        self, X: dict[str, np.ndarray], outcome: np.ndarray, weight: np.ndarray, eval_set: Any = None
+    ) -> Family: ...
     def predict_proba(self, X: dict[str, np.ndarray]) -> np.ndarray: ...
     def contributions(self, X: dict[str, np.ndarray]) -> np.ndarray: ...
     def params(self) -> dict[str, Any]: ...
 
 
-def matrix(X: dict[str, np.ndarray]) -> np.ndarray:
-    return np.column_stack([np.asarray(X[f], dtype=float) for f in FEATURES])
+def matrix(X: dict[str, np.ndarray], features: tuple[str, ...] = FEATURES) -> np.ndarray:
+    return np.column_stack([np.asarray(X[f], dtype=float) for f in features])
+
+
+def feature_list(model: Any) -> tuple[str, ...]:
+    """A model's features (models saved before 17 Nov 2026 have no list: the 19 table features)."""
+    return tuple(getattr(model, "features", FEATURES))
+
+
+def _directions(features: tuple[str, ...], attr: str) -> list[int]:
+    known = {f.name: getattr(f, attr) for f in fx.model_features("buckets")}
+    return [known[f] for f in features]
 
 
 def _combine(p_default: np.ndarray, p_prepay: np.ndarray) -> np.ndarray:
@@ -56,19 +68,22 @@ def _combine(p_default: np.ndarray, p_prepay: np.ndarray) -> np.ndarray:
 class LogisticScorecard:
     name = "logistic"
 
-    def __init__(self, C: float = 1.0, max_iter: int = 500) -> None:
+    def __init__(self, C: float = 1.0, max_iter: int = 500, features: tuple[str, ...] = FEATURES) -> None:
         self.C, self.max_iter = C, max_iter
+        self.features = tuple(features)
         self.bins: list[FeatureBins] = []
         self.columns: list[str] = []
         self.model: Any = None
         self.baseline: np.ndarray | None = None
 
-    def fit(self, X: dict[str, np.ndarray], outcome: np.ndarray, weight: np.ndarray) -> LogisticScorecard:
+    def fit(
+        self, X: dict[str, np.ndarray], outcome: np.ndarray, weight: np.ndarray, eval_set: Any = None
+    ) -> LogisticScorecard:
         from sklearn.linear_model import LogisticRegression
 
         default = (outcome == fx.DEFAULT).astype(int)
-        direction = {f.name: f.default_direction for f in fx.FEATURES}
-        self.bins = [fit_bins(f, X[f], default, weight, direction[f]) for f in FEATURES]
+        direction = dict(zip(self.features, _directions(self.features, "default_direction"), strict=True))
+        self.bins = [fit_bins(f, X[f], default, weight, direction[f]) for f in self.features]
         design, self.columns = one_hot(self.bins, X)
         self.model = LogisticRegression(C=self.C, max_iter=self.max_iter)
         self.model.fit(design, outcome, sample_weight=weight)
@@ -91,7 +106,7 @@ class LogisticScorecard:
         design, _ = one_hot(self.bins, X)
         assert self.baseline is not None
         per_column = (design - self.baseline) * self._default_coef()
-        out = np.zeros((len(design), len(FEATURES)))
+        out = np.zeros((len(design), len(feature_list(self))))
         start = 0
         for k, b in enumerate(self.bins):
             width = b.n_bins  # bins 1..n-1 plus the missing column
@@ -100,53 +115,71 @@ class LogisticScorecard:
         return out
 
     def params(self) -> dict[str, Any]:
-        return {"family": self.name, "C": self.C, "max_iter": self.max_iter,
+        return {"family": self.name, "C": self.C, "max_iter": self.max_iter, "features": list(feature_list(self)),
                 "bins": {b.name: b.edges for b in self.bins}}  # fmt: skip
 
 
 # ---------------------------------------------------------------------------- LightGBM
 
 
-def monotone(cause: str) -> list[int]:
-    attr = "default_direction" if cause == "default" else "prepay_direction"
-    return [getattr(f, attr) for f in fx.FEATURES]
+def monotone(cause: str, features: tuple[str, ...] = FEATURES) -> list[int]:
+    return _directions(features, "default_direction" if cause == "default" else "prepay_direction")
 
 
 class LightGBMPair:
     name = "lightgbm"
 
     def __init__(self, n_estimators: int = 400, learning_rate: float = 0.05, num_leaves: int = 31,
-                 min_child_weight: float = 50.0, seed: int = 7) -> None:  # fmt: skip
-        self.settings: dict[str, Any] = {"n_estimators": n_estimators, "learning_rate": learning_rate, "num_leaves": num_leaves,
-                         "min_child_weight": min_child_weight, "random_state": seed, "verbose": -1}  # fmt: skip
+                 min_child_weight: float = 50.0, seed: int = 7, features: tuple[str, ...] = FEATURES) -> None:  # fmt: skip
+        self.settings: dict[str, Any] = {"n_estimators": n_estimators, "learning_rate": learning_rate,
+                                         "num_leaves": num_leaves, "min_child_weight": min_child_weight,
+                                         "random_state": seed, "verbose": -1}  # fmt: skip
+        self.features = tuple(features)
         self.models: dict[str, Any] = {}
+        self.rounds: dict[str, Any] = {}  # per cause: training and validation log loss at every round
 
-    def fit(self, X: dict[str, np.ndarray], outcome: np.ndarray, weight: np.ndarray) -> LightGBMPair:
+    def fit(self, X: dict[str, np.ndarray], outcome: np.ndarray, weight: np.ndarray,
+            eval_set: tuple[dict[str, np.ndarray], np.ndarray, np.ndarray] | None = None) -> LightGBMPair:  # fmt: skip
+        """`eval_set` = (validation inputs, outcomes, weights): only *recorded* round by round (the
+        training curve); it never changes the number of rounds (that would tune on validation)."""
         import lightgbm as lgb
 
-        m = matrix(X)
+        feats = feature_list(self)
+        m = matrix(X, feats)
         for cause, code in (("default", fx.DEFAULT), ("prepay", fx.PREPAY)):
-            model = lgb.LGBMClassifier(
-                objective="binary", monotone_constraints=monotone(cause), **self.settings
-            )
-            model.fit(m, (outcome == code).astype(int), sample_weight=weight)
+            model = lgb.LGBMClassifier(objective="binary", monotone_constraints=monotone(cause, feats),
+                                       **self.settings)  # fmt: skip
+            y = (outcome == code).astype(int)
+            if eval_set is None:
+                model.fit(m, y, sample_weight=weight)
+            else:
+                vx, vy, vw = eval_set
+                model.fit(m, y, sample_weight=weight, eval_set=[(m, y), (matrix(vx, feats), (vy == code).astype(int))],
+                          eval_sample_weight=[weight, vw], eval_names=["training", "validation"],
+                          eval_metric="binary_logloss")  # fmt: skip
+                curve = model.evals_result_
+                valid = list(curve["validation"]["binary_logloss"])
+                self.rounds[cause] = {"training": list(curve["training"]["binary_logloss"]), "validation": valid,
+                                      "best_round": int(np.argmin(valid)) + 1, "best_validation": float(min(valid))}  # fmt: skip
             self.models[cause] = model
         return self
 
     def predict_proba(self, X: dict[str, np.ndarray]) -> np.ndarray:
-        m = matrix(X)
+        m = matrix(X, feature_list(self))
         return _combine(
             self.models["default"].predict_proba(m)[:, 1], self.models["prepay"].predict_proba(m)[:, 1]
         )
 
     def contributions(self, X: dict[str, np.ndarray]) -> np.ndarray:
         """TreeSHAP values of the default model (log-odds), one column per feature."""
-        contrib = self.models["default"].predict(matrix(X), pred_contrib=True)
-        return np.asarray(contrib)[:, : len(FEATURES)]  # the last column is the expected value
+        feats = feature_list(self)
+        contrib = self.models["default"].predict(matrix(X, feats), pred_contrib=True)
+        return np.asarray(contrib)[:, : len(feats)]  # the last column is the expected value
 
     def params(self) -> dict[str, Any]:
-        return {"family": self.name, **self.settings, "monotone_default": monotone("default"),
-                "monotone_prepay": monotone("prepay")}  # fmt: skip
+        feats = feature_list(self)
+        return {"family": self.name, **self.settings, "features": list(feats),
+                "monotone_default": monotone("default", feats), "monotone_prepay": monotone("prepay", feats)}  # fmt: skip
 
 
 # ---------------------------------------------------------------------------- EBM
@@ -155,42 +188,46 @@ class LightGBMPair:
 class EBMPair:
     name = "ebm"
 
-    def __init__(
-        self, interactions: int = 5, outer_bags: int = 4, max_rounds: int = 2000, seed: int = 7
-    ) -> None:
-        self.settings: dict[str, Any] = {"interactions": interactions, "outer_bags": outer_bags, "max_rounds": max_rounds,
-                         "random_state": seed}  # fmt: skip
+    def __init__(self, interactions: int = 5, outer_bags: int = 4, max_rounds: int = 2000, seed: int = 7,
+                 features: tuple[str, ...] = FEATURES) -> None:  # fmt: skip
+        self.settings: dict[str, Any] = {"interactions": interactions, "outer_bags": outer_bags,
+                                         "max_rounds": max_rounds, "random_state": seed}  # fmt: skip
+        self.features = tuple(features)
         self.models: dict[str, Any] = {}
 
-    def fit(self, X: dict[str, np.ndarray], outcome: np.ndarray, weight: np.ndarray) -> EBMPair:
+    def fit(
+        self, X: dict[str, np.ndarray], outcome: np.ndarray, weight: np.ndarray, eval_set: Any = None
+    ) -> EBMPair:
         from interpret.glassbox import ExplainableBoostingClassifier
 
-        m = matrix(X)
+        feats = feature_list(self)
+        m = matrix(X, feats)
         for cause, code in (("default", fx.DEFAULT), ("prepay", fx.PREPAY)):
-            model = ExplainableBoostingClassifier(feature_names=list(FEATURES), **self.settings)
+            model = ExplainableBoostingClassifier(feature_names=list(feats), **self.settings)
             model.fit(m, (outcome == code).astype(int), sample_weight=weight)
             self.models[cause] = model
         return self
 
     def predict_proba(self, X: dict[str, np.ndarray]) -> np.ndarray:
-        m = matrix(X)
+        m = matrix(X, feature_list(self))
         return _combine(
             self.models["default"].predict_proba(m)[:, 1], self.models["prepay"].predict_proba(m)[:, 1]
         )
 
     def contributions(self, X: dict[str, np.ndarray]) -> np.ndarray:
         """Each single-feature term's score in the default model (interaction terms left out)."""
+        feats = feature_list(self)
         model = self.models["default"]
-        scores = np.asarray(model.eval_terms(matrix(X)))
+        scores = np.asarray(model.eval_terms(matrix(X, feats)))
         names = list(model.term_names_)
-        out = np.zeros((scores.shape[0], len(FEATURES)))
-        for k, f in enumerate(FEATURES):
+        out = np.zeros((scores.shape[0], len(feats)))
+        for k, f in enumerate(feats):
             if f in names:
                 out[:, k] = scores[:, names.index(f)]
         return out
 
     def params(self) -> dict[str, Any]:
-        return {"family": self.name, **self.settings}
+        return {"family": self.name, **self.settings, "features": list(feature_list(self))}
 
 
 FAMILIES: dict[str, type] = {"logistic": LogisticScorecard, "lightgbm": LightGBMPair, "ebm": EBMPair}

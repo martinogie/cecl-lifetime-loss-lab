@@ -42,7 +42,7 @@ valid = spark.sql(f"select {cols} from {GOLD}.features where split = '{fx.VALIDA
 results = {}
 for family, run_id in runs.items():
     model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model").unwrap_python_model().inner.model
-    results[family] = diagnostics.run_all(model, train, valid, pipeline.columns)
+    results[family] = diagnostics.run_all(model, train, valid, pipeline.inputs)
 minutes = round((time.monotonic() - started) / 60, 1)
 
 with mlflow.start_run(run_name="calibration-diagnostics"):

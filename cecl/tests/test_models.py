@@ -122,7 +122,7 @@ def test_reason_codes() -> None:
     ]
     assert codes[1] == []
     table = reasons.wording_table()
-    assert len(table) == len(fx.FEATURE_NAMES) and all(row["example"] for row in table)
+    assert len(table) == len(fx.model_features("buckets")) and all(row["example"] for row in table)
 
 
 def test_pipeline_train_evaluate_and_downsample() -> None:
@@ -175,9 +175,31 @@ def test_log_run_and_reload_like_the_test_notebook(tmp_path, monkeypatch) -> Non
     frame = book(3000)
     model, tuning = pipeline.train("logistic", frame, tune=False)
     result = pipeline.evaluate(model, frame, None, frame, "201701")
+    from cecl.models import curves
+
+    curve_data = {
+        "fit": {
+            "train": curves.train_scores(model, frame, pipeline.inputs),
+            "valid": curves.scores(model, frame, pipeline.inputs),
+        },
+        "learning": curves.learning_curve(
+            lambda part: pipeline.train("logistic", part, tune=False)[0],
+            frame,
+            frame,
+            pipeline.inputs,
+            (0.5, 1.0),
+            full_model=model,
+        ),
+    }
     run_id = pipeline.log_run(
-        mlflow, "logistic", model, tuning, result, {"sensitivity": "none"}, {"rows": 3000}, frame
+        mlflow, "logistic", model, tuning, result, {"sensitivity": "none"}, {"rows": 3000}, frame, curve_data
     )
+    client = mlflow.MlflowClient()
+    arts = {a.path for a in client.list_artifacts(run_id)} | {
+        a.path for a in client.list_artifacts(run_id, "curves")
+    }
+    assert {"curves.json", "curves/learning_curve.png"} <= arts
+    assert mlflow.get_run(run_id).data.tags["fit_verdict"]
     loaded = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
     inner = loaded.unwrap_python_model().inner.model
     assert np.allclose(
@@ -220,7 +242,7 @@ def test_diagnostics_split_status_years_and_hurricane_states() -> None:
     train = frame[frame["period_ym"] <= "201612"]
     valid = frame[frame["period_ym"] >= "201701"]
     model, _ = pipeline.train("logistic", train, tune=False)  # fitted on the training years only
-    out = diagnostics.run_all(model, train, valid, pipeline.columns)
+    out = diagnostics.run_all(model, train, valid, pipeline.inputs)
     status = out["start_status_validation"]
     assert set(status) == {"current", "delinquent"}
     assert status["current"]["share_of_defaults"] + status["delinquent"][
@@ -233,3 +255,75 @@ def test_diagnostics_split_status_years_and_hurricane_states() -> None:
     assert set(out["hurricanes_2017_2018"]) == {"hurricane_states", "other_states"}
     assert set(out["prepay_by_year_training"]) == {str(y) for y in range(2010, 2017)}
     assert all("ratio" in r for r in out["prepay_by_year_validation"].values())
+
+
+@pytest.mark.parametrize("era", ["binary", "buckets"])
+def test_era_feature_is_derived_and_used(era: str) -> None:
+    from cecl.models import families as fam
+
+    frame = book(3000)
+    feats = tuple(f.name for f in fx.model_features(era))
+    cols = pipeline.columns(frame, feats)
+    assert "originated_2009_on" in cols and np.array_equal(
+        cols["originated_2009_on"], (frame["vintage_year"] >= 2009).astype(float)
+    )
+    model, _ = pipeline.train(
+        "lightgbm", frame, settings={"n_estimators": 30}, features=feats, eval_frame=frame.head(500)
+    )
+    assert fam.feature_list(model) == feats and model.contributions(
+        pipeline.inputs(model, frame.head(5))
+    ).shape == (5, len(feats))
+    assert (
+        len(model.rounds["default"]["validation"]) == 30 and 1 <= model.rounds["default"]["best_round"] <= 30
+    )
+    result = pipeline.evaluate(model, frame, None, frame, "201701")
+    assert result["reason_codes"] is True
+    with pytest.raises(ValueError, match="era must be"):
+        fx.model_features("decades")
+
+
+def test_models_saved_without_a_feature_list_still_work() -> None:
+    from cecl.models import families as fam
+
+    frame = book(2000)
+    model, _ = pipeline.train("logistic", frame, tune=False)
+    del model.features  # as pickled before 17 Nov 2026
+    assert fam.feature_list(model) == fx.FEATURE_NAMES
+    assert model.predict_proba(pipeline.inputs(model, frame)).shape == (len(frame), 3)
+
+
+def test_learning_curve_table_verdict_and_figures(tmp_path, monkeypatch) -> None:
+    from cecl.models import curves
+
+    frame = book(4000)
+    train, valid = frame[frame["period_ym"] <= "201612"], frame[frame["period_ym"] >= "201701"]
+    sub = curves.subsample(train, 0.25)
+    assert len(sub) < len(train) and sub["weight"].sum() == pytest.approx(train["weight"].sum(), rel=0.1)
+    assert curves.subsample(train, 1.0) is train
+    full, _ = pipeline.train("logistic", train, tune=False)
+    rows = curves.learning_curve(lambda part: pipeline.train("logistic", part, tune=False)[0], train, valid,
+                                 pipeline.inputs, (0.25, 1.0), full_model=full)  # fmt: skip
+    assert [r["fraction"] for r in rows] == [0.25, 1.0] and "valid_gini_default" in rows[0]
+    table = curves.fit_table({"logistic": {"train": curves.train_scores(full, train, pipeline.inputs),
+                                           "valid": curves.scores(full, valid, pipeline.inputs)}})  # fmt: skip
+    assert table[0]["family"] == "logistic" and table[0]["verdict"]
+    t, v = {"log_loss_default": 0.010, "auc_default": 0.95}, {"log_loss_default": 0.020, "auc_default": 0.85}
+    assert curves.verdict(t, v).startswith("overfitting")
+    assert "level shift" in curves.verdict(t, {"log_loss_default": 0.02, "auc_default": 0.945})
+    assert curves.verdict(t, {"log_loss_default": 0.0105, "auc_default": 0.948}).startswith("generalises")
+    assert curves.verdict(t, {"log_loss_default": 0.0118, "auc_default": 0.93}).startswith("mild")
+    fig = curves.learning_figure(rows, "logistic")
+    fig.savefig(tmp_path / "lc.png")
+    gbm, _ = pipeline.train("lightgbm", train, settings={"n_estimators": 20}, eval_frame=valid)
+    fig2 = curves.round_figure(gbm.rounds, "lightgbm")
+    fig2.savefig(tmp_path / "rounds.png")
+    assert (tmp_path / "lc.png").stat().st_size > 0 and (tmp_path / "rounds.png").stat().st_size > 0
+    mlflow = pytest.importorskip("mlflow")
+    monkeypatch.setenv("MLFLOW_DISABLE_AGENT_HINT", "1")
+    mlflow.set_tracking_uri(f"sqlite:///{(tmp_path / 'm.db').as_posix()}")
+    mlflow.create_experiment("curves", artifact_location=(tmp_path / "a").as_uri())
+    mlflow.set_experiment("curves")
+    with mlflow.start_run() as run:
+        curves.log_rounds(mlflow, gbm.rounds)
+    history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "round_default_validation_log_loss")
+    assert len(history) == 20 and history[-1].step == 20
