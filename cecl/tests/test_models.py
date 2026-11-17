@@ -327,3 +327,16 @@ def test_learning_curve_table_verdict_and_figures(tmp_path, monkeypatch) -> None
         curves.log_rounds(mlflow, gbm.rounds)
     history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "round_default_validation_log_loss")
     assert len(history) == 20 and history[-1].step == 20
+
+
+def test_diagnostic_training_sample_keeps_every_default() -> None:
+    from cecl.models import diagnostics
+
+    frame = book(6000)
+    sample = diagnostics.training_sample(frame, 5)
+    defaults = frame["outcome"] == fx.DEFAULT
+    assert (sample["outcome"] == fx.DEFAULT).sum() == defaults.sum()  # actual defaults exact
+    assert len(sample) < len(frame) / 2
+    others = frame.loc[~defaults, "weight"].sum()
+    assert sample.loc[sample["outcome"] != fx.DEFAULT, "weight"].sum() == pytest.approx(others, rel=0.1)
+    assert diagnostics.training_sample(frame, 1) is frame

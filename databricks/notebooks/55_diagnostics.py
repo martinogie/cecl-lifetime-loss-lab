@@ -39,10 +39,12 @@ cols = ", ".join(["loan_id", "vintage_year", "period_ym", "split", "outcome", "w
                   *fx.FEATURE_NAMES])  # fmt: skip
 train = spark.sql(f"select {cols} from {GOLD}.features where split = '{fx.TRAIN}'").toPandas()
 valid = spark.sql(f"select {cols} from {GOLD}.features where split = '{fx.VALIDATE}'").toPandas()
+train_sample = diagnostics.training_sample(train)  # every default, 1 in 5 of the rest (re-weighted)
+print(f"training rows scored: {len(train_sample):,} of {len(train):,}")
 results = {}
 for family, run_id in runs.items():
     model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model").unwrap_python_model().inner.model
-    results[family] = diagnostics.run_all(model, train, valid, pipeline.inputs)
+    results[family] = diagnostics.run_all(model, train_sample, valid, pipeline.inputs)
 minutes = round((time.monotonic() - started) / 60, 1)
 
 with mlflow.start_run(run_name="calibration-diagnostics"):

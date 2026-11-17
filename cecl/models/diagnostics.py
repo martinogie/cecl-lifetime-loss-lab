@@ -8,6 +8,9 @@ Three questions, answered from the existing models' predictions (every measure w
    over-predict 2012-2016 and under-predict the crisis years (a shift over time)?
 Also predicted / actual **prepayments** by calendar year (training and validation), not just their AUC.
 
+The training rows are scored on a sample (every default, 1 in 5 of the rest, re-weighted; see
+`training_sample`) to keep the run to about 5 minutes per model.
+
 3. **2017-2018 in the hurricane states (TX, FL, PR) vs the rest:** how much of the 2017-2018
    over-prediction comes from disaster forbearance (flags only from 2014, L-016)?
 """
@@ -22,6 +25,7 @@ from cecl import features as fx
 from cecl import metrics
 
 HURRICANE_STATES = ("TX", "FL", "PR")
+TRAIN_KEEP_EVERY = 5  # training rows scored: every default, 1 in 5 of the rest (re-weighted x5)
 HURRICANE_YEARS = ("2017", "2018")
 
 
@@ -65,6 +69,21 @@ def hurricane_states(frame: Any, proba: np.ndarray, states: Any = None) -> dict[
     hit = np.isin(st, HURRICANE_STATES)
     return {"hurricane_states": _ratio(frame, proba, in_years & hit),
             "other_states": _ratio(frame, proba, in_years & ~hit)}  # fmt: skip
+
+
+def training_sample(train: Any, keep_every: int = TRAIN_KEEP_EVERY) -> Any:
+    """Every default plus 1 in `keep_every` of the other training rows (fixed hash), re-weighted by
+    `keep_every`: actual defaults per year stay exact; predicted defaults and prepayments become
+    precise estimates. Scoring all 2.2 million training rows costs about 12 minutes per model."""
+    import pandas as pd
+
+    if keep_every <= 1:
+        return train
+    h = pd.util.hash_pandas_object(train[["loan_id", "period_ym"]], index=False).to_numpy() % keep_every
+    default = train["outcome"].to_numpy() == fx.DEFAULT
+    out = train[default | (h == 0)].copy()
+    out.loc[out["outcome"] != fx.DEFAULT, "weight"] *= keep_every
+    return out
 
 
 def run_all(model: Any, train: Any, valid: Any, inputs: Any) -> dict[str, Any]:
