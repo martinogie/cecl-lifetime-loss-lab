@@ -161,7 +161,7 @@ class PDModel:
 def log_run(mlflow: Any, name: str, model: Any, tuning: dict[str, Any], result: dict[str, Any], tags: dict[str, str],
             extra_params: dict[str, Any], example: Any) -> str:  # fmt: skip
     """Log one family's training and validation to MLflow; returns the run id."""
-    import mlflow.pyfunc  # noqa: F401 (registers the flavour)
+    from mlflow import pyfunc  # noqa: F401 (loads the flavour, so mlflow.pyfunc exists)
     from mlflow.models import infer_signature
 
     params = {k: json.dumps(v) if isinstance(v, (dict, list)) else v for k, v in model.params().items()}
@@ -192,7 +192,7 @@ class _PyfuncAdapter:  # pragma: no cover - only constructed inside MLflow loggi
     def __new__(cls, wrapper: PDModel) -> Any:
         import mlflow.pyfunc
 
-        class _Model(mlflow.pyfunc.PythonModel):  # type: ignore[name-defined]
+        class _Model(mlflow.pyfunc.PythonModel):  # type: ignore[name-defined, unused-ignore]
             def __init__(self, inner: PDModel) -> None:
                 self.inner = inner
 

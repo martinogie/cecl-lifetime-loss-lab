@@ -72,10 +72,10 @@ def standard_tags(root: Path, snapshot: str | None = None) -> dict[str, str]:
     return {"cecl_env": environment.current_env(), "git_commit": git_commit()} | snapshot_tags(root, snapshot)
 
 
-def configure(mlflow: Any = None, workspace_user: str | None = None) -> str:
+def configure(client: Any = None, workspace_user: str | None = None) -> str:
     """Point MLflow at this environment's experiment and registry; return the experiment path.
 
-    `mlflow` and `workspace_user` can be passed in (tests); otherwise mlflow is imported and the
+    `client` (the mlflow module) and `workspace_user` can be passed in (tests); otherwise mlflow is imported and the
     user is read from the workspace through the CLI profile (never printed).
     """
     settings = environment.require_airflow_env()  # dev or prod: local and ci have no experiment
@@ -87,16 +87,18 @@ def configure(mlflow: Any = None, workspace_user: str | None = None) -> str:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
-    if mlflow is None:  # pragma: no cover - needs requirements-ml.txt and the workspace
-        import mlflow
+    if client is None:  # pragma: no cover - needs requirements-ml.txt and the workspace
+        import mlflow as imported
+
+        client = imported
     if workspace_user is None:  # pragma: no cover - needs the workspace
         from databricks.sdk import WorkspaceClient
 
         workspace_user = WorkspaceClient(profile=profile()).current_user.me().user_name
     tracking, registry = tracking_uris()
-    mlflow.set_tracking_uri(tracking)
-    mlflow.set_registry_uri(registry)
+    client.set_tracking_uri(tracking)
+    client.set_registry_uri(registry)
     path = environment.mlflow_experiment_path(str(workspace_user))
-    mlflow.set_experiment(path)
+    client.set_experiment(path)
     assert settings.mlflow_experiment and path.endswith(settings.mlflow_experiment)
     return path
