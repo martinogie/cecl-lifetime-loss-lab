@@ -43,6 +43,10 @@ dist/
 coverage.xml
 htmlcov/
 
+# ---------------------------------------------------------------- mlflow (local test stores)
+mlruns/
+mlartifacts/
+
 # ---------------------------------------------------------------- airflow
 logs/
 airflow/logs/

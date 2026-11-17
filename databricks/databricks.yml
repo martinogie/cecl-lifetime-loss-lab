@@ -153,6 +153,133 @@ resources:
           timeout_seconds: 3600
           max_retries: 0
 
+    features:
+      name: cecl_lab_features_${var.env}
+      description: "Economic tables into silver, then the model's feature tables per vintage (ingestion.feature_build, Spark dialect), with tie-outs"
+      timeout_seconds: 7200
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      # No schedule here: run by hand or by Airflow (never on a Monday before 13:00 Chicago).
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: pinned
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: years
+          default: "2005,2009,2019"
+        - name: export_slice
+          default: "true"
+      tasks:
+        - task_key: load_macro
+          notebook_task:
+            notebook_path: ./notebooks/35_load_macro.py
+          environment_key: pinned
+          timeout_seconds: 1800
+          max_retries: 0
+        - task_key: features
+          depends_on: [{task_key: load_macro}]
+          notebook_task:
+            notebook_path: ./notebooks/40_features.py
+          environment_key: pinned
+          timeout_seconds: 7200
+          max_retries: 0
+
+    train_family:
+      name: cecl_lab_train_family_${var.env}
+      description: "Train ONE model family on the training months and validate it on 2017-2019 (cecl.models.pipeline); one family per run so a stopped run only redoes that family"
+      timeout_seconds: 7200
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      # No schedule here: started by hand or by the PC's scripts (never on a Monday before 13:00 Chicago).
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - interpret-core==0.7.8
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: family
+          default: logistic
+        - name: include_covid
+          default: "false"
+        - name: ebm_sample_every
+          default: "1"
+        - name: tune
+          default: "true"
+        - name: code_version
+          default: unknown
+        - name: data_snapshot
+          default: cecl-2026Q2-data-v1
+      tasks:
+        - task_key: train
+          notebook_task:
+            notebook_path: ./notebooks/50_train_family.py
+          environment_key: ml
+          timeout_seconds: 7200
+          max_retries: 0
+
+    oot_test:
+      name: cecl_lab_oot_test_${var.env}
+      description: "The out-of-time test, once (ADR-009 E): started only by scripts/run_oot_test.py"
+      timeout_seconds: 3600
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      # No schedule here: started by hand or by the PC's scripts (never on a Monday before 13:00 Chicago).
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - interpret-core==0.7.8
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: runs
+          default: "{}"
+        - name: chosen
+          default: ""
+        - name: adr_009_commit
+          default: ""
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: test
+          notebook_task:
+            notebook_path: ./notebooks/60_out_of_time_test.py
+          environment_key: ml
+          timeout_seconds: 3600
+          max_retries: 0
+
 targets:
   dev:
     # Not "mode: development": that mode prefixes every name with dev_<user>_ (schemas, volume,

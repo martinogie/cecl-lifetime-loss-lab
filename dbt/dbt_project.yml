@@ -42,6 +42,7 @@ seeds:
         property_state: varchar
         occupancy_status: varchar
         loan_purpose: varchar
+        relief_refinance_indicator: varchar
     fixture_freddie_performance:
       +column_types:
         loan_id: varchar

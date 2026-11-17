@@ -28,5 +28,9 @@ select
     cast(orig_loan_term as integer) > 360 as term_over_360,
     property_state,
     occupancy_status,
-    loan_purpose
+    loan_purpose,
+    -- HARP / relief refinance (Freddie's relief refinance indicator). Every such loan has its
+    -- debt-to-income missing (L-024), so the flag is a model feature of its own: missing DTI must
+    -- not stand in for "relief refinance".
+    coalesce(relief_refinance_indicator = 'Y', false) as relief_refinance
 from source

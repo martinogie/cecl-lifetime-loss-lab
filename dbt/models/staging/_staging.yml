@@ -24,6 +24,9 @@ models:
         data_tests: [not_null]
       - name: term_over_360
         data_tests: [not_null]
+      - name: relief_refinance
+        description: HARP / relief refinance (relief refinance indicator = Y); every such loan has DTI missing (L-024)
+        data_tests: [not_null]
 
   - name: stg_freddie__performance
     description: >

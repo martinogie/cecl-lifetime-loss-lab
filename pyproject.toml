@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cecl-lifetime-loss-lab"
-version = "0.0.1"
+version = "0.2.0"
 description = "Educational CECL lifetime loss model (PD x LGD x EAD) on Freddie Mac conforming mortgages."
 readme = "README.md"
 license = { text = "MIT" }
