@@ -145,3 +145,10 @@ limited disk space never holds large files.
 *Change (Martins, 15 November 2026):* the COVID full-data vintage is 2019 (optionally 2017), not 2020 or
 2021. Step 6 showed that COVID forbearance fell mostly on the 2015–2019 vintages, the loans outstanding
 in 2020, not on loans originated in 2020–2021.
+
+*Change (Martins, 16 November 2026):* Phase 2's feature build and model training run on Databricks,
+not on my PC: its 7.7 GB of memory is not enough. They use the free Databricks allowance shared with
+Bank Health, alongside the planned full-data vintages: a small slice first, one model family per
+job, never on a Monday before 13:00 Chicago or between 02:30 and 04:00, and every run's minutes in
+the run log. My PC stays the reference for code, tests and row-by-row comparisons. (Phase 2 plan,
+"Where the work runs".)

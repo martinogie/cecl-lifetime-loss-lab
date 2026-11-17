@@ -1,0 +1,15 @@
+# Model training on the PC (Phase 2): install on top of requirements-dev.txt.
+#   pip install -r requirements-dev.txt -r requirements-ml.txt
+# Kept separate so CI (lint, types, unit tests) stays light: the modules that use these import them
+# only when they run. Exact versions, so every training run can be repeated (logged in MLflow).
+numpy==2.4.6
+pandas==3.1.1
+scipy==1.17.1
+scikit-learn==1.9.1
+statsmodels==0.15.0      # logistic benchmark (multinomial logit)
+lightgbm==4.7.0          # gradient-boosted trees with monotonic constraints
+shap==0.51.0             # explanations and reason codes for LightGBM
+interpret-core==0.7.8    # Explainable Boosting Machine
+mlflow==3.18.0           # tracking and the Unity Catalog model registry (Databricks workspace)
+databricks-sdk==0.167.0  # reads the workspace user for the experiment path (CLI profile, no token)
+psutil==7.2.2            # training preflight: free memory, peak memory

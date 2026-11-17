@@ -134,6 +134,56 @@ python -m scripts.compare_databricks --years 1999-2026     # must say: 0 differe
 the same with fewer years: each notebook replaces only the vintages it is given. The comparison
 writes a run-log record with the Databricks minutes.
 
+## Model work on the PC (Phase 2)
+
+Since 16 November 2026 the full feature build and model training run on **Databricks** (Phase 2
+plan, amended): the PC's 7.7 GB of memory is not enough. The PC builds the comparison vintages with
+DuckDB, runs the tests, and talks to MLflow. Install once:
+`pip install -r requirements-dev.txt -r requirements-ml.txt` (about 1.5 GB). Commands that use MLflow
+run as `CECL_ENV=dev` through the CLI profile `cecl` (`cecl/tracking.py` pins every Databricks login
+in the run to that profile, so nothing falls back to the CLI's default profile, which is Bank
+Health's).
+
+**Before any heavy local run** (the PC has 2 cores and 7.7 GB of memory):
+1. Stop the dev Airflow stack (`cd airflow; docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down`).
+2. **Quit Docker Desktop** (tray icon → Quit). Its background Linux machine keeps 2–3 GB of memory
+   even with no containers running, and training doesn't need Docker.
+3. Close what you can (browsers, Slack, Discord).
+4. Every training command runs the preflight first and refuses to start unless at least 4 GB of
+   memory and 5 GB of disk are free and no dev Airflow container is running
+   (`ingestion/ml_preflight.py`); the figures and the run's peak memory are logged.
+
+Check the connection (no training): `CECL_ENV=dev python -m scripts.mlflow_check` logs a small
+`connection-check` run to the dev experiment.
+
+## Phase 2 on Databricks: features and training
+
+Allowance rules (L-009): never on a Monday before 13:00 Chicago or between 02:30 and 04:00; one model
+family per job; record every run's minutes (`python -m scripts.record_job_minutes --job <name>`).
+Run from `databricks/` with the project's environment first on the PATH (the bundle builds the
+wheel): `PATH="../.venv/Scripts:$PATH" databricks bundle ... --profile cecl`. Job parameters are
+comma-separated pairs, so a value can't contain a comma (use ranges such as `1999-2026`).
+
+0. **Refresh dbt's silver views on Databricks** (seconds; needed after any staging change, such as
+   the relief refinance flag added on 17 November): start Docker Desktop and the dev Airflow stack, then
+   `docker exec -w /opt/airflow/dbt cecl-dev-airflow-scheduler-1 sh -c '"$DBT_EXECUTABLE" build --profiles-dir .'`
+   (Git Bash: prefix `MSYS_NO_PATHCONV=1`); stop the stack again before heavy local work.
+1. **Full feature build** (about 18 minutes projected):
+   `databricks bundle run features -t dev --profile cecl --params years=1999-2026,export_slice=false`
+2. **Train one family per run**, logistic first (`<sha>` = `git rev-parse HEAD`):
+   `databricks bundle run train_family -t dev --profile cecl --params family=logistic,code_version=<sha>`
+   then `family=lightgbm`, then `family=ebm` (if too slow for the allowance: add
+   `ebm_sample_every=4`, which is recorded in the run and must be noted in the report and L-log).
+3. **Choose** (PC, no compute): `CECL_ENV=dev python -m scripts.select_model` writes
+   `docs/phase2/validation_report.md` and a `selection` run.
+4. **COVID sensitivity run** of the chosen family:
+   `... train_family ... --params family=<chosen>,include_covid=true,code_version=<sha>`
+5. **The out-of-time test, once** (commit everything first):
+   `CECL_ENV=dev python -m scripts.run_oot_test`
+6. **Register `@challenger`**: `CECL_ENV=dev python -m scripts.register_challenger`
+
+After each Databricks run: `CECL_ENV=local python -m scripts.record_job_minutes --job <job name>`.
+
 ## Dev Airflow on the PC
 
 ```
