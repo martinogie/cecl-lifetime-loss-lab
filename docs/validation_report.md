@@ -112,8 +112,9 @@ start and actuals tables reproduces the Databricks totals to five decimal places
 | 2019 | 48-71, average 59 | 59-91, average 72 |
 
 The projection tracks 2017 month by month, with no jump. From March 2018 it runs about 20-25%
-below actual. The drop starts as the start month's late-payment history fades out of the 12-month
-window (L-026: the start value fades evenly over 12 months).
+below actual. (These monthly figures are from the faded-history run, 100e781. With the exact history,
+9548682, they are almost the same: 2017 average 108 a month, March-December 2018 average 66, 2019
+average 59. See below.)
 
 **By starting state (defaults over 2017-2019):**
 
@@ -124,9 +125,26 @@ window (L-026: the start value fades evenly over 12 months).
 | 60 days late | 381 | 169 | 256 | 0.66 |
 
 The whole default shortfall is in loans that were already late at the start. Loans that start
-current are projected almost exactly. A likely contributor is that the projection forgets these
-loans' late history too quickly (above), so loans that cure are scored as cleaner than they are.
-Recorded under L-026; the defaults still pass every cell.
+current are projected almost exactly.
+
+**Tested and ruled out: the faded start history.** The projection then started from each loan's
+actual late-payment history (its 12 panel rows before January 2017, a start month leaving the window
+exactly when it would in the data; commit 9548682; tie-out: all 278,373 loans' flags add up to their
+late_months_12). Databricks MLflow run `8f678210bfb848e4a08f61f09cb36dcd`:
+
+| Starting state | Actual | Faded history (100e781) | Exact history (9548682) |
+|---|---|---|---|
+| Current | 2,377 | 2,388 (1.00) | 2,335 (0.98) |
+| 30 days late | 529 | 355 (0.67) | 358 (0.68) |
+| 60 days late | 256 | 169 (0.66) | 169 (0.66) |
+| All | 3,162 | 2,912 (0.92) | 2,863 (0.91) |
+
+The shortfall for loans late at the start, and the March 2018 step down (projected 62-73 a month
+for March-December 2018 against 73-96 actual), are essentially unchanged. So the cause lies elsewhere:
+most likely the 30- and 60-day models themselves, for loans already behind in January 2017. Those
+loans differ from earlier late loans (score stability for the 30-day step is 0.7-1.1). Not yet
+diagnosed. Every default cell still passes (2018 by year: 0.81; 2019: 0.82). The exact history is
+kept, because it matches the data's definition.
 
 ### Payoffs are under-projected after the first year (limitations log L-028)
 
