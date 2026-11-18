@@ -65,8 +65,8 @@ def by_calendar_year(frame: Any, proba: np.ndarray, cause: str = "default") -> d
 def hurricane_states(frame: Any, proba: np.ndarray, states: Any = None) -> dict[str, dict[str, float]]:
     """2017-2018 predicted / actual defaults in TX, FL and PR against every other state."""
     st = np.asarray(states if states is not None else frame["property_state"].to_numpy())
-    in_years = np.isin(frame["period_ym"].str[:4].to_numpy(), HURRICANE_YEARS)
-    hit = np.isin(st, HURRICANE_STATES)
+    in_years = np.isin(frame["period_ym"].str[:4].to_numpy().astype(str), HURRICANE_YEARS)
+    hit = np.isin(st.astype(str), HURRICANE_STATES)  # fixed-width text: fast
     return {"hurricane_states": _ratio(frame, proba, in_years & hit),
             "other_states": _ratio(frame, proba, in_years & ~hit)}  # fmt: skip
 

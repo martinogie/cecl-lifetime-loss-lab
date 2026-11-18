@@ -109,3 +109,15 @@ def test_auc_matches_the_pairwise_definition() -> None:
 def test_gini() -> None:
     assert metrics.gini(0.5) == 0.0 and metrics.gini(1.0) == 1.0 and metrics.gini(0.75) == pytest.approx(0.5)
     assert math.isnan(metrics.gini(float("nan")))
+
+
+def test_horizon_labels_are_fast_on_many_text_ids() -> None:
+    """np.isin on object strings compares every pair; the labels must stay fast at real sizes."""
+    import time
+
+    n = 200_000
+    ids = np.array([f"F17Q{i % 20000:07d}" for i in range(n)], dtype=object)
+    per = np.array(["201701"] * 20000 + ["201702"] * (n - 20000), dtype=object)
+    started = time.monotonic()
+    labels = metrics.horizon_labels(ids, per, np.zeros(n, dtype=int), "201701", 2)
+    assert len(labels) == 20000 and time.monotonic() - started < 10

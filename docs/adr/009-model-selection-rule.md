@@ -115,3 +115,49 @@ tuned on it.
 *Why:* this mirrors bank practice: an explainable benchmark that a challenger must clearly beat,
 calibration bars that allow for sampling noise but catch real bias, and a clean, untouched final
 test.
+
+## Amendment 1: the multi-state design (ADR-011)
+
+- **Status of this amendment:** proposed, 17 November 2026 (pending Martins's approval). The
+  out-of-time test command refuses to run while any amendment here is pending.
+- **Why:** ADR-011 (accepted 17 November 2026) replaces the single default/prepayment model with a
+  monthly multi-state model: logistic models for the moves out of current, 30 and 60 days late, with
+  LightGBM and the EBM as challengers only on the move out of current. The original Decision above
+  (split, bars, the 2% rule, the single test) is kept; this amendment says how it applies.
+
+**A (split): unchanged.** Train on 1999-2016, choose on 2017-2019, test once on July 2022 - June 2026;
+the COVID months (2020 - June 2022) stay out of fitting and choosing, with the sensitivity run.
+
+**B (measures), per transition model** (one model per starting state: current, 30, 60), all weighted:
+- log loss over the next-month states;
+- **calibration bars per transition:** predicted ÷ actual counts of each move (for example current →
+  30, 30 → current, 60 → default, any state → prepaid), by calendar year and by vintage, must fall
+  within **0.80-1.25** in every cell with **at least 200 actual moves** of that kind (the same bar and
+  minimum as the original B; cells with fewer moves are reported, not judged);
+- AUC and Gini of the key moves, reported (not judged): current → 30, 30 → current, 60 → default;
+- **projection check on 2017-2019:** starting from each loan's state in January 2017, the full
+  multi-state projection (the economy as it actually happened, each loan's later delinquency not
+  known) gives projected vs actual defaults and prepayments by year and by vintage, against the same
+  0.80-1.25 bar (cells with at least 200 actual events). This is what the reserve depends on.
+
+**C (selection), the 2% rule applies to one comparison only: the model for moves out of current.**
+The logistic model stays unless LightGBM or the EBM (fitted for the same moves out of current)
+improves validation log loss **of the current → 30 move** by at least 2%, passes every calibration
+bar of the moves out of current and the projection check, and produces reason codes; ties go to the
+simpler family. The models for moves out of 30 and 60 are logistic only: they must pass their own
+calibration bars; if a bar fails, that is recorded (and the optional ADR-010 extras may be tested
+with Martins's approval), not hidden.
+
+**D:** the chosen family is used for moves out of current; logistic for moves out of 30 and 60. Each
+family's model covers every move out of its starting state, prepayment included.
+
+**E (the out-of-time test, once), what it measures:**
+1. the **full multi-state projection** from each loan's state on 1 July 2022 to June 2026: projected
+   vs actual **defaults and prepayments by vintage and by year**, against the 0.80-1.25 bar (cells
+   with at least 200 actual events);
+2. **each transition's calibration** (predicted ÷ actual moves by year and vintage) on the test months;
+3. AUC and Gini of current → 30 (and of the other key moves), reported.
+It runs once, after this amendment is accepted and committed; its results are recorded whatever they
+show; no model is tuned on it (the original E).
+
+**Decision on this amendment:** *pending, Martins.*

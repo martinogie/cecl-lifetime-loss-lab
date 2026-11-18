@@ -24,8 +24,11 @@ PROFILE = "cecl"
 
 
 def adr_accepted(text: str) -> bool:
+    """Accepted with Martins's Decision, and no amendment still pending (an amendment must be locked
+    in before the test, like the original rule)."""
     status = next((line for line in text.splitlines() if line.startswith("- **Status:**")), "")
-    return "accepted" in status and "**Decision (Martins" in text
+    pending = any("Status of this amendment:** proposed" in line for line in text.splitlines())
+    return "accepted" in status and "**Decision (Martins" in text and not pending
 
 
 def git(*args: str) -> str:

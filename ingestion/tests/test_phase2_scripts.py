@@ -9,10 +9,19 @@ from scripts import run_oot_test
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_adr_009_is_accepted_with_martins_decision() -> None:
-    assert run_oot_test.adr_accepted(
-        (ROOT / "docs" / "adr" / "009-model-selection-rule.md").read_text(encoding="utf-8")
+def test_adr_009_with_a_pending_amendment_blocks_the_test() -> None:
+    text = (ROOT / "docs" / "adr" / "009-model-selection-rule.md").read_text(encoding="utf-8")
+    pending = "Status of this amendment:** proposed" in text
+    assert run_oot_test.adr_accepted(text) is (not pending)
+
+
+def test_accepted_amendment_unblocks() -> None:
+    text = (
+        "- **Status:** accepted\n**Decision (Martins, 16 November 2026).**\n"
+        "- **Status of this amendment:** accepted, 18 November 2026\n"
     )
+    assert run_oot_test.adr_accepted(text)
+    assert not run_oot_test.adr_accepted(text.replace("amendment:** accepted", "amendment:** proposed"))
 
 
 def test_guard_refuses_a_draft() -> None:

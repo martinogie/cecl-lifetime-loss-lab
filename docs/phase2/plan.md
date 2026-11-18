@@ -8,6 +8,9 @@
   row-by-row comparison. Everything else in this plan is unchanged: the split, the features, 1-in-25
   sampling with weights in every measure, the COVID sensitivity run, MLflow tracking, `@challenger`
   only. Details: "Where the work runs" below; ADR-001 and L-009 updated.
+- **Amended 17 November 2026 (ADR-011, accepted):** the competing-risks hazard is extended to a monthly
+  **multi-state (delinquency-transition) model**; steps 3-8 below are replaced by
+  [plan_multistate.md](plan_multistate.md) (proposed, pending approval with ADR-009 Amendment 1).
 - **Source:** roadmap v2, section 4 (data, splits, known limits), section 5.1 (methods) and the
   Phase 2 acceptance criteria in section 7.
 - **What Phase 2 delivers:** one model of each loan's monthly chance of **default** and of

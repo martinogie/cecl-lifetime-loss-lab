@@ -126,9 +126,15 @@ def horizon_labels(loan_id: Sequence[str], period_ym: Sequence[str], outcome: Se
     still alive at the end without defaulting. Loans whose rows stop early with neither event (they
     left the data: censored) have an unknown outcome and are left out."""
     end = _add_months(start, months - 1)
-    ids, per, y = np.asarray(loan_id), np.asarray(period_ym), np.asarray(outcome, dtype=int)
+    # Fixed-width text arrays: np.isin on Python-object strings compares every pair (323 s for 300k
+    # rows against 20k ids, 17 Nov 2026); on fixed-width text it sorts (0.2 s).
+    ids, per, y = (
+        np.asarray(loan_id).astype(str),
+        np.asarray(period_ym).astype(str),
+        np.asarray(outcome, dtype=int),
+    )
     alive = set(ids[per == start].tolist())
-    window = (per >= start) & (per <= end) & np.isin(ids, list(alive))
+    window = (per >= start) & (per <= end) & np.isin(ids, np.array(sorted(alive), dtype=str))
     last: dict[str, str] = {}
     event: dict[str, int] = {}
     for i, py, yy in zip(ids[window], per[window], y[window], strict=True):
