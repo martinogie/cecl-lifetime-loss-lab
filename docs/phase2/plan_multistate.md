@@ -135,6 +135,35 @@ EBM; T-30 logistic, LightGBM, EBM; T-current logistic, LightGBM, EBM.
 | M8 the out-of-time test, after approval | about 10 |
 | **Total** | **about 185-280** |
 
+## Model documentation (feeds the website's Models & Methods page; added 18 November 2026)
+
+Written as part of M9 (model card) and kept in step with the code, so the Phase 7 page can be built
+from it. Aggregates only. What it must record, as the project does it **today**:
+
+- **Data contracts:** one per Freddie file version (`ingestion/contracts/freddie_orig_r48.yml`,
+  `freddie_perf_r48.yml`) and for the economic sources (`macro_sources.yml`): columns, types and code
+  lists; a failure stops the load. The feature table has its own contract: every feature's type, a
+  sanity range per feature (`cecl/features.py` `RANGES`, for example credit score 300-850, current LTV
+  0-1000%), and a row outside a range **stops the build**; nothing is silently capped.
+- **Missing values:** at most 5% missing per feature, or the build stops; the one exception is
+  debt-to-income at 10% (blank for many 2010-2013 relief refinances; L-024). Missing values are kept
+  as information: the logistic scorecard gives them their own bin, LightGBM and the EBM treat missing
+  as its own case. State economic series are missing for Puerto Rico, Guam and the Virgin Islands (L-023).
+- **Outliers:** no capping or winsorising today. Extreme but real values are kept (for example seven
+  HARP relief refinances with current LTV between 446% and 665%). The scorecard bins each input at
+  weighted deciles (or fixed whole-month cuts for months late in the past 12, current-loan model;
+  ADR-009 Amendment 2), so an extreme value only lands in the end bin; tree models split on order, not
+  size. **Decision (Martins, 18 November 2026; the recommendation accepted):** no winsorising for the transition models (binning
+  and trees already make them insensitive to extreme values, and capping would hide real HARP loans);
+  decide capping separately for LGD in Phase 3, where loss severity can exceed 100% of the balance
+  (expenses) and the amounts feed the reserve directly.
+- **Features, sampling and weights, the multi-state design, tuning, training, selection and the
+  out-of-time test:** as in this plan, ADR-011 and ADR-009 (with Amendments 1 and 2).
+- **Exports for the site (built in Phase 7, specified now):** the training job writes, per run, the
+  training curves, the per-transition metrics (log loss, AUC, Gini, calibration by year, vintage and
+  band, PSI), the winner table and the ROC curve points per transition, as one artifact set the site
+  can read. The ROC export is new (today the job logs AUC and Gini, not the curve points).
+
 ## Approvals
 
 This plan and ADR-009 Amendment 1 (including the combination check and the tuning method) were
