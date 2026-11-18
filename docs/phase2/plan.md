@@ -116,7 +116,7 @@ and of neither. All use the same features, rows and split.
 | Step | Family | How | Explained by |
 |---|---|---|---|
 | 3 | **Logistic scorecard** (the benchmark) | Multinomial logistic regression on binned features (scorecard-style bins, monotonic where expected), statsmodels or scikit-learn | Coefficients; points per bin |
-| 4 | **LightGBM** | Gradient-boosted trees with monotonic constraints on the features marked monotonic above; tuned on the training years only (time-ordered folds) | SHAP values |
+| 4 | **LightGBM** | Gradient-boosted trees with monotonic constraints on the features marked monotonic above; tuned on the training years only (one inner time split: fit 1999-2013, judge 2014-2016, then refit on all training years) | SHAP values |
 | 5 | **Explainable Boosting Machine** (InterpretML) | An additive model of one-feature shapes plus a few pairwise interactions | Its own shape plots |
 
 If the EBM is too slow for the daily allowance on the full training rows, it is trained on a smaller

@@ -340,3 +340,27 @@ def test_diagnostic_training_sample_keeps_every_default() -> None:
     others = frame.loc[~defaults, "weight"].sum()
     assert sample.loc[sample["outcome"] != fx.DEFAULT, "weight"].sum() == pytest.approx(others, rel=0.1)
     assert diagnostics.training_sample(frame, 1) is frame
+
+
+def test_ebm_early_stopping_is_time_based() -> None:
+    from cecl.models import families as fam
+
+    periods = np.array(["201005", "201312", "201401", "201612", "200101"] * 400)
+    bags = fam.time_bags(periods, 3, seed=1)
+    assert bags.shape == (2000, 3)
+    late = periods >= "201401"
+    assert (bags[late] == -1).all()  # 2014-2016: the stopping set in every bag
+    assert set(np.unique(bags[~late])) <= {0, 1} and (bags[~late] == 1).mean() == pytest.approx(
+        0.85, abs=0.03
+    )
+    assert not np.array_equal(bags[:, 0], bags[:, 1])  # the bags differ
+    frame = book(3000)
+    frame["period_ym"] = np.where(np.arange(len(frame)) % 4 == 0, "201505", "201105")
+    timed, _ = pipeline.train(
+        "ebm", frame, settings={"interactions": 0, "outer_bags": 2, "max_rounds": 100, "time_stopping": True}
+    )
+    assert timed.params()["early_stopping"].startswith("time")
+    default, _ = pipeline.train(
+        "ebm", frame, settings={"interactions": 0, "outer_bags": 2, "max_rounds": 100}
+    )
+    assert default.params()["early_stopping"] == "random 15% per bag"  # the default (L-025)

@@ -185,26 +185,60 @@ class LightGBMPair:
 # ---------------------------------------------------------------------------- EBM
 
 
+INNER_STOP_FIRST = "201401"  # the inner split used for tuning: fit up to 2013, judge (and stop) on 2014-2016
+BAG_TRAIN_SHARE = 0.85  # each bag trains on a random 85% of the 1999-2013 rows, so the bags differ
+
+
+def time_bags(periods: np.ndarray, outer_bags: int, seed: int) -> np.ndarray:
+    """EBM bag definitions (rows x bags): +1 = train, -1 = validation (early stopping), 0 = left out.
+    Every 2014-2016 row is the stopping set in every bag (time-based, like the tuning split); each
+    bag trains on its own random 85% of the 1999-2013 rows."""
+    rng = np.random.default_rng(seed)
+    late = periods >= INNER_STOP_FIRST
+    bags = np.zeros((len(periods), outer_bags), dtype=np.int8)
+    for b in range(outer_bags):
+        chosen = (~late) & (rng.uniform(size=len(periods)) < BAG_TRAIN_SHARE)
+        bags[chosen, b] = 1
+        bags[late, b] = -1
+    return bags
+
+
 class EBMPair:
     name = "ebm"
 
     def __init__(self, interactions: int = 5, outer_bags: int = 4, max_rounds: int = 2000, seed: int = 7,
-                 features: tuple[str, ...] = FEATURES) -> None:  # fmt: skip
+                 features: tuple[str, ...] = FEATURES, time_stopping: bool = False) -> None:  # fmt: skip
         self.settings: dict[str, Any] = {"interactions": interactions, "outer_bags": outer_bags,
                                          "max_rounds": max_rounds, "random_state": seed}  # fmt: skip
         self.features = tuple(features)
+        # Off by default (L-025): with time-based stopping the 2014-2016 rows are never trained on.
+        self.time_stopping = time_stopping
         self.models: dict[str, Any] = {}
 
     def fit(
-        self, X: dict[str, np.ndarray], outcome: np.ndarray, weight: np.ndarray, eval_set: Any = None
+        self,
+        X: dict[str, np.ndarray],
+        outcome: np.ndarray,
+        weight: np.ndarray,
+        eval_set: Any = None,
+        periods: np.ndarray | None = None,
     ) -> EBMPair:
+        """With `time_stopping` and `periods` (YYYYMM per row), early stopping is time-based
+        (`time_bags`: train <=2013, stop on 2014-2016, which are then never trained on). By default
+        InterpretML holds out a random 15% of the training rows in each bag (L-025)."""
         from interpret.glassbox import ExplainableBoostingClassifier
 
         feats = feature_list(self)
         m = matrix(X, feats)
+        use_time = getattr(self, "time_stopping", False) and periods is not None
+        bags = None if not use_time else time_bags(np.asarray(periods), self.settings["outer_bags"],
+                                                   self.settings["random_state"])  # fmt: skip
+        self.early_stopping = (
+            "time: train <=2013, stop on 2014-2016" if bags is not None else "random 15% per bag"
+        )
         for cause, code in (("default", fx.DEFAULT), ("prepay", fx.PREPAY)):
             model = ExplainableBoostingClassifier(feature_names=list(feats), **self.settings)
-            model.fit(m, (outcome == code).astype(int), sample_weight=weight)
+            model.fit(m, (outcome == code).astype(int), sample_weight=weight, bags=bags)
             self.models[cause] = model
         return self
 
@@ -227,7 +261,8 @@ class EBMPair:
         return out
 
     def params(self) -> dict[str, Any]:
-        return {"family": self.name, **self.settings, "features": list(feature_list(self))}
+        return {"family": self.name, **self.settings, "features": list(feature_list(self)),
+                "early_stopping": getattr(self, "early_stopping", "random 15% per bag")}  # fmt: skip
 
 
 FAMILIES: dict[str, type] = {"logistic": LogisticScorecard, "lightgbm": LightGBMPair, "ebm": EBMPair}

@@ -21,10 +21,53 @@ A logistic regression's predictions add up to the actual count on its own traini
 this size on later years means the default level moved: loans in 2017-2019 defaulted less than
 anything the features explain from 1999-2016 (a period dominated by the 2007-2010 crisis).
 
-**Diagnostics** (existing models, no retraining; `cecl/models/diagnostics.py`, MLflow run tagged
-`diagnostics`): *to be filled in from the diagnostics run* (AUC and calibration for loans current vs
-already delinquent at the start of the month; predicted / actual by calendar year 1999-2016; 2017-2018
-in TX, FL and PR vs the rest).
+**Diagnostics** (17 November 2026, existing models, scoring only, no retraining, never the test
+months; MLflow run tagged `diagnostics`, job run at commit `175d1d2`, 2.2 minutes; training rows
+scored on a sample: every default, 1 in 5 of the rest, re-weighted). Ratios are predicted / actual
+defaults (weighted); AUC with Gini (= 2 x AUC - 1) in brackets.
+
+*1. Delinquency at the start of the month (validation 2017-2019).* **98.5% of validation defaults
+(3,695 of 3,752) come from loans already behind last month**; loans current last month produced 57.
+So the 0.99 default AUC mostly separates current from delinquent loans.
+
+| Family | Current loans: AUC (Gini) | Current: ratio | Delinquent loans: AUC (Gini) | Delinquent: ratio |
+|---|---|---|---|---|
+| Logistic | 0.850 (0.699) | 3.99 | 0.507 (0.014) | 1.44 |
+| LightGBM | 0.605 (0.211) | 0.003 | 0.942 (0.883) | 1.43 |
+| EBM | 0.820 (0.639) | 2.72 | 0.950 (0.901) | 1.24 |
+
+The 57 current-loan defaults are too few for the ADR-009 bar (200), so their ratios are unstable;
+the over-prediction that matters is among **delinquent** loans (1.24-1.44), which hold almost every
+default: in 2017-2019, delinquent loans rolled into default less often than in 1999-2016.
+
+*2. Predicted / actual defaults by calendar year.* Inside the training years the models are roughly
+level: LightGBM and the EBM are within 0.81-1.15 in every year from 2003 to 2016 (no systematic
+over-prediction in 2012-2016; 2016 slightly under, 0.81-0.85); the logistic model is 0.91-1.18
+(2008 under, 0.72; 2015-2016 over, 1.17-1.18). The gap opens **after** the training window:
+2017 1.16-1.34, 2018 1.36-1.48, 2019 1.27-1.74.
+
+*3. Prepayments by calendar year.* Training years swing widely: under-predicted in the 2003 refinance
+boom (0.56-0.70) and over-predicted in 2014-2016 (1.12-1.36); validation 0.90-1.26. The level is
+roughly right on average, the timing of refinance waves is not.
+
+*4. 2017-2018 in TX, FL and PR (hurricane states, L-016) vs the rest.* Hurricane states: 1.56-1.73
+(356 defaults); other states: 1.20-1.36 (2,112 defaults). Disaster forbearance adds to the gap in
+those states, but they hold 14% of the defaults: most of the over-prediction is nationwide.
+
+*What this means for the era explanation (Martins's Decision asks to be told before retraining if
+the diagnostics contradict it):* the evidence **only partly supports** it. For underwriting quality to
+explain the gap, the post-2009 vintages would have to be over-predicted where they were seen, but in
+2012-2016 the tree models were level. The gap is concentrated among loans already delinquent, and it
+appears after 2016 across the country: that points more to fewer delinquent loans rolling into
+default (stronger cures, loss mitigation and rising house prices) than to origination-era quality
+alone. The era feature may still help (post-2009 loans that fall behind may cure more), but it is not
+the clear cause the Decision assumed.
+
+**Also found (affects every family, and Phase 4):** the 12/24/36-month AUC (`metrics.horizon_auc`) uses
+each loan's *actual* later months, including its later delinquency status, so it overstates how well
+a lifetime forecast made at the start date would rank loans. And because the strongest inputs are
+last month's delinquency, a lifetime projection from a reserve date (when most loans are current)
+needs either a delinquency-transition model or a PD that does not depend on future delinquency.
 
 ## Options
 

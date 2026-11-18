@@ -81,8 +81,9 @@ def _fit(name: str, frame: Any, settings: dict[str, Any], features: tuple[str, .
     if eval_frame is not None:
         eval_set = (columns(eval_frame, features), eval_frame["outcome"].to_numpy(dtype=int),
                     eval_frame["weight"].to_numpy(dtype=float))  # fmt: skip
+    extra = {"periods": frame["period_ym"].to_numpy()} if name == "ebm" else {}  # time-based EBM stopping
     return model.fit(columns(frame, features), frame["outcome"].to_numpy(dtype=int),
-                     frame["weight"].to_numpy(dtype=float), eval_set=eval_set)  # fmt: skip
+                     frame["weight"].to_numpy(dtype=float), eval_set=eval_set, **extra)  # fmt: skip
 
 
 def train(
