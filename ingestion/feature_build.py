@@ -124,6 +124,7 @@ lagged as (
         lag(p.upb) over w as upb_prev,
         lag(m.rate) over w as rate_prev,
         lag(p.effective_months_late) over w as late_prev,
+        lag(p.effective_months_late, 2) over w as late_prev2,
         lag(p.flagged_pause) over w as pause_prev,
         lag(m.eltv) over w as eltv_prev,
         lag(p.remaining_months) over w as remaining_prev,
@@ -165,6 +166,12 @@ rows as (
         cast(month(l.month) as double) as calendar_month,
         o.property_state,
         cast(l.eltv_prev as double) as eltv_prev,
+        -- transition-only inputs (Martins, 18 Nov 2026): the state the month before the starting
+        -- state, the state house-price change since origination, and the rate at origination minus
+        -- the market rate in the origination month (SATO)
+        cast(coalesce(l.late_prev2, 0) as double) as state_last_month,
+        h1.value / h0.value - 1.0 as hpi_gain,
+        o.orig_rate - mo.value as sato,
         -- multi-state (ADR-011): the starting state (last month's) and this month's state
         cast(coalesce(l.late_prev, 0) as int) as state_prev,
         cast({fx.state_sql("l.status", "l.effective_months_late")} as int) as state,
@@ -181,6 +188,7 @@ rows as (
     left join ur u1 on u1.state = o.property_state and u1.month = {prev("l.month")}
     left join ur u13 on u13.state = o.property_state and u13.month = {prev("l.month", -13)}
     left join mkt mk on mk.month = {prev("l.month")}
+    left join mkt mo on mo.month = o.orig_month
     where l.status <> '{fx.EXCLUDED_STATUS}'
 )"""
 
@@ -202,7 +210,8 @@ kept as (
 strata_kept as (
     select obs_year, count(*) filter (where outcome = {fx.NONE}) as n_kept from kept group by obs_year
 )
-select k.* {ex} (sampled, n_all, status, obs_year, state_prev, state, upb_start, rate_start, remaining_start, orig_ltv, hpi_orig),
+select k.* {ex} (sampled, n_all, status, obs_year, state_prev, state, upb_start, rate_start, remaining_start, orig_ltv, hpi_orig,
+                 state_last_month, hpi_gain, sato),
        case when k.outcome = {fx.NONE} then cast(k.n_all as double) / sk.n_kept else 1.0 end as weight
 from kept k join strata_kept sk on sk.obs_year = k.obs_year
 """
@@ -216,7 +225,8 @@ def horizon_sql(vintage: int, rel: dict[str, str], dialect: str) -> str:
     return (
         _rows_ctes(vintage, rel, dialect)
         + f"""
-select r.* {ex} (status, obs_year, state_prev, state, upb_start, rate_start, remaining_start, orig_ltv, hpi_orig), 1.0 as weight
+select r.* {ex} (status, obs_year, state_prev, state, upb_start, rate_start, remaining_start, orig_ltv, hpi_orig,
+                 state_last_month, hpi_gain, sato), 1.0 as weight
 from rows r where r.split in ({splits}) and {horizon_condition(dialect)}
 """
     )

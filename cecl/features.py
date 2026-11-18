@@ -128,9 +128,30 @@ FEATURES: tuple[Feature, ...] = (
     Feature("calendar_month", "month of the year of t (prepayment seasonality)", 0, 0),
 )  # fmt: skip
 FEATURE_NAMES = tuple(f.name for f in FEATURES)  # the feature table's columns
+# Inputs used by the transition models only (approved by Martins 18 November 2026, after the step-0
+# diagnoses in limitations log L-030 and L-028). Directions are the monotone constraints' business
+# reasons (cecl/models/transitions.py applies them by role: rolls to worse states follow the default
+# direction, cures the opposite, payoffs the prepay direction):
+# - state_last_month: a loan that was late last month, or is recovering from 60, rolls back far more
+#   (current -> 30: 0.5% / 19.5% / 30.0% a month by last month's state in 1999-2016), and a recent late
+#   payment blocks a refinance (payoffs 1.46% / 1.08% / 1.04%). Free in the 30- and 60-day models:
+#   among loans already late the path is not one-directional (60 -> default: 28% / 45% / 27%).
+# - hpi_gain: more equity, less default (60 -> default 48% at a loss of over 10% down to 29% at a gain
+#   of over 50%); payoffs left free, because the effect is not one-directional in the data (underwater
+#   relief refinances paid off fast in 2009-2013).
+# - sato: a rate above the market rate at origination marks a riskier borrower (current -> 30: 0.36%
+#   a month at 0.5 points below market, 1.03% at 0.5 above); payoffs left free (the effect overlaps
+#   the rate incentive).
+TRANSITION_EXTRA: tuple[Feature, ...] = (
+    Feature("state_last_month", "the loan's state the month before its starting state: 0 current, 1 = 30 days, 2 = 60 days late", 1, -1),
+    Feature("hpi_gain", "state house-price change from the origination month to last month (index ratio - 1)", -1, 0),
+    Feature("sato", "loan's rate at origination minus the market 30-year rate in the origination month, points", 1, 0),
+)  # fmt: skip
 # The transition models' inputs: "months late last month" is the starting state itself, so it is
-# constant within each transition model and left out (18 features).
-TRANSITION_FEATURES = tuple(n for n in FEATURE_NAMES if n != "months_late_prev")
+# constant within each transition model and left out (18 features), plus the three above (21).
+TRANSITION_FEATURES = tuple(n for n in FEATURE_NAMES if n != "months_late_prev") + tuple(
+    f.name for f in TRANSITION_EXTRA
+)
 
 # Origination-era features (ADR-010, Option E): derived at model time from the loan's origination year
 # (`vintage_year`), so the feature table needs no rebuild. "binary": originated 2009 or later (post-crisis
@@ -201,6 +222,9 @@ RANGES: dict[str, tuple[float | None, float | None]] = {
     "mi_pct": (0, 100),
     "orig_upb": (1, 10_000_000),
     "calendar_month": (1, 12),
+    "state_last_month": (0, 2),
+    "hpi_gain": (-1, 20),
+    "sato": (-10, 10),
 }
 # Largest share of missing values allowed per feature (above it, the build stops). Credit score,
 # DTI and LTV can be "not available" in Freddie's data; state features are missing for Puerto Rico,

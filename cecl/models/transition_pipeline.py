@@ -149,6 +149,13 @@ def late_band(late_months_12: Any) -> np.ndarray:
     return out
 
 
+def last_month_band(state_last_month: Any) -> np.ndarray:
+    """Last month's state as a name (current, 30, 60): every move is also judged by it (Martins,
+    18 November 2026, extending the ADR-009 Amendment 2 band bar)."""
+    x = np.nan_to_num(np.asarray(state_last_month, dtype=float), nan=0.0).astype(int).clip(0, 2)
+    return np.array(["current", "30", "60"], dtype=object)[x]
+
+
 def evaluate(model: Any, frame: Any, train_frame: Any) -> dict[str, Any]:
     """Every ADR-009 Amendment 1 B measure on one period (validation), weighted, plus the Amendment 2
     bar: each move's calibration by late-payment-history band."""
@@ -162,6 +169,7 @@ def evaluate(model: Any, frame: Any, train_frame: Any) -> dict[str, Any]:
         "year": frame["period_ym"].str[:4].to_numpy(),
         "vintage": frame["vintage_year"].astype(str).to_numpy(),
         "late_band": late_band(frame["late_months_12"]),
+        "state_last_month": last_month_band(frame["state_last_month"]),
     }
     passes = True
     calibration: dict[str, Any] = {}

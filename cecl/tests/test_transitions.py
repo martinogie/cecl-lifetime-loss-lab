@@ -196,6 +196,7 @@ def start_table(states: list[int]) -> pd.DataFrame:
     frame["loan_age"], frame["calendar_month"], frame["late_months_12"] = 10.0, 1.0, 0.0
     for col in multistate.HISTORY:
         frame[col] = 0.0
+    frame["state_last_month"] = 0.0
     frame["state_prev"] = states
     frame["loan_id"] = [f"L{i}" for i in range(n)]
     frame["vintage_year"] = 2015
@@ -311,7 +312,9 @@ def test_clean_loans_never_see_a_fraction_of_a_late_month() -> None:
 def test_projected_late_months_leave_after_a_year() -> None:
     # 30 -> current for sure, then current for good: the late month counts for 11 months, then drops out
     models = {s: Recorder([1.0, 0.0, 0.0, 0.0, 0.0]) for s in fx.LIVE_STATES}
-    multistate.project(models, start_table([fx.LATE_30]), macro(), "201701", 16)
+    start = start_table([fx.LATE_30])
+    start["late_months_12"], start["late_hist_1"] = 1.0, 1.0  # late in December (the start row's own state)
+    multistate.project(models, start, macro(), "201701", 16)
     seen = [float(x[0]) for x in models[fx.CURRENT].seen]  # projected months 1..15, one slice each
     assert seen[:11] == [1.0] * 11 and seen[11:] == [0.0] * 4
 
@@ -353,5 +356,65 @@ def test_current_logistic_uses_whole_month_cuts_for_late_months() -> None:
     model = transition_pipeline.fit("logistic", fx.CURRENT, frame, {"C": 1.0})
     b = [x for x in model.bins if x.name == "late_months_12"][0]
     assert b.edges[0] == 0.0 and len(b.edges) >= 4  # not collapsed to a single cut
-    # the 30-day model keeps its quantile cuts
-    assert fx.LATE_30 not in transitions.FIXED_EDGES
+    # the 30-day model keeps its quantile cuts for late months (only "state last month" is fixed there)
+    assert "late_months_12" not in transitions.FIXED_EDGES[fx.LATE_30]
+
+
+def test_state_last_month_follows_the_projection() -> None:
+    # 60 -> current for sure, then current -> current: the current model sees "60 last month" once, then 0
+    models = {s: Recorder([1.0, 0.0, 0.0, 0.0, 0.0]) for s in fx.LIVE_STATES}
+
+    class Seen(Recorder):
+        def predict_proba(self, X: dict[str, np.ndarray]) -> np.ndarray:
+            self.seen.append(np.asarray(X["state_last_month"]).copy())
+            return Fixed.predict_proba(self, X)
+
+    models = {s: Seen([1.0, 0.0, 0.0, 0.0, 0.0]) for s in fx.LIVE_STATES}
+    start = start_table([fx.LATE_60])
+    start["state_last_month"] = 1.0  # it was 30 days late the month before the start
+    start["late_months_12"], start["late_hist_1"], start["late_hist_2"] = 2.0, 1.0, 1.0
+    multistate.project(models, start, macro(), "201701", 4)
+    assert float(models[fx.LATE_60].seen[0][0]) == 1.0  # month 0: the start row's own value
+    assert [float(x[0]) for x in models[fx.CURRENT].seen] == [2.0, 0.0, 0.0]
+
+
+def test_late_states_record_where_they_came_from() -> None:
+    assert list(multistate.start_slices(np.array([0, 0, 0, 1, 2]), np.array([0, 1, 2, 2, 1]))) == [
+        multistate.CLEAN,
+        1,
+        multistate.FROM_60,
+        2,
+        1,
+    ]
+    assert list(
+        multistate.last_month_state(fx.CURRENT, np.array([1, 5, multistate.FROM_60, multistate.CLEAN]))
+    ) == [1.0, 0.0, 2.0, 0.0]
+    assert list(multistate.last_month_state(fx.LATE_30, np.array([0, 1, 2]))) == [0.0, 1.0, 2.0]
+
+
+def test_the_december_month_is_not_counted_twice() -> None:
+    # a loan 60 days late at the start (late in December) that stays at 60: in month 1 its late months
+    # are the history (December and November) plus this month's own state (January), not 4
+    models = {s: Recorder([0.0, 0.0, 1.0, 0.0, 0.0]) for s in fx.LIVE_STATES}
+    start = start_table([fx.LATE_60])
+    start["state_last_month"] = 1.0
+    start["late_months_12"], start["late_hist_1"], start["late_hist_2"] = 2.0, 1.0, 1.0
+    multistate.project(models, start, macro(), "201701", 2)
+    assert float(models[fx.LATE_60].seen[1][0]) == 3.0
+
+
+def test_check_reports_by_starting_state_and_month() -> None:
+    models = {s: Fixed(r) for s, r in MATRIX.items()}
+    start = start_table([fx.LATE_60, fx.CURRENT])
+    proj = multistate.project(models, start, macro(), "201901", 3)
+    actuals = pd.DataFrame({"loan_id": ["L0", "L1"], "last_ym": ["201901", "201903"],
+                            "last_status": ["defaulted", "current"]})  # fmt: skip
+    c = multistate.check(proj, start, actuals, "201901")
+    assert (
+        c.by_start_state["60"]["default_actual"] == 1.0
+        and c.by_start_state["current"]["default_actual"] == 0.0
+    )
+    assert c.by_start_state["60"]["default_projected"] == pytest.approx(proj.p_default[0, :1].sum())
+    assert [m["month"] for m in c.monthly] == ["201901", "201902", "201903"]
+    assert c.monthly[0]["default_actual"] == 1.0
+    assert sum(m["default_projected"] for m in c.monthly) == pytest.approx(c.totals["default_projected"])

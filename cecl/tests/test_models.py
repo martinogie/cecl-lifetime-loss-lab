@@ -122,7 +122,9 @@ def test_reason_codes() -> None:
     ]
     assert codes[1] == []
     table = reasons.wording_table()
-    assert len(table) == len(fx.model_features("buckets")) and all(row["example"] for row in table)
+    assert len(table) == len(fx.model_features("buckets") + fx.TRANSITION_EXTRA) and all(
+        row["example"] for row in table
+    )
 
 
 def test_pipeline_train_evaluate_and_downsample() -> None:

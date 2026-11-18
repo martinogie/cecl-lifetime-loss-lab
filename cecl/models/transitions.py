@@ -33,7 +33,13 @@ from cecl.models.binning import FeatureBins, fit_bins, one_hot
 # loan-months have the value 0, so the quantiles collapsed to a single cut (0 vs 1+): a loan late once
 # and a loan late ten times got the same roll rate (1.56x too many rolls for the first, 0.37-0.58x for
 # 3+ late months on 2017-2019). Found by the 2017-2019 projection check; ADR-009 Amendment 2.
-FIXED_EDGES: dict[int, dict[str, tuple[float, ...]]] = {fx.CURRENT: {"late_months_12": (0, 1, 2, 3, 5, 8)}}
+# "State last month" (0, 1, 2) gets fixed cuts at every step for the same reason: at the current step
+# about 99% of months have the value 0, so quantile cuts would collapse it too.
+FIXED_EDGES: dict[int, dict[str, tuple[float, ...]]] = {
+    fx.CURRENT: {"late_months_12": (0, 1, 2, 3, 5, 8), "state_last_month": (0, 1)},
+    fx.LATE_30: {"state_last_month": (0, 1)},
+    fx.LATE_60: {"state_last_month": (0, 1)},
+}
 
 FEATURES = fx.TRANSITION_FEATURES
 N_STATES = len(fx.STATES)
@@ -45,7 +51,7 @@ PROB_FLOOR = 1e-6
 # is often a month late rolls on less often than one late for the first time, so for the 30 and 60
 # models "months late in the past 12" is left unconstrained (on the 2009 vintage the constraint
 # merged all its bins into one, removing it from the model; 17 Nov 2026).
-UNCONSTRAINED_WHEN_LATE = ("late_months_12",)
+UNCONSTRAINED_WHEN_LATE = ("late_months_12", "state_last_month")
 SIMPLICITY_ORDER = ("logistic", "ebm", "lightgbm")  # ties go to the simpler family (ADR-009 C)
 
 
@@ -63,7 +69,7 @@ def role(start: int, dest: int) -> str:
 def directions(start: int, dest: int, features: tuple[str, ...] = FEATURES) -> list[int]:
     """Monotonic constraints for one destination's model: a feature that raises default risk raises
     rolls to worse states and lowers cures; prepayment keeps its own directions."""
-    known = {f.name: f for f in fx.model_features("buckets")}
+    known = {f.name: f for f in fx.model_features("buckets") + fx.TRANSITION_EXTRA}
     r = role(start, dest)
     if r == "prepay":
         out = [known[f].prepay_direction for f in features]

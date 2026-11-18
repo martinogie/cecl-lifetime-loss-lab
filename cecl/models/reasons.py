@@ -51,6 +51,15 @@ WORDING: dict[str, Callable[[float], str]] = {
     ),
     "era_2005_2008": lambda v: "Originated 2005-2008 (bubble years)" if v else "Not originated in 2005-2008",
     "calendar_month": lambda v: f"Month of the year: {v:.0f}",
+    "state_last_month": lambda v: (
+        "Up to date the month before" if v < 0.5 else f"{30 * int(round(v))} days late the month before"
+    ),
+    "hpi_gain": lambda v: (
+        f"Home prices {'up' if v >= 0 else 'down'} {abs(100 * v):.0f}% since the loan was made"
+    ),
+    "sato": lambda v: (
+        f"Loan rate {abs(v):.2f} points {'above' if v >= 0 else 'below'} the market rate when it was made"
+    ),
 }
 
 
@@ -76,6 +85,7 @@ def wording_table() -> list[dict[str, str]]:
     examples = {"loan_age": 40, "credit_score": 640, "current_ltv": 112, "orig_dti": 45, "rate_incentive": 1.5,
                 "months_late_prev": 2, "late_months_12": 3, "unemployment": 7.8, "unemployment_change_12": 3.1,
                 "forbearance_prev": 1, "mi_pct": 25, "orig_upb": 250000, "term_over_360": 1, "purpose_cashout": 1,
-                "purpose_refi": 1, "occupancy_investor": 1, "occupancy_second": 1, "relief_refinance": 1, "originated_2009_on": 1, "era_2005_2008": 1, "calendar_month": 7}  # fmt: skip
-    names = [f.name for f in fx.model_features("buckets")]
+                "purpose_refi": 1, "occupancy_investor": 1, "occupancy_second": 1, "relief_refinance": 1, "originated_2009_on": 1, "era_2005_2008": 1, "calendar_month": 7,
+                "state_last_month": 2, "hpi_gain": 0.35, "sato": 0.6}  # fmt: skip
+    names = [f.name for f in fx.model_features("buckets") + fx.TRANSITION_EXTRA]
     return [{"feature": f, "example": sentence(f, examples[f])} for f in names]

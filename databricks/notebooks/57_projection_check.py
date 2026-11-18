@@ -96,4 +96,6 @@ with mlflow.start_run(run_name="projection-check-2017-2019"):
     mlflow.log_dict(out, "projection_check.json")
 print(json.dumps({k: v for k, v in out.items() if k != "checks"}, indent=1, default=str))
 dbutils.notebook.exit(json.dumps({"minutes": minutes, "passes": {k: v.passes for k, v in checks.items()},
-                                  "totals": {k: v.totals for k, v in checks.items()}, "newly_failing": newly}))  # fmt: skip
+                                  "totals": {k: v.totals for k, v in checks.items()},
+                                  "by_start_state": {k: v.by_start_state for k, v in checks.items()},
+                                  "newly_failing": newly}))  # fmt: skip

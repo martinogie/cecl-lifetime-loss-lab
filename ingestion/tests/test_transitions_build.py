@@ -25,7 +25,7 @@ def test_state_rule() -> None:
         fx.state_of("censored", 0)
     with pytest.raises(ValueError):
         fx.state_of("delinquent", 3)  # 3+ months late is a default (ADR-002 B1), never a live row
-    assert "months_late_prev" not in fx.TRANSITION_FEATURES and len(fx.TRANSITION_FEATURES) == 18
+    assert "months_late_prev" not in fx.TRANSITION_FEATURES and len(fx.TRANSITION_FEATURES) == 21
 
 
 def test_transition_table_ties_out_and_keeps_every_move(tmp_path: Path) -> None:
