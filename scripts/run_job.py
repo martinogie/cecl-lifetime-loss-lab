@@ -28,7 +28,8 @@ from scripts import record_job_minutes
 
 PROFILE = "cecl"
 POLL_SECONDS = 30
-TAKES_CODE_VERSION = ("cecl_lab_train_family_dev", "cecl_lab_oot_test_dev")
+TAKES_CODE_VERSION = ("cecl_lab_train_family_dev", "cecl_lab_oot_test_dev", "cecl_lab_train_transition_dev",
+                      "cecl_lab_projection_check_dev")  # fmt: skip
 
 
 def git(*args: str) -> str:

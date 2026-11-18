@@ -110,8 +110,10 @@ def round_figure(rounds: dict[str, Any], title: str) -> Any:
     return fig
 
 
-def learning_figure(rows: list[dict[str, Any]], title: str) -> Any:
-    """Learning curve: training and validation default log loss and AUC by training-sample size."""
+def learning_figure(rows: list[dict[str, Any]], title: str, loss: str = "log_loss_default", auc: str = "auc_default",
+                    loss_label: str = "default log loss (weighted)",
+                    auc_label: str = "default AUC (Gini = 2 x AUC - 1)") -> Any:  # fmt: skip
+    """Learning curve: training and validation log loss and AUC by training-sample size."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -119,14 +121,14 @@ def learning_figure(rows: list[dict[str, Any]], title: str) -> Any:
 
     x = [r["fraction"] * 100 for r in rows]
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(12, 4))
-    a1.plot(x, [r["train_log_loss_default"] for r in rows], marker="o", label="training")
-    a1.plot(x, [r["valid_log_loss_default"] for r in rows], marker="o", label="validation (2017-2019)")
+    a1.plot(x, [r[f"train_{loss}"] for r in rows], marker="o", label="training")
+    a1.plot(x, [r[f"valid_{loss}"] for r in rows], marker="o", label="validation (2017-2019)")
     a1.set_xlabel("% of the sampled training rows")
-    a1.set_ylabel("default log loss (weighted)")
-    a2.plot(x, [r["train_auc_default"] for r in rows], marker="o", label="training")
-    a2.plot(x, [r["valid_auc_default"] for r in rows], marker="o", label="validation (2017-2019)")
+    a1.set_ylabel(loss_label)
+    a2.plot(x, [r[f"train_{auc}"] for r in rows], marker="o", label="training")
+    a2.plot(x, [r[f"valid_{auc}"] for r in rows], marker="o", label="validation (2017-2019)")
     a2.set_xlabel("% of the sampled training rows")
-    a2.set_ylabel("default AUC (Gini = 2 x AUC - 1)")
+    a2.set_ylabel(auc_label)
     for ax in (a1, a2):
         ax.set_title(title)
         ax.legend()

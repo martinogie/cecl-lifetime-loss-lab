@@ -53,6 +53,38 @@ def outcome_of(status: str) -> int:
     return OUTCOME[status]
 
 
+# ---------------------------------------------------------------------------- multi-state (ADR-011)
+# Each live loan-month starts in one of three states and ends in one of five (ADR-002 unchanged):
+# current, 30 and 60 days late (from the stop-the-clock count), default (90+ or a loss event, from
+# any state; absorbing) and prepaid (absorbing). Censored months stay out (outcome unknown).
+CURRENT, LATE_30, LATE_60, DEFAULTED, PREPAID = 0, 1, 2, 3, 4
+STATES = ("current", "30", "60", "default", "prepaid")  # index = code
+LIVE_STATES = (CURRENT, LATE_30, LATE_60)  # the starting states, one transition model each
+# The adverse move of each step: its reason codes explain this move (ADR-009 Amendment 1, C).
+ADVERSE = {CURRENT: LATE_30, LATE_30: LATE_60, LATE_60: DEFAULTED}
+
+
+def state_of(status: str, months_late: int) -> int:
+    """The state of a non-censored panel row (ADR-002): its status, then its stop-the-clock count."""
+    if status == "defaulted":
+        return DEFAULTED
+    if status == "prepaid":
+        return PREPAID
+    if status not in ("current", "delinquent"):
+        raise ValueError(f"no state for status {status!r}")
+    if not 0 <= months_late <= 2:  # 3+ months late is a default (ADR-002 B1), never a live row
+        raise ValueError(f"a live row cannot be {months_late} months late")
+    return int(months_late)
+
+
+def state_sql(status: str = "status", months_late: str = "effective_months_late") -> str:
+    """The same rule as SQL (DuckDB and Spark)."""
+    return (
+        f"case when {status} = 'defaulted' then {DEFAULTED} when {status} = 'prepaid' then {PREPAID} "
+        f"else {months_late} end"
+    )
+
+
 # ---------------------------------------------------------------------------- sampling
 SAMPLE_EVERY = 25  # keep about 1 in 25 months with no event; every event is kept
 SAMPLE_SEED = "cecl-phase2-v1"  # part of the hash: change it to draw a different sample
@@ -96,6 +128,9 @@ FEATURES: tuple[Feature, ...] = (
     Feature("calendar_month", "month of the year of t (prepayment seasonality)", 0, 0),
 )  # fmt: skip
 FEATURE_NAMES = tuple(f.name for f in FEATURES)  # the feature table's columns
+# The transition models' inputs: "months late last month" is the starting state itself, so it is
+# constant within each transition model and left out (18 features).
+TRANSITION_FEATURES = tuple(n for n in FEATURE_NAMES if n != "months_late_prev")
 
 # Origination-era features (ADR-010, Option E): derived at model time from the loan's origination year
 # (`vintage_year`), so the feature table needs no rebuild. "binary": originated 2009 or later (post-crisis

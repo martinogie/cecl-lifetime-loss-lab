@@ -75,9 +75,17 @@ class CalibrationRow:
 def calibration(groups: Sequence[Any], outcome: Sequence[int], proba: Any, weight: Sequence[float],
                 cause: str = "default") -> list[CalibrationRow]:  # fmt: skip
     """Predicted / actual events by group (year or vintage), with the ADR-009 bar."""
-    g = np.asarray([str(x) for x in groups])
     y = np.asarray(outcome, dtype=int) == CAUSES[cause]
     p = np.asarray(proba, dtype=float)[:, CAUSES[cause]]
+    return calibration_events(groups, y, p, weight)
+
+
+def calibration_events(groups: Any, event: Any, prob: Any, weight: Any) -> list[CalibrationRow]:
+    """Predicted / actual for any event (a move to one destination, ADR-009 Amendment 1 B), by group,
+    with the bar applied where the group has at least MIN_EVENTS_FOR_BAR actual events."""
+    g = np.asarray([str(x) for x in groups])
+    y = np.asarray(event, dtype=bool)
+    p = np.asarray(prob, dtype=float)
     w = np.asarray(weight, dtype=float)
     rows = []
     for key in sorted(set(g.tolist())):

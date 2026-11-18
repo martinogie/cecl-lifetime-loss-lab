@@ -48,6 +48,18 @@ current (a new loan; `XX` at age 0 counts as current, L-017).
   the ADR-003 macro paths.
 - **Selection:** ADR-009 Amendment 1, per transition, then the combination check.
 
+**Implementation notes (17 November 2026, step M1):**
+- *EBM on T-current:* the plan's 1 in 4 is applied to the rows that **stay current or prepay**
+  (re-weighted per vintage x year x destination; every roll to 30 kept), because T-current has about
+  1.5 times the old table's rows and three modelled destinations; T-30 and T-60 EBMs use every row.
+- *Monotone constraints:* "months late in the past 12" is left unconstrained in the 30 and 60 models
+  (on the 2009 trial the "more lateness, more risk" constraint merged all its bins into one; among
+  loans already behind, serial late payers roll on less often). Every other direction as in plan.md.
+- *No move gets exactly zero chance:* every probability is at least 1e-6, renormalised.
+- *Projection approximations* (months late in the past 12, balance, payment pauses): L-026.
+- *Tuning folds* with no rows (a slice of recent vintages) are skipped and recorded; on the full data
+  all three folds are used.
+
 ## Data changes
 
 - **State labels for every loan-month:** the feature table gains `state_prev` (the starting state)
