@@ -118,8 +118,8 @@ test.
 
 ## Amendment 1: the multi-state design (ADR-011)
 
-- **Status of this amendment:** proposed, 17 November 2026 (pending Martins's approval). The
-  out-of-time test command refuses to run while any amendment here is pending.
+- **Status of this amendment:** accepted, 17 November 2026 (with the tuning method added at
+  approval). Locked before any training and before the out-of-time test.
 - **Why:** ADR-011 (accepted 17 November 2026) replaces the single default/prepayment model with a
   monthly multi-state model. For each starting state (current, 30, 60) one model predicts next month's
   state; all three families (logistic, LightGBM, EBM) are fitted for every starting state, each only
@@ -157,6 +157,18 @@ simpler one if within 2% of each other). If the logistic model itself fails a ba
 challenger qualifies, logistic is kept and the failure is recorded, not hidden (the optional ADR-010
 extras may then be tested with Martins's approval).
 
+**Tuning (added at approval, 17 November 2026).** Each of the 9 models is tuned on the training
+years only (1999-2016); the 2017-2019 validation years and the test months are never used for tuning.
+- **Measure:** the step's own weighted log loss across **all its destinations** (for example from 30:
+  cure, stay, roll to 60, default, prepay), not default log loss alone.
+- **Walk-forward folds (three):** train to 2007 / score 2008-2010; train to 2010 / score 2011-2013;
+  train to 2013 / score 2014-2016. The setting with the **best average log loss across the three
+  folds** is chosen and refitted on all of 1999-2016; each fold's score is reported.
+- **Grids:** logistic: regularisation C in {0.1, 1.0}; LightGBM: tree size (`num_leaves`) in {15, 31,
+  63} x minimum leaf weight (`min_child_weight`) in {20, 50, 200} (9 settings; 400 rounds, learning
+  rate 0.05 fixed); **EBM: default settings, not tuned** (its learning curve shows whether that holds
+  it back).
+
 **Combination check.** If the chosen combination fails a projection cell that the all-logistic
 combination passes, the challengers are swapped back to logistic one step at a time, starting with the
 step whose swap brings that cell closest to 1.0 (the step's effect, measured), until the combination
@@ -184,4 +196,4 @@ This is recorded in:
 It runs once, after this amendment is accepted and committed; its results are recorded whatever they
 show; no model is chosen, swapped or tuned on it (the original E).
 
-**Decision on this amendment:** *pending, Martins.*
+**Decision on this amendment (Martins, 17 November 2026):** ADR-009 Amendment 1: approved as written, including the combination check (keep it). Tune each step on its own log loss across all its destinations (for example from 30: cure, stay, roll to 60, default, prepay). Walk-forward tuning with three time folds (train to 2007 / test 2008–2010; train to 2010 / test 2011–2013; train to 2013 / test 2014–2016), choosing the setting with the best average across the folds and reporting each fold, plus the wider LightGBM grid (tree size plus minimum leaf weight). EBM stays on defaults; its learning curve will show whether that’s holding it back. The 2017–2019 validation years and the test months are never used for tuning.

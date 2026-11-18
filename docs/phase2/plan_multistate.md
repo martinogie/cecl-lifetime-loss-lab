@@ -1,7 +1,7 @@
 # Phase 2 plan, amended for the multi-state design (ADR-011)
 
-- **Status:** proposed, 17 November 2026 (revised the same day for 9 models and no daily minute cap),
-  for Martins's approval together with ADR-009 Amendment 1. **No training until both are approved.**
+- **Status:** approved by Martins, 17 November 2026, with ADR-009 Amendment 1 (accepted) and the
+  tuning method below added at approval. The test months stay untouched until he approves the test.
 - **Replaces** steps 3-8 of [plan.md](plan.md) (the single default/prepayment model). Unchanged from
   plan.md: the split (ADR-009 A), the features and their checks, weights in every measure, the COVID
   sensitivity run, MLflow tracking, `@challenger` only, the blocked windows, and Databricks for
@@ -68,6 +68,15 @@ current (a new loan; `XX` at age 0 counts as current, L-017).
   (January 2017 for validation; July 2022 for the test, not touched until approval), the monthly
   macro inputs as they happened, and the actual outcomes, for the projection checks.
 
+## Tuning (locked at approval; ADR-009 Amendment 1)
+
+- On the training years only; 2017-2019 and the test months are never used for tuning.
+- Measure: each step's own weighted log loss across all its destinations.
+- Three walk-forward folds: train to 2007 / score 2008-2010; to 2010 / 2011-2013; to 2013 /
+  2014-2016. Best average across folds wins, refitted on 1999-2016; each fold reported in MLflow.
+- Grids: logistic C in {0.1, 1.0}; LightGBM `num_leaves` {15, 31, 63} x `min_child_weight`
+  {20, 50, 200}; EBM on defaults (not tuned).
+
 ## Training curves and fit table (every one of the 9 models)
 
 - **LightGBM:** training and validation log loss round by round, and the best round (the fixed 400
@@ -108,13 +117,13 @@ EBM; T-30 logistic, LightGBM, EBM; T-current logistic, LightGBM, EBM.
 | T-60: logistic, LightGBM, EBM (about 100 thousand training rows) | about 10-15 |
 | T-30: logistic, LightGBM, EBM (about 500 thousand training rows, EBM on all of them) | about 20-30 |
 | T-current: logistic (about 12), LightGBM (about 12), EBM (about 55-60 on 1 in 4, recorded) | about 80-85 |
+| Walk-forward tuning (logistic 2 x 3 fits, LightGBM 9 x 3 fits, on smaller fold sets) | about 25-45 |
 | M5 projection checks and scoring | about 5-10 |
 | M6 COVID sensitivity (the 3 chosen models; longer if EBM wins T-current) | about 15-60 |
 | M8 the out-of-time test, after approval | about 10 |
-| **Total** | **about 160-235** |
+| **Total** | **about 185-280** |
 
-## What Martins approves before any training
+## Approvals
 
-1. This amended plan.
-2. ADR-009 Amendment 1 (the rule per transition, calibration bars per transition with the 200-move
-   minimum, how mixed winners are documented, and what the out-of-time test measures).
+This plan and ADR-009 Amendment 1 (including the combination check and the tuning method) were
+approved by Martins on 17 November 2026.
