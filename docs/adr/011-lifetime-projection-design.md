@@ -1,7 +1,9 @@
 # ADR-011: Lifetime projection design (how the PD model produces lifetime losses)
 
-- **Status:** accepted, 17 November 2026 (Option a: multi-state model). Training stays paused until
-  the ADR-009 amendment and the amended Phase 2 plan are approved.
+- **Status:** accepted, 17 November 2026 (Option a: multi-state model; all three families fitted for
+  every transition). Decision wording revised by Martins the same day (it replaces the earlier wording,
+  which had challengers on current -> 30 only; the option text below is kept as written). Training
+  stays paused until the ADR-009 amendment and the amended Phase 2 plan are approved.
 - **Related:** ADR-002 (definition of default: 90+ days late or a loss event, first default only,
   absorbing; stop-the-clock for flagged payment pauses; modification while 60+ days late counts as
   default), ADR-003 (2-year forecast, 1-year reversion), ADR-005 (scenario weighting), ADR-008 (state
@@ -141,6 +143,6 @@ tested only if the evidence supports them (for example era as an input to the cu
 
 ## Decision
 
-**Decision (Martins, 17 November 2026):** Option (a), a monthly multi-state (delinquency-transition) model. Each loan is in one of five states: current, 30 days late, 60 days late, 90+ days late (default, absorbing, per ADR-002 B1) or prepaid. A logistic model is fitted for the moves out of each non-absorbing state (current, 30, 60), including cures back to current and prepayment; LightGBM and EBM compete as challengers only on the current → 30 move, the one that matters most for loans that are current on the reserve date. ADR-002’s rules apply unchanged: delinquency frozen during flagged pauses, a modification while 60+ days late counts as default, and loss events count as default from any state.
+**Decision (Martins, 17 November 2026):** Option (a), a monthly multi-state (delinquency-transition) model. Each loan is in one of five states: current, 30 days late, 60 days late, 90+ days late (default, absorbing, per ADR-002 B1) or prepaid. For each non-absorbing state (current, 30, 60), a model predicts the moves out of that state, including cures back to current and prepayment. All three families (logistic, LightGBM and EBM) are fitted for every transition, each trained only on the loan-months that start in that state, and the ADR-009 rule chooses the winner at each step. ADR-002’s rules apply unchanged: delinquency frozen during flagged pauses, a modification while 60+ days late counts as default, and loss events count as default from any state.
 
-Why: the diagnostics showed that 98.5% of defaults come from loans already behind, so a single monthly default model mostly predicts the last step and can’t project today’s mostly current loans over their lifetime. The multi-state model starts from where loans actually are on the reserve date, models cures separately (capturing the higher cure rates after 2016), and links each move to the economy for the reserve forecast and the stress test. It’s also consistent with how supervisory mortgage stress models are built.
+Why: the diagnostics showed 98.5% of defaults come from loans already behind, so a single monthly default model mostly predicts the last step and can’t project today’s mostly current loans over their lifetime. The multi-state model starts from where loans are on the reserve date, models cures separately (capturing the higher cure rates after 2016), and links each move to the economy for the reserve forecast and the stress test. Fitting all three families at every step gives each step a fair competition.

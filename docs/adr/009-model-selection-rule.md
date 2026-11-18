@@ -121,43 +121,67 @@ test.
 - **Status of this amendment:** proposed, 17 November 2026 (pending Martins's approval). The
   out-of-time test command refuses to run while any amendment here is pending.
 - **Why:** ADR-011 (accepted 17 November 2026) replaces the single default/prepayment model with a
-  monthly multi-state model: logistic models for the moves out of current, 30 and 60 days late, with
-  LightGBM and the EBM as challengers only on the move out of current. The original Decision above
-  (split, bars, the 2% rule, the single test) is kept; this amendment says how it applies.
+  monthly multi-state model. For each starting state (current, 30, 60) one model predicts next month's
+  state; all three families (logistic, LightGBM, EBM) are fitted for every starting state, each only
+  on the loan-months that start there: **3 transitions x 3 families = 9 models**. The original
+  Decision above (split, bar, 2% rule, single test) is kept; this amendment says how it applies.
 
 **A (split): unchanged.** Train on 1999-2016, choose on 2017-2019, test once on July 2022 - June 2026;
 the COVID months (2020 - June 2022) stay out of fitting and choosing, with the sensitivity run.
 
-**B (measures), per transition model** (one model per starting state: current, 30, 60), all weighted:
-- log loss over the next-month states;
-- **calibration bars per transition:** predicted ÷ actual counts of each move (for example current →
-  30, 30 → current, 60 → default, any state → prepaid), by calendar year and by vintage, must fall
-  within **0.80-1.25** in every cell with **at least 200 actual moves** of that kind (the same bar and
-  minimum as the original B; cells with fewer moves are reported, not judged);
-- AUC and Gini of the key moves, reported (not judged): current → 30, 30 → current, 60 → default;
-- **projection check on 2017-2019:** starting from each loan's state in January 2017, the full
-  multi-state projection (the economy as it actually happened, each loan's later delinquency not
-  known) gives projected vs actual defaults and prepayments by year and by vintage, against the same
-  0.80-1.25 bar (cells with at least 200 actual events). This is what the reserve depends on.
+**B (measures), for each transition model** (starting state current, 30 or 60), all weighted:
+- **log loss over next month's states** (for example from 30: current, 30, 60, default, prepaid) on
+  the 2017-2019 loan-months that start in that state: the main measure;
+- **calibration bars per transition:** predicted ÷ actual counts of each move out of that state
+  (for example current -> 30, current -> prepaid, 30 -> current, 30 -> 60, 60 -> default), by calendar
+  year and by vintage, must fall within **0.80-1.25** in every cell with **at least 200 actual moves**
+  of that kind; and for each move with at least 200 actual moves over the whole 2017-2019 period, the
+  whole-period ratio must also fall within the bar (this catches a rare move, such as 60 -> default
+  by vintage, whose cells are mostly under 200). Cells and moves below the minimum are reported, not
+  judged. Why 200: the same minimum as the original B; with 200 events, sampling noise alone stays
+  well inside 0.80-1.25 (about ±14% at two standard errors).
+- AUC and Gini of each move out of that state, reported (not judged); training curves and the
+  training-vs-validation fit table with its verdict, reported;
+- **projection check on 2017-2019 (the chosen combination):** loans alive in January 2017, played
+  forward month by month from their state that month with the three chosen transition models (the
+  economy as it actually happened; each loan's later delinquency not known): projected vs actual
+  defaults and prepayments by year and by vintage, against the same bar (cells with at least 200
+  actual events). The all-logistic combination is projected too, as the benchmark.
 
-**C (selection), the 2% rule applies to one comparison only: the model for moves out of current.**
-The logistic model stays unless LightGBM or the EBM (fitted for the same moves out of current)
-improves validation log loss **of the current → 30 move** by at least 2%, passes every calibration
-bar of the moves out of current and the projection check, and produces reason codes; ties go to the
-simpler family. The models for moves out of 30 and 60 are logistic only: they must pass their own
-calibration bars; if a bar fails, that is recorded (and the optional ADR-010 extras may be tested
-with Martins's approval), not hidden.
+**C (selection), the 2% rule applied per transition.** At each step (current, 30, 60) separately, the
+logistic model stays unless LightGBM or the EBM **improves that transition's validation log loss by at
+least 2%**, **passes that transition's calibration bars** and **produces reason codes** (top drivers of
+the adverse moves: current -> 30, 30 -> 60, 60 -> default); ties go to the simpler family (logistic,
+then EBM, then LightGBM). If both challengers qualify, the one with the lower log loss wins (the
+simpler one if within 2% of each other). If the logistic model itself fails a bar at a step and no
+challenger qualifies, logistic is kept and the failure is recorded, not hidden (the optional ADR-010
+extras may then be tested with Martins's approval).
 
-**D:** the chosen family is used for moves out of current; logistic for moves out of 30 and 60. Each
-family's model covers every move out of its starting state, prepayment included.
+**Combination check.** If the chosen combination fails a projection cell that the all-logistic
+combination passes, the challengers are swapped back to logistic one step at a time, starting with the
+step whose swap brings that cell closest to 1.0 (the step's effect, measured), until the combination
+passes that cell or is all-logistic; every swap is recorded.
+
+**D (mixed winners, how they are documented).** Different steps may end with different families.
+This is recorded in:
+- a **selection table** in the validation report: one row per step x family (log loss, % gain over
+  logistic, each bar pass/fail, reason codes yes/no, fit verdict), the winner of each step and why;
+- the **combination record**: the three chosen models with their family and MLflow run ID, logged
+  together as one MLflow run (tags `transition_current`, `transition_30`, `transition_60`) and
+  registered as one `@challenger` model whose wrapper holds the three; the projection check of the
+  chosen and all-logistic combinations next to each other;
+- the **model card** and **model inventory** (M-01): which family serves each step, the reason codes
+  per step, and that the combination is validated as a whole by the projection check;
+- any combination-check swap, with the projection cells before and after.
 
 **E (the out-of-time test, once), what it measures:**
-1. the **full multi-state projection** from each loan's state on 1 July 2022 to June 2026: projected
-   vs actual **defaults and prepayments by vintage and by year**, against the 0.80-1.25 bar (cells
-   with at least 200 actual events);
-2. **each transition's calibration** (predicted ÷ actual moves by year and vintage) on the test months;
-3. AUC and Gini of current → 30 (and of the other key moves), reported.
+1. the **full multi-state projection** of the chosen combination from each loan's state on 1 July
+   2022 to June 2026: projected vs actual **defaults and prepayments by vintage and by year**, against
+   the 0.80-1.25 bar (cells with at least 200 actual events);
+2. **each transition's calibration** (predicted ÷ actual moves by year and vintage, and whole
+   period) on the test months;
+3. log loss, AUC and Gini of each transition, reported.
 It runs once, after this amendment is accepted and committed; its results are recorded whatever they
-show; no model is tuned on it (the original E).
+show; no model is chosen, swapped or tuned on it (the original E).
 
 **Decision on this amendment:** *pending, Martins.*
