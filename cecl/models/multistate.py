@@ -15,10 +15,18 @@ reserve's forecast and reversion paths):
 - state unemployment and its 12-month change, and the rate incentive (loan rate minus the market rate
   of the month before), follow the actual monthly paths;
 - the payment-pause flag is known only for the first month (future pauses are not known: 0 after);
-- "months late in the past 12" follows the projection: the start value fades out evenly over 12 months
-  (the exact months are not carried), and each projected month adds the chance of being 30 or 60 days
-  late, given the loan is still open; a loan in 30 has at least one late month, a loan in 60 at least
-  two. An approximation (limitations log L-026), tested by the projection check itself.
+- "months late in the past 12" follows the projection as a whole number, as in the data. Each loan's
+  probability is split into slices by live state and by months since its last projected late month
+  (1 to 11, or 12+ = none in the past year), and each slice carries its own count of projected late
+  months. A slice's input is that count plus the start value fading evenly over 12 months (the exact
+  start months are not carried), rounded to a whole month, plus this month's own state (a loan in 30
+  has at least one late month, a loan in 60 at least two). A loan that has not been late in the
+  projection sees only its fading start value, so a clean loan sees 0, never a fraction of a late
+  month: the models read this input in steps (the current-loan model splits it at 0, where the roll
+  rate to 30 changes 27-fold), so an average such as 0.02 would put every clean loan in the "has been
+  late" step (found by the first projection check, 18 November 2026). Projected late months older than
+  12 months drop out only when a slice reaches 12 months without one. An approximation (limitations
+  log L-026), tested by the projection check itself.
 
 Censored loans (they left the data with neither event) are projected only for the months they were
 observed, so projected and actual counts cover the same loan-months.
@@ -35,7 +43,9 @@ from cecl import features as fx
 from cecl import metrics
 
 LIVE = fx.LIVE_STATES
-TINY = 1e-12  # probability mass below this in a state is not scored (saves time, changes nothing)
+TINY = 1e-12  # probability mass below this in a slice is not scored (saves time, changes nothing)
+CLEAN = 12  # slice index: no projected late month in the past 12 months
+SLICES = 13  # months since the last projected late month: 0 (in a late state now), 1..11, 12 = clean
 
 
 def add_months(ym: str, n: int) -> str:
@@ -123,15 +133,11 @@ def month_inputs(
     return out
 
 
-def late_months(start_late: np.ndarray, history: list[np.ndarray], k: int, state: int) -> np.ndarray:
-    """Expected "months late in the past 12" in projected month k for a loan in `state` (see the
-    module note): the start value fading evenly, plus the projected late chances of the months before,
-    plus this month's own state."""
-    pre = start_late * max(12 - k, 0) / 12.0
-    # history[j - 1] = the late chance at the start of projected month j; the window takes months
-    # max(1, k - 11) .. k - 1 (this month's own state is added below)
-    window = history[max(0, k - 12) : k - 1] if k >= 2 else []
-    base = pre + (np.sum(window, axis=0) if window else 0.0)
+def late_input(start_late: np.ndarray, count: np.ndarray, k: int, state: int) -> np.ndarray:
+    """The input "months late in the past 12" for projected month k, as a whole number: the start value fading
+    evenly over 12 months plus the slice's projected late months, rounded, plus this month's own state
+    (see the module note)."""
+    base = np.floor(start_late * max(12 - k, 0) / 12.0 + count + 0.5)
     if state == fx.LATE_30:
         base = base + 1.0
     elif state == fx.LATE_60:
@@ -146,36 +152,59 @@ class Projection:
     months: list[str]  # YYYYMM of each projected month
 
 
+def _add(target: np.ndarray, rows: np.ndarray, state: int, slices: np.ndarray, values: np.ndarray) -> None:
+    """target[rows, state, slices] += values, adding up repeated rows (a loan can send probability
+    from several slices into the same one)."""
+    flat = np.ravel_multi_index((rows, np.full(len(rows), state), slices), target.shape)
+    target.reshape(-1)[:] += np.bincount(flat, values, minlength=target.size)
+
+
 def project(models: dict[int, Any], start: Any, macro: Macro, start_ym: str, months: int) -> Projection:
     """Play every loan in `start` (the projection start table) forward `months` months with one
-    transition model per live state (`models[state].predict_proba(inputs)` -> n x 5)."""
+    transition model per live state (`models[state].predict_proba(inputs)` -> n x 5).
+
+    Each loan's probability sits in slices (live state x months since its last projected late month);
+    `count` holds, per slice, probability x projected late months before this month, so count / mass
+    is the slice's late-month count (see the module note)."""
     n = len(start)
     state0 = start["state_prev"].to_numpy(dtype=int)
-    v = np.zeros((n, len(LIVE)))
-    v[np.arange(n), state0] = 1.0
+    mass = np.zeros((n, len(LIVE), SLICES))
+    mass[np.arange(n), state0, np.where(state0 == fx.CURRENT, CLEAN, 0)] = 1.0
+    count = np.zeros_like(mass)
     p_def, p_pre = np.zeros((n, months)), np.zeros((n, months))
     start_late = start["late_months_12"].to_numpy(dtype=float)
-    history: list[np.ndarray] = []
+    feature_sets = {s: tuple(getattr(models[s], "features", fx.TRANSITION_FEATURES)) for s in LIVE}
+    every = tuple(dict.fromkeys(f for fs in feature_sets.values() for f in fs))
     for k in range(months):
-        new_v = np.zeros_like(v)
+        X_all = month_inputs(start, macro, start_ym, k, every)
+        new_mass, new_count = np.zeros_like(mass), np.zeros_like(count)
         for s in LIVE:
-            mask = v[:, s] > TINY
-            if not mask.any():
+            cells = [(j, np.flatnonzero(mass[:, s, j] > TINY)) for j in range(SLICES)]
+            cells = [(j, r) for j, r in cells if len(r)]
+            if not cells:
                 continue
-            model = models[s]
-            feats = tuple(getattr(model, "features", fx.TRANSITION_FEATURES))
-            X = month_inputs(start[mask], macro, start_ym, k, feats)
-            if k > 0:
-                X["late_months_12"] = late_months(start_late[mask], [h[mask] for h in history], k, s)
-            P = model.predict_proba(X)
-            mass = v[mask, s][:, None] * P
-            new_v[mask] += mass[:, : len(LIVE)]
-            p_def[mask, k] += mass[:, fx.DEFAULTED]
-            p_pre[mask, k] += mass[:, fx.PREPAID]
-        v = new_v
-        alive = v.sum(axis=1)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            history.append(np.where(alive > 0, (v[:, fx.LATE_30] + v[:, fx.LATE_60]) / alive, 0.0))
+            rows = np.concatenate([r for _, r in cells])
+            js = np.concatenate([np.full(len(r), j) for j, r in cells])
+            m, c = mass[rows, s, js], count[rows, s, js]
+            X = {f: X_all[f][rows] for f in feature_sets[s]}
+            if k > 0 and "late_months_12" in X:
+                X["late_months_12"] = late_input(start_late[rows], np.where(m > 0, c / m, 0.0), k, s)
+            P = models[s].predict_proba(X)
+            moved, moved_count = m[:, None] * P, c[:, None] * P
+            p_def[:, k] += np.bincount(rows, moved[:, fx.DEFAULTED], minlength=n)
+            p_pre[:, k] += np.bincount(rows, moved[:, fx.PREPAID], minlength=n)
+            # this month's state joins next month's history when it is a late state
+            joins = moved if s != fx.CURRENT else np.zeros_like(moved)
+            for d in (fx.LATE_30, fx.LATE_60):  # into the slice "in a late state now"
+                _add(new_mass, rows, d, np.zeros(len(rows), dtype=int), moved[:, d])
+                _add(new_count, rows, d, np.zeros(len(rows), dtype=int), moved_count[:, d] + joins[:, d])
+            # back to (or staying) current: one month further from the last late month; after 12
+            # months the projected late months have left the window
+            j_next = np.full(len(rows), 1) if s != fx.CURRENT else np.minimum(js + 1, CLEAN)
+            to_current = moved_count[:, fx.CURRENT] + joins[:, fx.CURRENT]
+            _add(new_mass, rows, fx.CURRENT, j_next, moved[:, fx.CURRENT])
+            _add(new_count, rows, fx.CURRENT, j_next, np.where(j_next == CLEAN, 0.0, to_current))
+        mass, count = new_mass, new_count
     return Projection(p_def, p_pre, [add_months(start_ym, k) for k in range(months)])
 
 

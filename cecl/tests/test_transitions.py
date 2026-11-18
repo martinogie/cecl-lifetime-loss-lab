@@ -246,17 +246,45 @@ def test_inputs_roll_forward_with_the_economy() -> None:
     assert multistate.scheduled_balance(np.array([5.0]), np.array([6.0]), np.array([10.0]), 10)[0] == 0.0
 
 
-def test_late_months_follow_the_state() -> None:
-    hist = [np.array([0.5])] * 5
-    assert multistate.late_months(np.array([6.0]), [], 0, fx.CURRENT)[0] == 6.0
-    assert multistate.late_months(np.array([6.0]), hist, 4, fx.CURRENT)[0] == pytest.approx(
-        6 * 8 / 12 + 0.5 * 3
-    )
-    assert multistate.late_months(np.array([0.0]), hist, 4, fx.LATE_30)[0] == pytest.approx(1.5 + 1)
-    assert multistate.late_months(np.array([0.0]), [], 1, fx.LATE_60)[0] == 2.0
-    assert multistate.late_months(np.array([12.0]), [], 1, fx.LATE_60)[0] == 12.0  # 11 fading + this month
-    # after a year the start value has gone; only the projected months 18..28 count (11 x 0.5) + this month
-    assert multistate.late_months(np.array([12.0]), hist * 6, 29, fx.LATE_30)[0] == pytest.approx(5.5 + 1)
+def test_late_input_is_a_whole_number() -> None:
+    li = multistate.late_input
+    assert li(np.array([6.0]), np.array([0.0]), 4, fx.CURRENT)[0] == 4.0  # 6 x 8/12 fading
+    assert li(np.array([0.0]), np.array([0.0]), 4, fx.CURRENT)[0] == 0.0  # a clean loan sees exactly 0
+    assert li(np.array([0.0]), np.array([1.4]), 4, fx.LATE_30)[0] == 2.0  # 1 projected (rounded) + this month
+    assert li(np.array([0.0]), np.array([0.0]), 1, fx.LATE_60)[0] == 2.0
+    assert li(np.array([12.0]), np.array([0.0]), 1, fx.LATE_60)[0] == 12.0  # 11 fading + this month
+    assert li(np.array([1.0]), np.array([0.0]), 7, fx.CURRENT)[0] == 0.0  # 5/12 of a month rounds to 0
+
+
+class Recorder(Fixed):
+    """Fixed probabilities; records the late-month input it was given on each call."""
+
+    def __init__(self, row: list[float]) -> None:
+        super().__init__(row)
+        self.seen: list[np.ndarray] = []
+
+    def predict_proba(self, X: dict[str, np.ndarray]) -> np.ndarray:
+        self.seen.append(np.asarray(X["late_months_12"]).copy())
+        return super().predict_proba(X)
+
+
+def test_clean_loans_never_see_a_fraction_of_a_late_month() -> None:
+    models = {s: Recorder(r) for s, r in MATRIX.items()}
+    proj = multistate.project(models, start_table([fx.CURRENT]), macro(), "201701", 30)
+    seen = np.concatenate(models[fx.CURRENT].seen)
+    assert np.all(seen == np.round(seen))  # whole months only
+    assert 0.0 in seen and seen.max() >= 1.0  # the clean slice sees 0; slices that went late see 1+
+    assert np.concatenate(models[fx.LATE_30].seen).min() >= 1.0  # the 30 model: at least this month
+    assert np.concatenate(models[fx.LATE_60].seen).min() >= 2.0  # the 60 model: at least two
+    assert proj.p_default.sum() > 0
+
+
+def test_projected_late_months_leave_after_a_year() -> None:
+    # 30 -> current for sure, then current for good: the late month counts for 11 months, then drops out
+    models = {s: Recorder([1.0, 0.0, 0.0, 0.0, 0.0]) for s in fx.LIVE_STATES}
+    multistate.project(models, start_table([fx.LATE_30]), macro(), "201701", 16)
+    seen = [float(x[0]) for x in models[fx.CURRENT].seen]  # projected months 1..15, one slice each
+    assert seen[:11] == [1.0] * 11 and seen[11:] == [0.0] * 4
 
 
 def test_projection_check_counts_only_observed_months() -> None:
