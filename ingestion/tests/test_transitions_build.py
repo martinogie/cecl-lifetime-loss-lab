@@ -104,4 +104,6 @@ def test_both_dialects_share_the_transition_query() -> None:
 
     assert strip(spark) == strip(duck)
     assert "max_by(status, period_ym)" in fb.projection_actuals_sql("p")
+    hist = fb.projection_history_sql("p")
+    assert "rn <= 12" in hist and "period_ym < '201701'" in hist and "late_hist_12" in hist
     assert "where r.period_ym = '201701'" in fb.projection_start_sql(2015, rel, "spark")

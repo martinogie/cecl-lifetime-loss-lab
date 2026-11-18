@@ -194,6 +194,8 @@ def start_table(states: list[int]) -> pd.DataFrame:
     n = len(states)
     frame = pd.DataFrame({f: np.ones(n) for f in fx.TRANSITION_FEATURES})
     frame["loan_age"], frame["calendar_month"], frame["late_months_12"] = 10.0, 1.0, 0.0
+    for col in multistate.HISTORY:
+        frame[col] = 0.0
     frame["state_prev"] = states
     frame["loan_id"] = [f"L{i}" for i in range(n)]
     frame["vintage_year"] = 2015
@@ -248,12 +250,39 @@ def test_inputs_roll_forward_with_the_economy() -> None:
 
 def test_late_input_is_a_whole_number() -> None:
     li = multistate.late_input
-    assert li(np.array([6.0]), np.array([0.0]), 4, fx.CURRENT)[0] == 4.0  # 6 x 8/12 fading
+    assert li(np.array([4.0]), np.array([0.0]), 4, fx.CURRENT)[0] == 4.0
     assert li(np.array([0.0]), np.array([0.0]), 4, fx.CURRENT)[0] == 0.0  # a clean loan sees exactly 0
     assert li(np.array([0.0]), np.array([1.4]), 4, fx.LATE_30)[0] == 2.0  # 1 projected (rounded) + this month
     assert li(np.array([0.0]), np.array([0.0]), 1, fx.LATE_60)[0] == 2.0
-    assert li(np.array([12.0]), np.array([0.0]), 1, fx.LATE_60)[0] == 12.0  # 11 fading + this month
-    assert li(np.array([1.0]), np.array([0.0]), 7, fx.CURRENT)[0] == 0.0  # 5/12 of a month rounds to 0
+    assert (
+        li(np.array([11.0]), np.array([0.0]), 1, fx.LATE_60)[0] == 12.0
+    )  # 11 still in the window + this month
+
+
+def test_start_history_leaves_the_window_when_the_data_would() -> None:
+    # late 1 and 2 months before the start, and 10 months before
+    h = np.zeros((1, 12))
+    h[0, [0, 1, 9]] = 1.0
+    got = [float(multistate.start_late_in_window(h, k)[0]) for k in range(14)]
+    # month k keeps the rows j <= 12 - k back: the row 10 back leaves at k = 3, rows 2 and 1 at 11 and 12
+    assert got == [3.0, 3.0, 3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 0.0, 0.0]
+    frame = pd.DataFrame(h, columns=list(multistate.HISTORY))
+    frame["late_months_12"] = 3.0
+    assert multistate.check_history(frame) == 0
+    frame["late_months_12"] = 2.0
+    assert multistate.check_history(frame) == 1
+
+
+def test_recent_late_history_is_kept_not_faded() -> None:
+    # a current loan late in the 2 months just before the start keeps 2 late months until month 10;
+    # an even fade of its count (2) would have given 1 by month 6 and 0 by month 10
+    models = {s: Recorder([1.0, 0.0, 0.0, 0.0, 0.0]) for s in fx.LIVE_STATES}
+    start = start_table([fx.CURRENT])
+    start["late_months_12"] = 2.0
+    start["late_hist_1"], start["late_hist_2"] = 1.0, 1.0
+    multistate.project(models, start, macro(), "201701", 13)
+    seen = [float(x[0]) for x in models[fx.CURRENT].seen]  # months 0..12
+    assert seen == [2.0] * 11 + [1.0, 0.0]
 
 
 class Recorder(Fixed):

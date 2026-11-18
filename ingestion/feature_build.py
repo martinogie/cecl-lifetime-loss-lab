@@ -281,6 +281,31 @@ def projection_actuals_sql(panel_rel: str, split: str = fx.VALIDATE) -> str:
     )
 
 
+def projection_history_sql(panel_rel: str, split: str = fx.VALIDATE) -> str:
+    """Per loan with a panel row in the start month: whether each of its 12 panel rows before the start
+    month was 30+ days late (late_hist_1 = the row just before the start, ... late_hist_12), the same
+    rows the feature "months late in the past 12" counts (rows between 12 preceding and 1 preceding),
+    so the 12 flags add up to the start row's late_months_12. Missing rows (a loan younger than a
+    year) count as not late. Any engine."""
+    start, _ = PROJECTION_START[split]
+    flags = ",\n       ".join(
+        f"cast(max(case when rn = {j} and late then 1 else 0 end) as double) as late_hist_{j}"
+        for j in range(1, 13)
+    )
+    return f"""
+with h as (
+    select loan_id, effective_months_late >= 1 as late,
+           row_number() over (partition by loan_id order by period_ym desc) as rn
+    from {panel_rel}
+    where period_ym < '{start}'
+      and loan_id in (select loan_id from {panel_rel} where period_ym = '{start}')
+)
+select loan_id,
+       {flags}
+from h where rn <= 12 group by loan_id
+"""
+
+
 def panel_moves_sql(panel_rel: str) -> str:
     """Moves counted straight from the panel (no joins, no sampling): the tie-outs' reference."""
     return f"""

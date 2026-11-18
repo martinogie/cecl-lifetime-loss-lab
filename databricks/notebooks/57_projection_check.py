@@ -48,6 +48,17 @@ start = (
     spark.table(f"{GOLD}.projection_start_validate").toPandas().sort_values("loan_id").reset_index(drop=True)
 )
 actuals = spark.table(f"{GOLD}.projection_actuals_validate").toPandas()
+# each loan's actual late-payment history before the start month (its 12 panel rows), so the projection
+# drops start months out of the 12-month window exactly as the data does (limitations log L-026)
+history = spark.sql(fb.projection_history_sql(f"{GOLD}.loan_panel", fx.VALIDATE)).toPandas()
+start = start.merge(history, on="loan_id", how="left")
+start[list(multistate.HISTORY)] = start[list(multistate.HISTORY)].fillna(0.0)
+mismatched = multistate.check_history(start)
+print(
+    f"history tie-out: {len(start) - mismatched:,} of {len(start):,} loans' 12 flags add up to late_months_12"
+)
+if mismatched:
+    raise ValueError(f"{mismatched:,} loans' start history does not match late_months_12: stopping")
 macro = multistate.Macro.from_tables(spark.table(f"{SILVER}.macro_state_monthly").toPandas(),
                                      spark.table(f"{SILVER}.macro_national_monthly").toPandas())  # fmt: skip
 print(f"loans alive in {START}: {len(start):,}; projecting {MONTHS} months")
@@ -69,7 +80,7 @@ if benchmark in checks:
         if label != benchmark:
             newly[label] = [vars(x) for x in multistate.newly_failing(c, checks[benchmark])]
 minutes = round((time.monotonic() - started) / 60, 1)
-out = {"start": START, "end": END, "loans": len(start), "minutes": minutes, "minutes_by_combination": timings,
+out = {"start": START, "end": END, "loans": len(start), "history_tie_out_mismatches": mismatched, "minutes": minutes, "minutes_by_combination": timings,
        "combinations": combinations, "checks": {k: v.as_dict() for k, v in checks.items()},
        "newly_failing_vs_benchmark": newly}  # fmt: skip
 with mlflow.start_run(run_name="projection-check-2017-2019"):

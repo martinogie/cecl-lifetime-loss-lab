@@ -18,13 +18,16 @@ reserve's forecast and reversion paths):
 - "months late in the past 12" follows the projection as a whole number, as in the data. Each loan's
   probability is split into slices by live state and by months since its last projected late month
   (1 to 11, or 12+ = none in the past year), and each slice carries its own count of projected late
-  months. A slice's input is that count plus the start value fading evenly over 12 months (the exact
-  start months are not carried), rounded to a whole month, plus this month's own state (a loan in 30
-  has at least one late month, a loan in 60 at least two). A loan that has not been late in the
-  projection sees only its fading start value, so a clean loan sees 0, never a fraction of a late
-  month: the models read this input in steps (the current-loan model splits it at 0, where the roll
+  months. A slice's input is that count plus the loan's actual late months before the start that are
+  still inside the 12-month window (from its 12 panel rows before the start month, `late_hist_1` to
+  `late_hist_12`; a start month leaves the window exactly when it would in the data), rounded to a
+  whole month, plus this month's own state (a loan in 30 has at least one late month, a loan in 60 at
+  least two). A loan that has not been late in the projection sees only its own start history, so a
+  clean loan sees 0, never a fraction of a late month: the models read this input in steps (the current-loan model splits it at 0, where the roll
   rate to 30 changes 27-fold), so an average such as 0.02 would put every clean loan in the "has been
-  late" step (found by the first projection check, 18 November 2026). Projected late months older than
+  late" step (found by the first projection check, 18 November 2026). The start history was first
+  faded evenly over 12 months; loans late at the start were then projected at 0.66-0.67 of their actual
+  defaults, so the exact history replaced it (18 November 2026). Projected late months older than
   12 months drop out only when a slice reaches 12 months without one. An approximation (limitations
   log L-026), tested by the projection check itself.
 
@@ -46,6 +49,9 @@ LIVE = fx.LIVE_STATES
 TINY = 1e-12  # probability mass below this in a slice is not scored (saves time, changes nothing)
 CLEAN = 12  # slice index: no projected late month in the past 12 months
 SLICES = 13  # months since the last projected late month: 0 (in a late state now), 1..11, 12 = clean
+HISTORY = tuple(
+    f"late_hist_{j}" for j in range(1, 13)
+)  # start table: late flag of each of the 12 rows before
 
 
 def add_months(ym: str, n: int) -> str:
@@ -133,11 +139,25 @@ def month_inputs(
     return out
 
 
+def start_late_in_window(history: np.ndarray, k: int) -> np.ndarray:
+    """The loan's late months before the start still inside projected month k's 12-month window.
+    `history` is loans x 12 (column j-1 = the row j months before the start). Month k's window is the
+    12 rows before it, so the start row j months back is in it while j <= 12 - k."""
+    keep = max(12 - k, 0)
+    return history[:, :keep].sum(axis=1) if keep else np.zeros(len(history))
+
+
+def check_history(start: Any) -> int:
+    """Loans whose 12 history flags do not add up to their start row's late_months_12 (should be 0)."""
+    flags = start[list(HISTORY)].to_numpy(dtype=float).sum(axis=1)
+    return int((flags != start["late_months_12"].to_numpy(dtype=float)).sum())
+
+
 def late_input(start_late: np.ndarray, count: np.ndarray, k: int, state: int) -> np.ndarray:
-    """The input "months late in the past 12" for projected month k, as a whole number: the start value fading
-    evenly over 12 months plus the slice's projected late months, rounded, plus this month's own state
-    (see the module note)."""
-    base = np.floor(start_late * max(12 - k, 0) / 12.0 + count + 0.5)
+    """The input "months late in the past 12" for projected month k, as a whole number: the loan's late
+    months before the start still in the window (`start_late`, from start_late_in_window) plus the
+    slice's projected late months, rounded, plus this month's own state (see the module note)."""
+    base = np.floor(start_late + count + 0.5)
     if state == fx.LATE_30:
         base = base + 1.0
     elif state == fx.LATE_60:
@@ -172,11 +192,12 @@ def project(models: dict[int, Any], start: Any, macro: Macro, start_ym: str, mon
     mass[np.arange(n), state0, np.where(state0 == fx.CURRENT, CLEAN, 0)] = 1.0
     count = np.zeros_like(mass)
     p_def, p_pre = np.zeros((n, months)), np.zeros((n, months))
-    start_late = start["late_months_12"].to_numpy(dtype=float)
+    history = start[list(HISTORY)].to_numpy(dtype=float)
     feature_sets = {s: tuple(getattr(models[s], "features", fx.TRANSITION_FEATURES)) for s in LIVE}
     every = tuple(dict.fromkeys(f for fs in feature_sets.values() for f in fs))
     for k in range(months):
         X_all = month_inputs(start, macro, start_ym, k, every)
+        start_late = start_late_in_window(history, k)
         new_mass, new_count = np.zeros_like(mass), np.zeros_like(count)
         for s in LIVE:
             cells = [(j, np.flatnonzero(mass[:, s, j] > TINY)) for j in range(SLICES)]
