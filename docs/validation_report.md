@@ -174,6 +174,38 @@ The three logistic models refitted with the 2020-2021 months included, at the sa
 Default calibration is unaffected at every step. The planned training years (without the COVID
 months) are kept; this is recorded as a sensitivity result.
 
+### The current-loan logistic refit and the late-history band bar (ADR-009 Amendment 2)
+
+Scoring 2017-2019 by "months late in the past 12" showed a build mistake in the current-loan
+logistic scorecard: its bins for that input collapsed to one cut (0 vs 1 or more), because about 98%
+of current loan-months have the value 0 and the bins were cut at weighted quantiles. A loan late once
+got 1.56x too many predicted rolls to 30, a loan late 3 or more times 0.37-0.58x. The errors cancel
+by year and by vintage, so the existing bars could not catch it; in the projection they
+under-projected defaults for loans late at the start. Amendment 2 (accepted 18 November 2026):
+
+- **The refit:** whole-month cuts (0, 1, 2, 3, 5, 8) for that input in the current-loan logistic
+  model (commit 963d5a9; MLflow run `bc66cf67e80c4722ba8461791045c90b`; tuning chose C = 0.1; log loss
+  0.07588 -> 0.07567). Current -> 30 by band, before -> after: 0: 1.18 -> 1.21; 1: 1.56 -> 1.03;
+  2-3: 0.70 -> 0.86; 4-5: 0.42 -> 0.73 (still fails); 6+: 0.37 -> 0.86.
+- **The new bar:** every move at every step must also be within 0.80-1.25 by late-history band (0, 1,
+  2-3, 4-5, 6+), where a band has 200+ moves.
+- **Selection re-run (2017-2019 only):** logistic at every step. 60 days late: neither challenger is
+  better. 30 days late: neither is 2% better, and both fail bars. Current: LightGBM (4.0% better) and
+  the EBM (3.6%) pass the band bar but fail payoff calibration by vintage. Logistic's own failures are
+  recorded (L-029) and tracked in monitoring.
+- **Projection with the winners** (Databricks MLflow run `bd92a516887941f58dd574f5e2fb191f`):
+  defaults 2,962 vs 3,162 (0.94), every default cell passes (by year 1.04 / 0.83 / 0.92; vintages
+  2012-2016 0.90-1.22); payoffs 0.80, the same 11 failing cells (L-028).
+
+| Starting state (Jan 2017) | Actual defaults | Faded history (100e781) | Exact history (9548682) | Refit (963d5a9) |
+|---|---|---|---|---|
+| Current | 2,377 | 2,388 (1.00) | 2,335 (0.98) | 2,365 (0.99) |
+| 30 days late | 529 | 355 (0.67) | 358 (0.68) | 424 (0.80) |
+| 60 days late | 256 | 169 (0.66) | 169 (0.66) | 173 (0.67) |
+| All | 3,162 | 2,912 (0.92) | 2,863 (0.91) | 2,962 (0.94) |
+
+Loans 60 days late at the start remain at 0.67 (L-030); diagnosis under way (scoring only).
+
 ### Still to come
 
 - The out-of-time test (July 2022 - June 2026), scored once, only after Martins approves it.

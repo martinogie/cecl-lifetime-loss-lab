@@ -197,3 +197,119 @@ It runs once, after this amendment is accepted and committed; its results are re
 show; no model is chosen, swapped or tuned on it (the original E).
 
 **Decision on this amendment (Martins, 17 November 2026):** ADR-009 Amendment 1: approved as written, including the combination check (keep it). Tune each step on its own log loss across all its destinations (for example from 30: cure, stay, roll to 60, default, prepay). Walk-forward tuning with three time folds (train to 2007 / test 2008–2010; train to 2010 / test 2011–2013; train to 2013 / test 2014–2016), choosing the setting with the best average across the folds and reporting each fold, plus the wider LightGBM grid (tree size plus minimum leaf weight). EBM stays on defaults; its learning curve will show whether that’s holding it back. The 2017–2019 validation years and the test months are never used for tuning.
+
+
+## Amendment 2: a late-history calibration bar; the out-of-time verdict, payoffs, champion promotion
+
+- **Status of this amendment:** accepted, 18 November 2026 (approved as drafted, with one sentence added
+  to (d)). Accepted and committed **before**
+  the out-of-time test runs; the test command refuses to run without it (original E).
+- **Why:** after the 2017-2019 validation (validation report, Phase 2), four points were not written
+  down anywhere: (1) what counts as an overall pass on the out-of-time test; (2) how payoff cells
+  count, given the known payoff shortfall (limitations log L-028); (3) what a model needs to be
+  promoted from `@challenger` to `@champion` (control C12 had a process but no criteria); (4) what
+  happens to the shortfall in projected defaults for loans already late at the start. They are fixed
+  here, before the test, so the test cannot shape its own pass mark.
+- **And a new selection bar (added 18 November 2026).** The diagnosis below found a build mistake in
+  the current-loan logistic model that **the existing bars could not catch**: they judge calibration
+  by year, by vintage and over the whole period, and in each of those the model's over-prediction for
+  loans late once and its under-prediction for chronic late payers cancel out. Only a split by
+  late-payment history shows it. So every model now also has to pass calibration by late-history band.
+
+**Context for (d): the late-loan shortfall, diagnosed (scoring only, 2017-2019).** In the
+2017-2019 projection, loans 30 or 60 days late in January 2017 are projected at 0.68 and 0.66 of
+their actual defaults; loans current at the start at 0.98. Scoring the 2017-2019 loan-months by
+"months late in the past 12" shows why:
+
+| Months late in the past 12 (loan current now) | Actual rolls to 30 | Predicted (logistic) | Ratio | LightGBM | EBM |
+|---|---|---|---|---|---|
+| 1 | 5,914 | 9,244 | 1.56 | 0.90 | 0.96 |
+| 2 | 3,586 | 2,764 | 0.77 | 0.86 | 0.93 |
+| 3 | 2,390 | 1,397 | 0.58 | 0.88 | 1.01 |
+| 4-5 | 3,095 | 1,295 | 0.42 | 0.96 | 0.96 |
+| 6-8 | 2,409 | 887 | 0.37 | 1.00 | 1.10 |
+| 9-12 | 719 | 274 | 0.38 | 1.11 | 1.33 |
+
+The current-loan logistic scorecard has a single cut for this input (0 vs 1 or more): its bins are
+cut at weighted quantiles, and about 98% of current loan-months have the value 0, so the quantiles
+collapse to one cut. It therefore gives a loan late once and a loan late ten times the same roll rate:
+too high for the first, far too low for chronic payers. The errors cancel in the one-step totals
+(which is why the one-step checks passed), but in the projection a loan that is late at the start
+and cures goes back to the current-loan model and is scored as a one-time late payer, so its next
+roll and default are under-projected. The 30- and 60-day models have 7-8 cuts for this input and are
+calibrated within 0.95-1.16 in every band with real volume; LightGBM and the EBM handle it correctly.
+
+It is fixable only by refitting the current-loan logistic model with whole-month cut points for this
+input (0, 1, 2, 3, 5, 8), a retraining, then re-running the selection and the 2017-2019 projection
+check. It cannot be fixed in the projection code. *(Secondary finding, same cause: credit score has no cuts at
+all in the 30- and 60-day logistic models; both still calibrate by band, so it is recorded, not
+fixed here.)*
+
+**The new bar (B, added to Amendment 1 B).** For each transition model, the calibration of every move
+out of that state (predicted / actual) must also fall within **0.80-1.25** in each **late-payment-history
+band**: months late in the past 12 = **0, 1, 2-3, 4-5, 6+**, in every band with at least 200 actual
+moves of that kind (bands below the minimum are reported, not judged). It applies at every step
+(current, 30, 60), alongside the existing bars (by year, by vintage, whole period); the selection rule
+(C) is otherwise unchanged: a challenger must pass every bar, including this one, and the logistic
+model is kept, with its failures recorded, if no challenger qualifies. The selection at all three
+steps is re-run under the amended bars on 2017-2019 only.
+
+**Decision on this amendment (Martins, 18 November 2026):**
+
+**(a) Overall verdict.** The out-of-time test passes when **every judged default cell** (by year and
+by vintage, cells with at least 200 actual defaults, in the full multi-state projection from 1 July
+2022) is inside **0.80-1.25**. Each transition's calibration, log loss, AUC and Gini are reported
+with it (Amendment 1 E), but the verdict is on the projected defaults.
+
+**(b) Payoffs.** Payoff cells are reported in full. A payoff cell outside 0.80-1.25 is recorded
+under **L-028** and **does not fail the test**.
+
+**(c) Champion promotion.** A model (or combination) is promoted from `@challenger` to `@champion`
+only if it **passes the out-of-time test** under (a) **and** Martins has written a review approving
+it; the promotion happens only in prod (control C12). A combination that fails (a) stays
+`@challenger`; any fix is a new model version validated on a new period (original E).
+
+**(d) The late-loan shortfall: fixed, not accepted.** The shortfall is not accepted as a known
+limitation. The current-loan logistic model is refitted with whole-month cuts (0, 1, 2, 3, 5, 8) for
+"months late in the past 12": this corrects a build mistake so the benchmark can compete fairly; it is
+not a tuning on results. The late-history band bar (above) is added to the selection rule because
+the old bars could not catch the mistake. The selection is re-run at all three steps under the
+amended rule, on 2017-2019 only, and the 2017-2019 projection is re-run with the winners. The test
+months are not touched.
+
+**Results (2017-2019 only; recorded before acceptance).**
+
+- **The refit** (commit 963d5a9; MLflow run `bc66cf67e80c4722ba8461791045c90b`; walk-forward tuning
+  chose C = 0.1): all six whole-month cuts survive; the training roll rate to 30 rises from 0.35% a
+  month (never late) to 29.5% (9+ late months). Log loss 0.07588 -> 0.07567. Calibration of
+  current -> 30 by late-history band, before -> after: 0: 1.18 -> 1.21; 1: 1.56 -> 1.03; 2-3:
+  0.70 -> 0.86; 4-5: 0.42 -> **0.73 (still fails)**; 6+: 0.37 -> 0.86. The scorecard adds each input's
+  effect separately and cannot combine late history with other inputs; LightGBM and the EBM, which
+  can, pass every band (0.87-1.15).
+- **Selection under the amended bars, per step:**
+
+| Step | Logistic | LightGBM | EBM | Winner and why |
+|---|---|---|---|---|
+| 60 days late | 1.32252; passes every bar, including the bands | 4.0% worse; 7 cells fail (3 by band) | 0.03% worse; passes every bar | **Logistic**: neither challenger is better |
+| 30 days late | 0.92369; 2 cells fail (prepaid 2017; 30 -> 60 for 1 late month by band, 1.28) | 0.4% better; 5 fail | 0.7% better; 6 fail | **Logistic**: neither challenger is 2% better, and both fail bars |
+| Current | refit 0.07567; 15 fail (13 payoff cells, 30 -> 60 vintage 2018, the 4-5 band) | 4.0% better; 6 fail (5 payoff cells by vintage, current -> 30 vintage 2003 at 0.76); passes every band | 3.6% better; 7 fail (mostly payoffs by vintage); passes every band | **Logistic (refit)**: both challengers are over 2% better and pass the new band bar, but still fail payoff calibration by vintage |
+
+  Logistic is kept at every step; its own failures are recorded (the rule as written). The combination
+  check has nothing to swap.
+- **The 2017-2019 projection with the winners** (Databricks MLflow run `bd92a516887941f58dd574f5e2fb191f`,
+  commit 963d5a9; the same projection rerun on the PC reproduces its totals): defaults 2,962 vs 3,162
+  (0.94); every default cell passes (by year 1.04 / 0.83 / 0.92; vintages 2012-2016 0.90-1.22).
+  Payoffs 67,291 vs 83,789 (0.80), the same 11 failing cells as before (L-028).
+
+| Starting state (Jan 2017) | Actual defaults | Faded history (100e781) | Exact history (9548682) | Refit (963d5a9) |
+|---|---|---|---|---|
+| Current | 2,377 | 2,388 (1.00) | 2,335 (0.98) | 2,365 (0.99) |
+| 30 days late | 529 | 355 (0.67) | 358 (0.68) | 424 (0.80) |
+| 60 days late | 256 | 169 (0.66) | 169 (0.66) | 173 (0.67) |
+| All | 3,162 | 2,912 (0.92) | 2,863 (0.91) | 2,962 (0.94) |
+
+  The refit closes much of the gap for loans 30 days late at the start; loans 60 days late at the
+  start are unchanged at 0.67, so their shortfall has another cause (not yet diagnosed). That
+  remaining gap goes in the limitations log (L-030); it is not accepted as fixed.
+
+Logistic's own recorded failures at the chosen steps (15 cells for the current-loan model, mostly payoffs, plus the 4-5 band for current -> 30; at 30 days late, prepaid 2017 and the 1-late-month band for 30 -> 60) are entered in the limitations log (L-029) and tracked in monitoring.
