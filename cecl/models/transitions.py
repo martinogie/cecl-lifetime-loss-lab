@@ -28,6 +28,13 @@ import numpy as np
 from cecl import features as fx
 from cecl.models.binning import FeatureBins, fit_bins, one_hot
 
+# Fixed scorecard cut points (whole months) for "months late in the past 12" in the current-loan
+# logistic model. Its bins are otherwise cut at weighted quantiles, and about 98% of current
+# loan-months have the value 0, so the quantiles collapsed to a single cut (0 vs 1+): a loan late once
+# and a loan late ten times got the same roll rate (1.56x too many rolls for the first, 0.37-0.58x for
+# 3+ late months on 2017-2019). Found by the 2017-2019 projection check; ADR-009 Amendment 2.
+FIXED_EDGES: dict[int, dict[str, tuple[float, ...]]] = {fx.CURRENT: {"late_months_12": (0, 1, 2, 3, 5, 8)}}
+
 FEATURES = fx.TRANSITION_FEATURES
 N_STATES = len(fx.STATES)
 MIN_MOVES = 50  # fewer training moves than this to a destination: a constant rate, not a model
@@ -109,7 +116,9 @@ class TransitionLogistic:
         # credit-risk direction); the multinomial model then gives every destination its own points.
         worse = np.isin(state, [d for d in range(N_STATES) if role(self.start, d) == "worse"]).astype(int)
         dirs = directions(self.start, fx.ADVERSE[self.start], self.features)
-        self.bins = [fit_bins(f, X[f], worse, weight, d) for f, d in zip(self.features, dirs, strict=True)]
+        fixed = FIXED_EDGES.get(self.start, {})
+        self.bins = [fit_bins(f, X[f], worse, weight, d, edges=fixed.get(f))
+                     for f, d in zip(self.features, dirs, strict=True)]  # fmt: skip
         design, _ = one_hot(self.bins, X)
         self.model = LogisticRegression(C=self.C, max_iter=self.max_iter)
         self.model.fit(design, state, sample_weight=weight)

@@ -335,3 +335,23 @@ def test_projection_check_counts_only_observed_months() -> None:
     good = multistate.Check(cells=[multistate._cell("default", "year", "2019", 300, 310)])
     assert not bad.passes and multistate.newly_failing(bad, good) == bad.cells
     assert multistate.newly_failing(bad, bad) == []
+
+
+def test_late_bands_and_the_band_bar() -> None:
+    bands = transition_pipeline.late_band(np.array([0, 1, 2, 3, 4, 5, 6, 12, np.nan]))
+    assert list(bands) == ["0", "1", "2-3", "2-3", "4-5", "4-5", "6+", "6+", "0"]
+
+
+def test_current_logistic_uses_whole_month_cuts_for_late_months() -> None:
+    frame = book(fx.CURRENT)
+    rng = np.random.default_rng(5)
+    late = np.where(rng.uniform(size=len(frame)) < 0.97, 0.0, rng.integers(1, 13, len(frame)).astype(float))
+    frame["late_months_12"] = late
+    # rolls to 30 rise with the late count, so the monotone merge keeps the whole-month cuts
+    roll = rng.uniform(size=len(frame)) < 0.01 + 0.04 * late
+    frame.loc[roll, "state"] = fx.LATE_30
+    model = transition_pipeline.fit("logistic", fx.CURRENT, frame, {"C": 1.0})
+    b = [x for x in model.bins if x.name == "late_months_12"][0]
+    assert b.edges[0] == 0.0 and len(b.edges) >= 4  # not collapsed to a single cut
+    # the 30-day model keeps its quantile cuts
+    assert fx.LATE_30 not in transitions.FIXED_EDGES

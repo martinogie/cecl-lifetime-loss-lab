@@ -82,24 +82,29 @@ def _merge_to_monotone(
     return edges
 
 
-def fit_bins(name: str, x: Any, default: Any, weight: Any,
-             direction: int = 0, max_bins: int = MAX_BINS) -> FeatureBins:  # fmt: skip
+def fit_bins(name: str, x: Any, default: Any, weight: Any, direction: int = 0, max_bins: int = MAX_BINS,
+             edges: Sequence[float] | None = None) -> FeatureBins:  # fmt: skip
+    """Scorecard bins for one feature: cut at weighted quantiles (or at the given `edges`), empty bins
+    merged, then merged until the event rate is monotone in `direction` (0 = no direction)."""
     xv = np.asarray(x, dtype=float)
     yv = np.asarray(default, dtype=float)
     wv = np.asarray(weight, dtype=float)
     ok = ~np.isnan(xv)
     values = np.unique(xv[ok])
-    if len(values) <= 2:  # binary or constant: one cut between the values
-        edges = [float(values[0])] if len(values) == 2 else []
+    cuts: list[float]
+    if edges is not None:  # fixed cut points (a count whose quantiles would collapse)
+        cuts = sorted(float(e) for e in edges)
+    elif len(values) <= 2:  # binary or constant: one cut between the values
+        cuts = [float(values[0])] if len(values) == 2 else []
     else:
         qs = np.linspace(0, 1, max_bins + 1)[1:-1]
-        edges = sorted(set(float(e) for e in _weighted_quantiles(xv[ok], wv[ok], qs)))
-    bins = FeatureBins(name, edges, direction)
+        cuts = sorted(set(float(e) for e in _weighted_quantiles(xv[ok], wv[ok], qs)))
+    bins = FeatureBins(name, cuts, direction)
     idx = bins.assign(xv)
     events = [float((wv[ok] * yv[ok])[idx[ok] == i].sum()) for i in range(bins.n_bins)]
     totals = [float(wv[ok][idx[ok] == i].sum()) for i in range(bins.n_bins)]
-    edges, events, totals = _merge_empty(edges, events, totals)
-    bins = FeatureBins(name, _merge_to_monotone(edges, events, totals, direction), direction)
+    cuts, events, totals = _merge_empty(cuts, events, totals)
+    bins = FeatureBins(name, _merge_to_monotone(cuts, events, totals, direction), direction)
     idx = bins.assign(xv)
     bins.rates = [float((wv[ok] * yv[ok])[idx[ok] == i].sum() / max(wv[ok][idx[ok] == i].sum(), 1e-12))
                   for i in range(bins.n_bins)]  # fmt: skip

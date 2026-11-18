@@ -136,8 +136,22 @@ def train(family: str, start: int, frame: Any, settings: dict[str, Any] | None =
     return fit(family, start, frame, record["chosen"], eval_frame), record
 
 
+LATE_BANDS = ((0, 0, "0"), (1, 1, "1"), (2, 3, "2-3"), (4, 5, "4-5"), (6, 12, "6+"))
+
+
+def late_band(late_months_12: Any) -> np.ndarray:
+    """The late-payment-history band of each row: months late in the past 12 as 0, 1, 2-3, 4-5, 6+
+    (ADR-009 Amendment 2: every move is also judged by band)."""
+    x = np.nan_to_num(np.asarray(late_months_12, dtype=float), nan=0.0)
+    out = np.full(len(x), "6+", dtype=object)
+    for low, high, name in LATE_BANDS:
+        out[(x >= low) & (x <= high)] = name
+    return out
+
+
 def evaluate(model: Any, frame: Any, train_frame: Any) -> dict[str, Any]:
-    """Every ADR-009 Amendment 1 B measure on one period (validation), weighted."""
+    """Every ADR-009 Amendment 1 B measure on one period (validation), weighted, plus the Amendment 2
+    bar: each move's calibration by late-payment-history band."""
     start = model.start
     y = frame["state"].to_numpy(dtype=int)
     w = frame["weight"].to_numpy(dtype=float)
@@ -147,6 +161,7 @@ def evaluate(model: Any, frame: Any, train_frame: Any) -> dict[str, Any]:
     groups = {
         "year": frame["period_ym"].str[:4].to_numpy(),
         "vintage": frame["vintage_year"].astype(str).to_numpy(),
+        "late_band": late_band(frame["late_months_12"]),
     }
     passes = True
     calibration: dict[str, Any] = {}
