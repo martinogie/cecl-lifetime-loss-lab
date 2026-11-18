@@ -364,3 +364,21 @@ def test_ebm_early_stopping_is_time_based() -> None:
         "ebm", frame, settings={"interactions": 0, "outer_bags": 2, "max_rounds": 100}
     )
     assert default.params()["early_stopping"] == "random 15% per bag"  # the default (L-025)
+
+
+def test_horizon_auc_uses_only_start_date_inputs() -> None:
+    """The start-date horizon AUC never sees a loan's later months: changing them doesn't change it."""
+    frame = book(6000)
+    model, _ = pipeline.train("logistic", frame, tune=False)
+    horizon = frame.assign(weight=1.0)
+    base = pipeline.horizon_from_start(model, horizon, "201701")
+    later = horizon.copy()
+    after = later["period_ym"] > "201701"
+    later.loc[after, "months_late_prev"] = 9.0  # scramble every input after the start month
+    later.loc[after, "current_ltv"] = 300.0
+    again = pipeline.horizon_from_start(model, later, "201701")
+    assert set(base) == {"12", "24"} and base["12"]["method"] == "start-date inputs only"
+    assert (
+        base["12"]["auc"] == pytest.approx(again["12"]["auc"]) and base["24"]["loans"] == again["24"]["loans"]
+    )
+    assert pipeline.horizon_from_start(model, horizon, "203001") == {}

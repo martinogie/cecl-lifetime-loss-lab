@@ -123,6 +123,50 @@ def train(
     return _fit(name, frame, best, features, eval_frame), record
 
 
+def horizon_from_start(
+    model: Any, horizon: Any, start: str, months: tuple[int, ...] = HORIZONS
+) -> dict[str, Any]:
+    """AUC (and Gini) at 12, 24 and 36 months using **only what is known at the start date**.
+
+    Each loan alive in `start` is scored from its start-month row alone and projected forward: loan
+    age and calendar month advance, every other input (including delinquency, unemployment, LTV)
+    stays at its start value, since later values are not known when the forecast is made. Monthly
+    default and prepayment chances are combined as competing risks into the chance of defaulting
+    within each horizon (`metrics.cumulative_default`); loans are ranked by it against whether they
+    actually defaulted. (Replaces the 17 Nov 2026 version, which used each loan's actual later months,
+    including later delinquency, and so overstated ranking power.)
+    """
+    import pandas as pd
+
+    last = horizon["period_ym"].max()
+    usable = [m for m in months if metrics._add_months(start, m - 1) <= last]
+    if not usable:
+        return {}
+    h = max(usable)
+    at_start = horizon[horizon["period_ym"] == start].drop_duplicates("loan_id")
+    if at_start.empty:
+        return {}
+    rep = at_start.loc[at_start.index.repeat(h)].copy()
+    step = np.tile(np.arange(h), len(at_start))
+    rep["loan_age"] = rep["loan_age"].to_numpy() + step
+    month0 = rep["calendar_month"].to_numpy() - 1
+    rep["calendar_month"] = ((month0 + step) % 12 + 1).astype(float)
+    p = model.predict_proba(inputs(model, pd.DataFrame(rep)))
+    n = len(at_start)
+    cif = metrics.cumulative_default(p[:, fx.DEFAULT].reshape(n, h), p[:, fx.PREPAY].reshape(n, h))
+    ids = at_start["loan_id"].to_numpy()
+    result = {}
+    for m in usable:
+        labels = metrics.horizon_labels(horizon["loan_id"].to_numpy(), horizon["period_ym"].to_numpy(),
+                                        horizon["outcome"].to_numpy(), start, m)  # fmt: skip
+        keep = np.array([i in labels for i in ids])
+        y = np.array([labels[i] for i in ids[keep]])
+        value = metrics.auc(y == 1, cif[keep, m - 1])
+        result[str(m)] = {"auc": value, "gini": metrics.gini(value), "loans": int(keep.sum()),
+                          "defaults": int(y.sum()), "method": "start-date inputs only"}  # fmt: skip
+    return result
+
+
 def evaluate(model: Any, frame: Any, horizon: Any | None, train_frame: Any, start: str) -> dict[str, Any]:
     """All measures on one period (validation, or the test months), weighted."""
     y = frame["outcome"].to_numpy(dtype=int)
@@ -158,18 +202,7 @@ def evaluate(model: Any, frame: Any, horizon: Any | None, train_frame: Any, star
         for year in sorted(frame["period_ym"].str[:4].unique())
     }  # fmt: skip
     if horizon is not None and len(horizon):
-        ph = model.predict_proba(inputs(model, horizon))[:, fx.DEFAULT]
-        out["auc_by_horizon"] = {}
-        last = horizon["period_ym"].max()
-        for months in HORIZONS:
-            if metrics._add_months(start, months - 1) <= last:
-                value, loans = metrics.horizon_auc(horizon["loan_id"].to_numpy(), horizon["period_ym"].to_numpy(),
-                                                   horizon["outcome"].to_numpy(), ph, start, months)  # fmt: skip
-                out["auc_by_horizon"][str(months)] = {
-                    "auc": value,
-                    "gini": metrics.gini(value),
-                    "loans": loans,
-                }
+        out["auc_by_horizon"] = horizon_from_start(model, horizon, start)
     sample = frame.head(REASON_CHECK_ROWS)
     try:
         feats = families.feature_list(model)

@@ -49,14 +49,22 @@ def test_psi() -> None:
     assert metrics.psi(a, rng.normal(1, 1, 20000)) > 0.25
 
 
-def test_horizon_auc_uses_each_loans_path() -> None:
-    # loan A: high monthly PD, defaults in month 3; loan B: low PD, survives; loan C starts later
-    ids = ["A"] * 3 + ["B"] * 6 + ["C"] * 2
-    per = ["201701", "201702", "201703"] + [f"2017{m:02d}" for m in range(1, 7)] + ["201705", "201706"]
-    y = [0, 0, 1] + [0] * 6 + [0, 1]
-    pd_ = [0.2, 0.2, 0.2] + [0.01] * 6 + [0.9, 0.9]
-    value, loans = metrics.horizon_auc(ids, per, y, pd_, "201701", 12)
-    assert loans == 2 and value == 1.0  # C wasn't alive at the start, so it is not scored
+def test_cumulative_default_competing_risks() -> None:
+    pd_ = np.array([[0.1, 0.1, 0.1]])
+    pp = np.array([[0.2, 0.2, 0.2]])
+    cif = metrics.cumulative_default(pd_, pp)
+    # month 1: 0.1; month 2: + 0.7 x 0.1; month 3: + 0.7 x 0.7 x 0.1
+    assert np.allclose(cif, [[0.1, 0.17, 0.219]])
+
+
+def test_horizon_labels_from_the_start_month() -> None:
+    # A defaults in month 3; B prepays; C runs the full window; D leaves the data early (censored);
+    # E only starts later (not alive at the start)
+    ids = ["A"] * 3 + ["B"] * 2 + ["C"] * 3 + ["D"] * 1 + ["E"] * 2
+    per = ["201701", "201702", "201703", "201701", "201702", "201701", "201702", "201703", "201701",
+           "201702", "201703"]  # fmt: skip
+    y = [0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 1]
+    assert metrics.horizon_labels(ids, per, y, "201701", 3) == {"A": 1, "B": 0, "C": 0}
     assert metrics._add_months("201711", 2) == "201801"
 
 

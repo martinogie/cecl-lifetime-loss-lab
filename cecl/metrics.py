@@ -110,31 +110,40 @@ def gini(auc_value: float) -> float:
     return 2.0 * auc_value - 1.0
 
 
-def horizon_auc(loan_id: Sequence[str], period_ym: Sequence[str], outcome: Sequence[int], pd_month: Sequence[float],
-                start: str, months: int) -> tuple[float, int]:  # fmt: skip
-    """AUC at a horizon, from a fixed start month (the horizon table: every month of each loan).
+def cumulative_default(p_default: np.ndarray, p_prepay: np.ndarray) -> np.ndarray:
+    """Competing risks: the chance of having defaulted by the end of each month k (n loans x h
+    months), given monthly default and prepayment chances. A loan must survive both to default later:
+    CIF(k) = sum over j <= k of [prod over i < j of (1 - pd_i - pp_i)] x pd_j."""
+    pd_, pp = np.asarray(p_default, dtype=float), np.asarray(p_prepay, dtype=float)
+    alive = np.cumprod(np.clip(1.0 - pd_ - pp, 0.0, 1.0), axis=1)
+    alive_before = np.hstack([np.ones((pd_.shape[0], 1)), alive[:, :-1]])
+    return np.cumsum(alive_before * pd_, axis=1)
 
-    Loans alive in `start` are scored by their cumulative chance of default over the next `months`
-    months, 1 - prod(1 - monthly PD), using their actual months (a loan that prepays or leaves
-    stops early). The label is whether the loan defaulted within those months. Returns (AUC, loans).
-    """
+
+def horizon_labels(loan_id: Sequence[str], period_ym: Sequence[str], outcome: Sequence[int], start: str,
+                   months: int) -> dict[str, int]:  # fmt: skip
+    """Per loan alive in `start`: 1 if it defaulted within `months` months, 0 if it prepaid or was
+    still alive at the end without defaulting. Loans whose rows stop early with neither event (they
+    left the data: censored) have an unknown outcome and are left out."""
     end = _add_months(start, months - 1)
-    ids = np.asarray(loan_id)
-    per = np.asarray(period_ym)
-    y = np.asarray(outcome, dtype=int)
-    pdm = np.asarray(pd_month, dtype=float)
-    window = (per >= start) & (per <= end)
-    alive_at_start = set(ids[per == start].tolist())
-    keep = window & np.isin(ids, list(alive_at_start))
-    survival: dict[str, float] = {}
-    defaulted: dict[str, bool] = {}
-    for i, py, ypd in zip(ids[keep], y[keep], pdm[keep], strict=True):
-        survival[i] = survival.get(i, 1.0) * (1.0 - ypd)
-        defaulted[i] = defaulted.get(i, False) or py == 1
-    loans = sorted(survival)
-    score = [1.0 - survival[i] for i in loans]
-    label = [int(defaulted[i]) for i in loans]
-    return auc(label, score), len(loans)
+    ids, per, y = np.asarray(loan_id), np.asarray(period_ym), np.asarray(outcome, dtype=int)
+    alive = set(ids[per == start].tolist())
+    window = (per >= start) & (per <= end) & np.isin(ids, list(alive))
+    last: dict[str, str] = {}
+    event: dict[str, int] = {}
+    for i, py, yy in zip(ids[window], per[window], y[window], strict=True):
+        last[i] = max(last.get(i, py), py)
+        if yy == 1:
+            event[i] = 1
+        elif yy == 2 and event.get(i) != 1:
+            event[i] = 2
+    labels = {}
+    for i in alive:
+        if event.get(i) == 1:
+            labels[i] = 1
+        elif event.get(i) == 2 or last.get(i) == end:
+            labels[i] = 0
+    return labels
 
 
 def _add_months(ym: str, n: int) -> str:

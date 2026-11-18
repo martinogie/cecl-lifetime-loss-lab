@@ -1,6 +1,6 @@
 # ADR-010: Fixing the default-level shift between the training and validation years
 
-- **Status:** accepted, 17 November 2026 (Option E). Evidence section completed from the diagnostics run.
+- **Status:** accepted 17 November 2026 (Option E), **amended the same day: the decision moves to ADR-011** (lifetime projection design); the era feature and level calibration remain optional extras.
 - **Related:** ADR-009 (selection rule: the calibration bar 0.80-1.25), ADR-002 (definition of default,
   stop-the-clock), L-016 (forbearance flags only from 2014), L-024 (DTI missing for relief
   refinances), Phase 2 plan; Phase 6 (crisis backtest)
@@ -96,3 +96,5 @@ touched until Martins approves it.
 **Decision (Martins, 17 November 2026):** Option E. First, add an origination-era feature (originated before 2009 vs 2009 onward; era buckets such as pre-2005, 2005–2008 and 2009 onward if the diagnostics support them) to all three model families, so the models can separate loans made under post-crisis underwriting from bubble-era loans that look the same on paper. Training still uses all years from 1999 to 2016, including the crisis. If calibration on 2017–2019 still fails the ADR-009 bar after that, apply a level calibration fitted on 2014–2016 to close the remaining gap. Why: the validation results show all three families over-predicting defaults by 1.4–1.5× in 2017–2019, worst for the 2012–2017 vintages, which points to unobserved underwriting quality in the bubble years. The era feature addresses that cause and is easy to explain; level calibration is the fallback. This decision was written after seeing the validation results; any fix is re-validated on 2017–2019 under ADR-009 unchanged, and the out-of-time test stays untouched.
 
 *If the diagnostics contradict the era explanation, the decision is revisited with Martins before any retraining.*
+
+**Amendment (Martins, 17 November 2026).** The diagnostics only partly support the era explanation: there is no over-prediction of 2012-2016 within the training years, and the gap is nationwide, after 2016, and in already-delinquent loans, pointing to higher cure rates. This decision therefore moves to the ADR-011 design (lifetime projection). The origination-era feature and the 2014-2016 level calibration stay as optional extras, tested only if the evidence supports them. All training is paused until ADR-011 is decided.
