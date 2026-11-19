@@ -46,9 +46,9 @@ checker, in writing; there is no separate validation team, which is itself a lim
 
 | Model ID | Name | Purpose | Proposed tier | Status | Registry name | Phase |
 |---|---|---|---|---|---|---|
-| M-01 | Lifetime PD and prepayment (competing-risks hazard) | Monthly chance of default and of prepayment for each loan over its life | 1: the main driver of the reserve; three model families | not started | `<catalog>.ml.pd_hazard` (`@challenger`, `@champion`) | 2 |
-| M-02 | LGD (two-step) | Chance of any loss once defaulted, then the size of the loss; tied to house prices | 1: directly multiplies the reserve | not started | `<catalog>.ml.lgd` | 3 |
-| M-03 | EAD (balance projection) | Balance owed at each future month, from the payment schedule and prepayment | 2: mostly mechanical for fixed-rate loans | not started | code in `cecl.ead` | 3 |
+| M-01 | Lifetime PD and prepayment (competing-risks hazard) | Monthly chance of default and of prepayment for each loan over its life | 1: the main driver of the reserve; three model families | @challenger (19 Nov 2026): multi-state logistic transition models; **failed the out-of-time test** (L-032); not champion | `<catalog>.ml.pd_transition_current`, `_30`, `_60` (`@challenger`) | 2 |
+| M-02 | LGD (two-step) | Chance of any loss once defaulted, then the size of the loss; tied to house prices | 1: directly multiplies the reserve | draft (Phase 3, 19 Nov 2026): two-step monotone trees on every ADR-002 default; docs/phase3/model_documentation.md; L-033 | `<catalog>.ml.lgd` (not registered yet) | 3 |
+| M-03 | EAD (balance projection) | Balance owed at each future month, from the payment schedule and prepayment | 2: mostly mechanical for fixed-rate loans | draft (Phase 3, 19 Nov 2026): schedule plus partial prepayment by loan age; within 2% on held-out loans; L-034 | code in `cecl.ead` | 3 |
 | M-04 | CECL engine (aggregation, forecast, reversion, scenario weighting) | Combines M-01 to M-03 into each loan's and the book's lifetime expected loss | 1: produces the reported reserve | not started | code in `cecl.engine` | 4 |
 | M-05 | Benchmark: loss-rate method | Simple reserve estimate used as a check on M-04 | 3 | not started | code in `cecl.benchmarks` | 4 |
 | M-06 | Benchmark: vintage method | Second simple check on M-04 | 3 | not started | code in `cecl.benchmarks` | 4 |

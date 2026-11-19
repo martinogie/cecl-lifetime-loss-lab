@@ -71,8 +71,8 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: pytest with coverage (offline; synthetic fixtures only)
         run: pytest -ra --cov --cov-report=term --cov-report=xml
-      - name: "coverage gate: cecl/ >= 80% (cecl/models/ is gated in the ml job)"
-        run: coverage report --include="cecl/*" --omit="cecl/models/*" --fail-under=80
+      - name: "coverage gate: cecl/ >= 80% (cecl/models/, lgd and ead are gated in the ml job)"
+        run: coverage report --include="cecl/*" --omit="cecl/models/*,cecl/lgd.py,cecl/ead.py" --fail-under=80
       - name: "coverage gate: ingestion/ >= 80%"
         run: coverage report --include="ingestion/*" --fail-under=80
       - name: Upload coverage report
@@ -98,9 +98,9 @@ jobs:
             requirements-ml.txt
       - run: pip install -r requirements-dev.txt -r requirements-ml.txt
       - name: model tests with coverage (synthetic data only)
-        run: pytest -ra cecl/tests/test_models.py cecl/tests/test_metrics.py cecl/tests/test_transitions.py --cov --cov-report=term
-      - name: "coverage gate: cecl/models/ >= 80%"
-        run: coverage report --include="cecl/models/*" --fail-under=80
+        run: pytest -ra cecl/tests/test_models.py cecl/tests/test_metrics.py cecl/tests/test_transitions.py cecl/tests/test_lgd_ead.py --cov --cov-report=term
+      - name: "coverage gate: cecl/models/, lgd and ead >= 80%"
+        run: coverage report --include="cecl/models/*,cecl/lgd.py,cecl/ead.py" --fail-under=80
 
   dag-import:
     runs-on: ubuntu-24.04
