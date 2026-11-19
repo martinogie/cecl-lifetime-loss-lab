@@ -252,7 +252,7 @@ resources:
     oot_test:
       name: cecl_lab_oot_test_${var.env}
       description: "The out-of-time test, once (ADR-009 E; multi-state, Amendments 1 E and 2): started only by scripts/run_oot_test.py"
-      timeout_seconds: 3600
+      timeout_seconds: 0  # no limit (Martins, 19 Nov 2026); never started where it could run into 02:30 Central
       max_concurrent_runs: 1
       queue:
         enabled: true
@@ -291,7 +291,7 @@ resources:
           notebook_task:
             notebook_path: ./notebooks/60_out_of_time_test.py
           environment_key: ml
-          timeout_seconds: 3600
+          timeout_seconds: 0
           max_retries: 0
 
     diagnostics:
