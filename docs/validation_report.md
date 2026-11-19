@@ -1,8 +1,8 @@
 # Validation report: CECL Lifetime Loss Lab
 
 Draft, built up phase by phase. Educational model on Freddie Mac conforming mortgages; not an
-audited bank reserve and not accounting advice. Every figure below is on the **validation years
-2017-2019**; the out-of-time test months (July 2022 - June 2026) have not been scored.
+audited bank reserve and not accounting advice. Figures are on the **validation years 2017-2019**
+unless marked as the out-of-time test (July 2022 - June 2026, scored once on 18-19 November 2026).
 
 ## Phase 2: multi-state transition models (ADR-011, ADR-009 Amendment 1)
 
@@ -361,7 +361,83 @@ Databricks minutes for this round: feature build 14.2, nine trainings about 216,
 and about 8 (about 246 in all); the diagnoses ran on the PC and the SQL warehouse (a few minutes of
 warehouse time to build the January 2018 start and a training sample).
 
+### Out-of-time test, July 2022 - June 2026 (run once, 18-19 November 2026)
+
+**Result statement (pre-registered wording, approved by Martins before the test; numbers filled from
+the test run):**
+
+> **Out-of-time test (July 2022 - June 2026), run on 18-19 November 2026: failed.** The locked models (logistic transition models
+> for loans current, 30 and 60 days late; chosen on 2017-2019 under a rule written before the test)
+> were scored once on four years they had never seen. 11 of
+> 13 judged default cells were outside the 0.80-1.25 bar: years 2023 (0.57), 2024 (0.46), 2025 (0.46) and 2026 (0.36); vintages 2015 (0.55), 2016 (0.67), 2017 (0.42), 2018 (0.42), 2019 (0.44), 2021 (0.56) and 2022 (0.39).
+> Projected defaults were 2,240 against 4,170 actual (0.54);
+> payoffs 51,106 against 64,356 (0.79); 22 of
+> 25 payoff cells were outside the bar (L-028). Loans 60 days late at the start:
+> 0.86. What we expected beforehand,
+> and how it compares: Martins expected too many defaults for loans current in July 2022 (10-20% over) and too few for loans 30 or 60 days late, with the two partly cancelling, and a possible failure of the vintage bar; the test failed as he thought it might, but in the other direction for current loans, which were projected at about half their actual defaults (1,887 vs 3,636, 0.52), so nothing cancelled; loans late at the start were under-projected as expected (30 days 0.58, 60 days 0.86). He expected payoffs to be over-predicted: at one month the current-loan model did over-predict them (1.21), but the projection under-projected them overall (0.79), most of all for seasoned vintages (0.20-0.61), while it over-projected the 2020-2022 vintages (1.48-1.79). The models were **not** tuned, swapped or re-chosen
+> on the test: they stay `@challenger`, are not promoted to champion, and the failure is recorded in
+> the limitations log (L-032). Any fix is a new model version, validated on a new period
+> and approved by Martins; the reserve built in Phase 4 states this result and its effect next to
+> every figure. Scenario: the economy as it actually happened from July 2022 to June 2026 (actual
+> unemployment, house prices and mortgage rates), not a forecast. Known limitations that still apply:
+> payoffs under-projected after the first year (L-028), recorded calibration cells (L-029), late
+> defaults for loans 30 or 60 days late at the start (L-030) and loan-age and housing-turnover drift
+> (L-031). Educational model on Freddie Mac conforming mortgages; not an audited bank reserve and not
+> accounting advice. Test run `70104b1e40854feda47122e1f70c8dd1`, code `3943726`.
+
+**Run details.** Databricks run 1040753991237338 (55.9 minutes), MLflow run
+`70104b1e40854feda47122e1f70c8dd1`, code `3943726`, selection run `10fdda9c`, ADR-009 commit `e7b9ca7`.
+Every launcher guard passed first (expectation final, statement approved, @challenger matches the locked
+set, COVID sensitivity recorded, outside the blocked windows). A first launch (run 374483380470260)
+stopped after 2 minutes at the start-table tie-out, before any model was loaded or anything was scored
+or logged; the check was corrected (change log) and the test launched once more.
+
+**Projection by starting state (1 July 2022, 48 months):**
+
+| Starting state | Loans | Defaults actual | Projected | Payoffs actual | Projected | LightGBM-current (info): defaults |
+|---|---|---|---|---|---|---|
+| Current | 256,282 | 3,636 | 1,887 (0.52) | 63,972 | 50,855 (0.79) | 2,011 (0.55) |
+| 30 days | 1,671 | 383 | 223 (0.58) | 345 | 239 (0.69) | 272 (0.71) |
+| 60 days | 275 | 151 | 130 (0.86) | 39 | 12 | 134 (0.89) |
+| All | 258,228 | 4,170 | 2,240 (0.54) | 64,356 | 51,106 (0.79) | 2,417 (0.58) |
+
+By year, defaults projected / actual: 2022 (July-December) 1.07; 2023 0.57; 2024 0.46; 2025 0.46; 2026
+(January-June) 0.36: the projection starts on target and falls further behind each year.
+
+**Each transition on the test months (predicted / actual, whole period):**
+
+| Step | Move | Locked logistic | LightGBM (info) | EBM (info) |
+|---|---|---|---|---|
+| Current | to 30 days late | 0.75 (by year 0.67-0.83) | 0.76 | 0.81 |
+| Current | to paid off | 1.21 (by year 0.78-1.45) | 1.09 | 0.89 |
+| Current | to 60 / default (small cells) | 1.11 / 1.71 | 0.97 / 0.89 | 1.43 / 2.61 |
+| 30 days | to current / 60 / default / paid off | 1.11 / 0.94 / 1.16 / 1.10 | 1.16 / 0.89 / 0.92 / 1.34 | 1.13 / 0.97 / 1.14 / 0.88 |
+| 60 days | to current / 30 / default | 1.05 / 1.26 / 1.08 | 1.10 / 1.35 / 1.12 | 1.06 / 1.19 / 1.09 |
+
+Log loss: current 0.06599 (LightGBM 0.06240, EBM 0.06373); 30 days 0.95154 (0.95729, 0.95328); 60 days
+1.46016 (1.51386, 1.47014). The 30- and 60-day models hold up at one month (most moves 0.89-1.16; the
+60 -> paid-off move is still never predicted, L-027). The current-loan model under-predicts loans falling
+behind by about a quarter in every year and every late-history band, and over-predicts payoffs at one
+month, while the full projection under-projects payoffs (seasoned vintages 0.20-0.61, 2020-2022 vintages
+1.48-1.79).
+
+**COVID sensitivity (information only; run before the test; the locked set did not change).** The three
+logistic models retrained at the locked code (faa0e3c) with January 2020 - June 2022 added to training
+(MLflow runs `e0f62204`, `fdfb0688`, `7dff2b94`; 2017-2019 projection run `16a6bf67`; 23.5 Databricks
+minutes):
+
+| | Locked (without COVID months) | With COVID months |
+|---|---|---|
+| Log loss: current / 30 / 60 | 0.07545 / 0.90898 / 1.30648 | 0.07516 / 0.90824 / 1.26302 |
+| Failing one-month cells: current / 30 / 60 | 17 / 2 / 0 | 15 / 6 / 0 |
+| 2017-2019 projected defaults | 3,225 (1.02): current 1.10, 30 days 0.79, 60 days 0.71 | 2,828 (0.89): current 0.95, 30 days 0.72, 60 days 0.69 |
+| Default cells outside the bar | 1 (vintage 2016, 1.27) | 0 (lowest: year 2018, 0.81) |
+| 2017-2019 projected payoffs | 64,271 (0.77), 12 cells fail | 69,912 (0.83), 11 cells fail |
+
+Adding the COVID months lowers projected defaults by about 12% and raises payoffs. Every 2017-2019 default
+cell would pass, but it was not the locked set and was not tested out of time.
+
 ### Still to come
 
-- The out-of-time test (July 2022 - June 2026), scored once, only after Martins approves it.
+- The out-of-time test ran once on 18-19 November 2026 and **failed** (above); the models stay @challenger.
 - Registration of the @challenger, model card and model inventory entries (step M9).
