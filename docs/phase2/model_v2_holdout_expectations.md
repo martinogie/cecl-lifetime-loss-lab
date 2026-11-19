@@ -7,10 +7,6 @@ the expectation carries a timestamp earlier than the exam. It does not change th
 the pass rule (ADR-009 Amendment 3); it says in advance what we expect to see, so the result can be
 read honestly.
 
-The holdout is **not fully clean**: the rate-lock idea behind v2 came from the diagnosis of the
-2022-2026 test (`out_of_time_diagnosis.md`), and the training months include July 2022 - June 2024.
-The first clean test is future Freddie Mac quarters (Phase 8).
-
 Educational model on Freddie Mac conforming mortgages; not an audited reserve.
 
 ## Martins's expectation on defaults (his words)

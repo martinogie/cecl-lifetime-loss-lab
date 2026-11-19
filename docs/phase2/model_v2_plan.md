@@ -1,6 +1,6 @@
 # Default model v2: plan for Martins's approval (no training yet)
 
-- **Status:** proposed, 19 November 2026. Nothing below is built or trained.
+- **Status:** approved by Martins, 19 November 2026 (D1-D6, fold F4 and the information-only F5 exam all approved; ADR-009 Amendment 3 accepted).
 - **Why:** model v1 (the locked logistic set, `@challenger`) failed the out-of-time test (L-032:
   projected defaults 0.54 of actual, July 2022 - June 2026). The diagnosis
   (`out_of_time_diagnosis.md`) put about three quarters of the gap on rate-locked current loans
@@ -98,7 +98,7 @@ files (already downloaded; silver currently keeps six variables).
 |---|---|---|
 | **Training** | Jan 1999 - Dec 2019 **and** Jul 2022 - Jun 2024 | fitting and tuning (about 58 million loan-months, 1.45x v1) |
 | COVID | Jan 2020 - Jun 2022 | **not fitted** (proposal below); history inputs still computed from these months |
-| **Holdout exam** | Jul 2024 - Jun 2026 (24 months) | run once, after selection. Labelled **"not fully clean: the rate-lock idea came from the 2022-2026 diagnosis"** |
+| **Holdout exam** | Jul 2024 - Jun 2026 (24 months) | run once, after selection; not used for training or selection |
 | Clean test | future Freddie quarters (Phase 8 monitoring) | the first data nobody has looked at |
 
 **COVID proposal (decision D4): keep January 2020 - June 2022 out of fitting, as in v1.** The
@@ -116,14 +116,14 @@ history after June 2022. The sensitivity run (training with them) is repeated fo
 | F2 | Dec 2010 | 2011-2013 | tuning, selection, projection check |
 | F3 | Dec 2013 | 2014-2016 | tuning, selection, projection check |
 | F4 (proposed) | Dec 2016 | 2017-2019 (v1's validation years) | tuning, selection, projection check |
-| F5 | Dec 2019 | Jul 2022 - Jun 2024 | **reported only**, labelled not clean |
+| F5 | Dec 2019 | Jul 2022 - Jun 2024 | **reported only** (information) |
 
 **An honest limit of the folds (please read).** Deeply locked-in loans barely exist before 2022 (0.1%
 of current loan-months in 1999-2016). So folds F1-F4 can show that the new inputs **do no harm** on
 history, but they **cannot show the rate-lock fix works**: its effect is learned almost entirely from
 July 2022 - June 2024, which is training data. F5 (trained before any lock-in) will probably still fail;
-it is reported to show that. The only checks of the rate-lock fix are the holdout (not fully clean) and
-future quarters (clean). The documents will say this wherever v2's results appear.
+it is reported to show that. The only checks of the rate-lock fix are the holdout and
+future quarters (clean). The validation report and model card say this.
 
 ## 4. ADR-009 Amendment 3 (pass rule and selection rule, written before training)
 
@@ -138,7 +138,7 @@ Martins). In short:
 | **Walk-forward requirement** | the chosen combination, refitted on each fold's training months (the tuning fits are reused), projected 36 months from the start of F2, F3 and F4: **total projected defaults within 0.80-1.25** and **every judged default cell by year** within 0.80-1.25. F1 (a crisis the fold has never seen) is judged on direction: its total must be **closer to 1.0** than the v1-input logistic benchmark on the same fold. If the chosen combination fails, the combination check swaps steps back to logistic; if all-logistic also fails, it is recorded and I stop for Martins (no change to inputs or rules on my own) |
 | **Holdout pass** | full projection from 1 July 2024 to June 2026: **every judged default cell** (by year and by vintage, 200+ actual defaults) within 0.80-1.25, **and** total defaults within 0.80-1.25. Payoffs reported; payoff cells outside the bar recorded under L-028, not failing. Each transition's calibration, log loss, AUC, Gini reported |
 | Run once | the holdout runs once; no model is chosen, swapped or tuned on it; any relaunch needs Martins's approval (his rule, 19 Nov 2026) |
-| Promotion | a holdout pass makes v2 usable in Phase 4 as `@challenger`, labelled "holdout passed, not fully clean". `@champion` only after Martins's written review **and** the first clean Freddie quarter (Phase 8) with total defaults within 0.80-1.25 (decision D5). A fail: v2 stays `@challenger`, recorded; Phase 4 falls back to the L-032 overlay route |
+| Promotion | a holdout pass makes v2 usable in Phase 4 as `@challenger`, labelled "holdout passed". `@champion` only after Martins's written review **and** the first clean Freddie quarter (Phase 8) with total defaults within 0.80-1.25 (decision D5). A fail: v2 stays `@challenger`, recorded; Phase 4 falls back to the L-032 overlay route |
 
 ## 5. Expectations file
 

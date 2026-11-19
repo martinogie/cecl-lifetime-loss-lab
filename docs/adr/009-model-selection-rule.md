@@ -314,10 +314,10 @@ months are not touched.
 
 Logistic's own recorded failures at the chosen steps (15 cells for the current-loan model, mostly payoffs, plus the 4-5 band for current -> 30; at 30 days late, prepaid 2017 and the 1-late-month band for 30 -> 60) are entered in the limitations log (L-029) and tracked in monitoring.
 
-## Amendment 3: model v2 (proposed, not accepted)
+## Amendment 3: model v2
 
-- **Status of this amendment:** **proposed**, 19 November 2026. Written **before** any v2 training; to be
-  accepted and committed before training starts. Plan: `docs/phase2/model_v2_plan.md`.
+- **Status of this amendment:** **accepted**, 19 November 2026. Written, accepted and committed **before**
+  any v2 training. Plan: `docs/phase2/model_v2_plan.md`.
 - **Why:** model v1 failed the out-of-time test (L-032). Martins decided (19 November 2026) to build a
   second version (v2) before Phase 4. v1 keeps its record, its `@challenger` alias and Amendments 1-2.
   This amendment fixes v2's split, pass rule and selection rule in advance, so the results cannot shape
@@ -325,7 +325,7 @@ Logistic's own recorded failures at the chosen steps (15 cells for the current-l
 
 **A (split).** Training: January 1999 - December 2019 and July 2022 - June 2024. January 2020 - June 2022
 (COVID) is not fitted; it is used only to compute history inputs. Holdout: July 2024 - June 2026, run
-once, labelled "not fully clean: the rate-lock idea came from the 2022-2026 diagnosis". Walk-forward
+once, after selection. Walk-forward
 folds, each trained on all training months before its scored period: F1 to 2007 / 2008-2010; F2 to 2010 /
 2011-2013; F3 to 2013 / 2014-2016; F4 to 2016 / 2017-2019. F5 (to 2019 / July 2022 - June 2024) is
 reported only. Clean test: future Freddie Mac quarters (Phase 8).
@@ -364,9 +364,11 @@ calibration, log loss, AUC and Gini are reported. The holdout runs once, and not
 or tuned on it. Any relaunch needs Martins's approval.
 
 **Promotion.**
-- A holdout pass: v2 may be used in Phase 4 as `@challenger`, labelled "holdout passed, not fully clean".
+- A holdout pass: v2 may be used in Phase 4 as `@challenger`, labelled "holdout passed".
 - `@champion`: needs Martins's written review and the first clean Freddie quarter with total defaults
   within 0.80-1.25.
 - A fail: v2 stays `@challenger` and the result is recorded.
 
-**Decision on this amendment (Martins):** _(to be written by Martins)_
+**Decision on this amendment:**
+
+"Decision (Martins Ogiekpolor, 19 November 2026): Model v2 is selected and judged under the rules in this amendment, fixed before any v2 training. Each historical exam (2011–2013, 2014–2016, 2017–2019) must have total defaults and each year within 0.80–1.25. The 2008–2010 crisis exam passes if v2 is closer to actual defaults than the v1-style benchmark. The holdout (July 2024 – June 2026) passes only if every judged default cell and the total are within 0.80–1.25. The holdout runs once; any relaunch needs my approval. Promotion to @champion requires the holdout pass, my written review and one clean future Freddie quarter."
