@@ -156,9 +156,10 @@ def last_month_band(state_last_month: Any) -> np.ndarray:
     return np.array(["current", "30", "60"], dtype=object)[x]
 
 
-def evaluate(model: Any, frame: Any, train_frame: Any) -> dict[str, Any]:
-    """Every ADR-009 Amendment 1 B measure on one period (validation), weighted, plus the Amendment 2
-    bar: each move's calibration by late-payment-history band."""
+def evaluate(model: Any, frame: Any, train_frame: Any, period_label: str = "2017-2019") -> dict[str, Any]:
+    """Every ADR-009 Amendment 1 B measure on one period (validation, or the out-of-time test with
+    `period_label` "2022-2026"), weighted, plus the Amendment 2 bar: each move's calibration by
+    late-payment-history band."""
     start = model.start
     y = frame["state"].to_numpy(dtype=int)
     w = frame["weight"].to_numpy(dtype=float)
@@ -178,7 +179,7 @@ def evaluate(model: Any, frame: Any, train_frame: Any) -> dict[str, Any]:
         event = y == dest
         q = np.clip(p[:, dest], metrics.EPS, 1 - metrics.EPS)
         auc = metrics.auc(event, p[:, dest], w) if dest != start else float("nan")
-        whole = metrics.calibration_events(np.full(len(y), "2017-2019"), event, p[:, dest], w)[0]
+        whole = metrics.calibration_events(np.full(len(y), period_label), event, p[:, dest], w)[0]
         out["moves"][name] = {
             "actual": float((w * event).sum()),
             "predicted": float((w * p[:, dest]).sum()),

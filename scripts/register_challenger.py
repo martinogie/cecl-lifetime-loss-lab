@@ -1,21 +1,42 @@
-"""Register the chosen model in Unity Catalog with the alias @challenger (Phase 2 step 8).
+"""Register the locked combination in Unity Catalog with the alias @challenger (multi-state, ADR-011).
 
     CECL_ENV=dev python -m scripts.register_challenger
 
-Takes the newest `selection` run's chosen family and its validation run, refuses unless the
-out-of-time test has run, registers `runs:/<run>/model` as `<catalog>.ml.pd_hazard` and sets
-`@challenger`. `@champion` is never set here: only prod moves it, after Martins's review
-(cecl/environment.py assert_can_set_alias). API calls, no compute.
+Takes the newest multi-state `selection` run (`scripts/lock_model_set.py`) and registers each step's
+locked model, `runs:/<run>/model`, as `<catalog>.ml.pd_transition_<step>` (current, 30, 60) with the
+alias @challenger. Martins approved registering @challenger before the out-of-time test (18 November
+2026); each version is tagged with the selection run and "out_of_time_test: not yet run".
+`@champion` is never set here: only prod moves it, after the test passes and Martins's written review
+(ADR-009 Amendment 2 (c); cecl/environment.py assert_can_set_alias). Re-running is safe: a step whose
+@challenger already points to the locked run is left alone. API calls, no compute.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+from typing import Any
 
 from cecl import environment, tracking
+from cecl.models import oot
 
-MODEL = "pd_hazard"
+DESIGN = "multi-state (ADR-011)"
+
+
+def newest_selection(mlflow: Any) -> Any:
+    runs = mlflow.search_runs(filter_string=f"tags.stage = 'selection' and tags.design = '{DESIGN}'",
+                              order_by=["start_time DESC"], search_all_experiments=True, output_format="list")  # fmt: skip
+    if not runs:
+        raise SystemExit("no multi-state selection run: run scripts/lock_model_set.py first")
+    return runs[0]
+
+
+def challenger_run(client: Any, name: str) -> str | None:
+    """The run behind `name`@challenger, or None if the model or alias does not exist yet."""
+    try:
+        return str(client.get_model_version_by_alias(name, environment.CHALLENGER).run_id)
+    except Exception:  # noqa: BLE001 - no model or no alias yet
+        return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -26,22 +47,21 @@ def main(argv: list[str] | None = None) -> int:
     import mlflow
 
     tracking.configure(mlflow)
-    name = environment.registered_model(MODEL)
-    environment.assert_can_set_alias(name, environment.CHALLENGER)
-    sel = mlflow.search_runs(filter_string="tags.stage = 'selection'", order_by=["start_time DESC"],
-                             output_format="list")  # fmt: skip
-    test = mlflow.search_runs(filter_string="tags.stage = 'out_of_time_test'", output_format="list")
-    if not sel or not test:
-        raise SystemExit("needs a selection run and the out-of-time test run first")
-    chosen = sel[0].data.tags["chosen"]
-    run_id = sel[0].data.params[f"run_{chosen}"]
-    version = mlflow.register_model(f"runs:/{run_id}/model", name)
+    sel = newest_selection(mlflow)
+    locked = oot.locked_set(sel.data.params)
     client = mlflow.MlflowClient()
-    client.set_registered_model_alias(name, environment.CHALLENGER, version.version)
-    client.set_model_version_tag(name, version.version, "out_of_time_test_run", test[0].info.run_id)
-    print(
-        f"registered {name} version {version.version} ({chosen}, run {run_id[:8]}) as @{environment.CHALLENGER}"
-    )
+    for step, run_id in locked.items():
+        name = environment.registered_model(oot.registered_name(step))
+        environment.assert_can_set_alias(name, environment.CHALLENGER)
+        if challenger_run(client, name) == run_id:
+            print(f"{name}@{environment.CHALLENGER} already points to run {run_id[:8]}")
+            continue
+        version = mlflow.register_model(f"runs:/{run_id}/model", name)
+        client.set_registered_model_alias(name, environment.CHALLENGER, version.version)
+        for k, v in {"selection_run": sel.info.run_id, "step": step, "locked_commit": sel.data.tags.get("locked_commit", ""),
+                     "out_of_time_test": "not yet run"}.items():  # fmt: skip
+            client.set_model_version_tag(name, version.version, k, v)
+        print(f"registered {name} version {version.version} (run {run_id[:8]}) as @{environment.CHALLENGER}")
     return 0
 
 

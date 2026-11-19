@@ -384,3 +384,41 @@ def test_horizon_auc_uses_only_start_date_inputs() -> None:
         base["12"]["auc"] == pytest.approx(again["12"]["auc"]) and base["24"]["loans"] == again["24"]["loans"]
     )
     assert pipeline.horizon_from_start(model, horizon, "203001") == {}
+
+
+# ---------------------------------------------------------------------------- the out-of-time test
+def test_oot_verdict_is_on_judged_default_cells_only() -> None:
+    from cecl.models import multistate, oot
+
+    def cell(event: str, ratio: float, applies: bool = True) -> multistate.Cell:
+        return multistate.Cell(event, "vintage", "2016", 300.0, 300.0 * ratio, ratio, applies,
+                               (not applies) or 0.80 <= ratio <= 1.25)  # fmt: skip
+
+    ok = multistate.Check(
+        cells=[cell("default", 1.1), cell("prepaid", 0.6), cell("default", 2.0, applies=False)]
+    )
+    v = oot.verdict(ok)
+    assert v["passes"] and v["judged_default_cells"] == 1 and v["judged_payoff_cells"] == 1
+    assert len(v["failing_payoff_cells_recorded_under_L028"]) == 1  # a payoff failure does not fail the test
+    bad = oot.verdict(multistate.Check(cells=[cell("default", 1.27), cell("prepaid", 1.0)]))
+    assert not bad["passes"] and bad["failing_default_cells"][0]["ratio"] == 1.27
+    assert (oot.TEST_START, oot.TEST_END, oot.TEST_MONTHS) == ("202207", "202606", 48)
+
+
+def test_oot_guards() -> None:
+    from cecl.models import oot
+
+    assert oot.has_marker("x\n" + oot.EXPECTATIONS_FINAL + " (18 Nov)\n", oot.EXPECTATIONS_FINAL)
+    assert not oot.has_marker("- **Status:** draft, not final", oot.EXPECTATIONS_FINAL)
+    locked = oot.locked_set({"run_current": "a", "run_30": "b", "run_60": "c", "info_30_ebm": "d"})
+    assert locked == {"current": "a", "30": "b", "60": "c"}
+    with pytest.raises(ValueError):
+        oot.locked_set({"run_current": "a", "run_30": "b"})
+    tags = [{"transition": "current", "family": "logistic", "sensitivity": "covid_in_training"},
+            {"transition": "30", "family": "lightgbm", "sensitivity": "covid_in_training"},
+            {"transition": "60", "family": "logistic", "sensitivity": "none"}]  # fmt: skip
+    assert oot.covid_sensitivity_missing(tags, "logistic") == ["30", "60"]
+    assert oot.challenger_mismatches(locked, {"current": "a", "30": "x", "60": None}) == ["30", "60"]
+    assert oot.registered_name("30") == "pd_transition_30"
+    with pytest.raises(ValueError):
+        oot.registered_name("90")

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scripts import run_oot_test
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -58,3 +60,61 @@ def test_sequence_waits_out_a_blocked_window() -> None:
     real_now_blocked = scheduling.blocked_reason(datetime.now(scheduling.TZ)) is not None
     if not real_now_blocked:
         assert run_sequence.wait_for_window(blocked, sleep=naps.append) == 1 and naps == [60]
+
+
+# ---------------------------------------------------------------------------- multi-state test guards
+def test_launcher_document_guards() -> None:
+    from cecl.models import oot
+
+    adr = (ROOT / "docs/adr/009-model-selection-rule.md").read_text(encoding="utf-8")
+    final, approved = f"{oot.EXPECTATIONS_FINAL}\n", f"{oot.STATEMENT_APPROVED}\n"
+    assert run_oot_test.document_problems(adr, final, approved) == []
+    found = run_oot_test.document_problems(adr, "- **Status:** draft", "- **Status:** draft")
+    assert len(found) == 2 and "expectations" in found[0] and "result_statement" in found[1]
+
+
+def test_launcher_passes_the_other_models_for_information() -> None:
+    locked = {"current": "L0", "30": "L1", "60": "L2"}
+    params = {"run_current": "L0", "info_current_logistic": "L0", "info_current_lightgbm": "G0",
+              "info_30_ebm": "E1", "info_60_logistic": "L2"}  # fmt: skip
+    combos, models = run_oot_test.info_from_selection(params, locked)
+    assert models == {"current": {"lightgbm": "G0"}, "30": {"ebm": "E1"}}
+    assert combos == {"info_lightgbm_current": {"current": "G0", "30": "L1", "60": "L2"}}
+
+
+def test_lock_model_set_reads_the_approved_set() -> None:
+    from types import SimpleNamespace
+
+    from scripts import lock_model_set
+
+    assert lock_model_set.parse_expect("current=logistic,30=logistic,60=ebm") == {
+        "current": "logistic",
+        "30": "logistic",
+        "60": "ebm",
+    }
+    for bad in ("current=logistic,30=logistic", "current=logistic,30=logistic,60=xgb"):
+        with pytest.raises(ValueError):
+            lock_model_set.parse_expect(bad)
+
+    def run(step: str, fam: str, t: int, sens: str = "none") -> SimpleNamespace:
+        return SimpleNamespace(data=SimpleNamespace(tags={"transition": step, "family": fam, "sensitivity": sens}),
+                               info=SimpleNamespace(start_time=t, run_id=f"{step}-{fam}-{t}"))  # fmt: skip
+
+    found = lock_model_set.newest_by_step_family(
+        [run("30", "ebm", 1), run("30", "ebm", 5), run("30", "ebm", 9, "covid_in_training")]
+    )
+    assert found[("30", "ebm")].info.run_id == "30-ebm-5"  # newest, sensitivity runs ignored
+
+
+def test_preflight_checks_counts_and_dates() -> None:
+    from scripts import oot_preflight
+
+    assert oot_preflight.last_input_month() == "202605"
+    good = {"panel_last_month": "202606", "loans_alive_at_start": 300000, "test_rows_in_transitions": 0,
+            "holdout_first_month": "202207", "holdout_last_month": "202606", "holdout_outside_window": 0,
+            "national_mortgage_rate_30y_last": "202606", "states_short_hpi": 0, "states_short_unemployment_rate": 0}  # fmt: skip
+    assert oot_preflight.problems(good) == []
+    bad = {**good, "panel_last_month": "202603", "test_rows_in_transitions": 12, "states_short_hpi": 3}
+    assert len(oot_preflight.problems(bad)) == 3
+    q = oot_preflight.queries("g", "s")
+    assert all("model" not in sql and "outcome" not in sql for sql in q.values())  # counts and dates only

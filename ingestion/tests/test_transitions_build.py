@@ -107,3 +107,13 @@ def test_both_dialects_share_the_transition_query() -> None:
     hist = fb.projection_history_sql("p")
     assert "rn <= 12" in hist and "period_ym < '201701'" in hist and "late_hist_12" in hist
     assert "where r.period_ym = '201701'" in fb.projection_start_sql(2015, rel, "spark")
+
+
+def test_projection_window_override_for_the_out_of_time_test() -> None:
+    # the test job builds its July 2022 start at run time; the regular build keeps the validation start
+    rel = {"panel": "p", "silver": "s", "state": "st", "national": "n"}
+    assert "'202207'" in fb.projection_start_sql(2015, rel, "duckdb", window=("202207", "202606"))
+    assert "'201701'" in fb.projection_start_sql(2015, rel, "duckdb")
+    assert "'202606'" in fb.projection_actuals_sql("p", window=("202207", "202606"))
+    assert "'202207'" in fb.projection_history_sql("p", window=("202207", "202606"))
+    assert fx.TEST not in fb.PROJECTION_START  # no test-month table in the regular build

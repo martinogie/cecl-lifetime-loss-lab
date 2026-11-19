@@ -1,5 +1,8 @@
 # Written expectations before the out-of-time test
 
+- **Status:** draft for Martins to edit; not final until he replaces this line with
+  `- **Status:** final, confirmed by Martins (date)`. The test launcher refuses to start until then.
+
 Recorded **18 November 2026, before the out-of-time test has run** (ADR-009 E: the test months, July
 2022 to June 2026, have never been scored). Committed so the expectation carries a timestamp earlier
 than the test. It does not change the selection rule or the pass/fail criteria (ADR-009 Amendment 2
@@ -7,10 +10,14 @@ than the test. It does not change the selection rule or the pass/fail criteria (
 
 Educational model on Freddie Mac conforming mortgages; not an audited reserve.
 
-## Martins's expectation (his words)
+## Martins's expectation on payoffs (his words)
 
 > In July 2022 to June 2026 (high rates, rate lock-in), payoffs may be over-predicted, especially
 > no-incentive turnover.
+
+## Martins's expectation on defaults (his words)
+
+> *(To be written by Martins.)*
 
 ## Why (the evidence on 2017-2019, scoring only)
 

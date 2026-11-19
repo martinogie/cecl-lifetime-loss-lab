@@ -251,7 +251,7 @@ resources:
 
     oot_test:
       name: cecl_lab_oot_test_${var.env}
-      description: "The out-of-time test, once (ADR-009 E): started only by scripts/run_oot_test.py"
+      description: "The out-of-time test, once (ADR-009 E; multi-state, Amendments 1 E and 2): started only by scripts/run_oot_test.py"
       timeout_seconds: 3600
       max_concurrent_runs: 1
       queue:
@@ -274,9 +274,13 @@ resources:
           default: ${var.env}
         - name: layout
           default: ${var.layout}
-        - name: runs
+        - name: locked
           default: "{}"
-        - name: chosen
+        - name: info_combinations
+          default: "{}"
+        - name: info_models
+          default: "{}"
+        - name: selection_run
           default: ""
         - name: adr_009_commit
           default: ""
