@@ -1,7 +1,6 @@
 # Written expectations before the out-of-time test
 
-- **Status:** draft for Martins to edit; not final until he replaces this line with
-  `- **Status:** final, confirmed by Martins (date)`. The test launcher refuses to start until then.
+- **Status:** final, confirmed by Martins (18 November 2026)
 
 Recorded **18 November 2026, before the out-of-time test has run** (ADR-009 E: the test months, July
 2022 to June 2026, have never been scored). Committed so the expectation carries a timestamp earlier
@@ -17,7 +16,12 @@ Educational model on Freddie Mac conforming mortgages; not an audited reserve.
 
 ## Martins's expectation on defaults (his words)
 
-> *(To be written by Martins.)*
+### My expectation on defaults
+I expect the model to predict more defaults than actually happen for loans that were current in July 2022, probably 10–20% too many. Two reasons. First, 2022–2026 was a high-rate period, so borrowers kept their cheap loans and paid off less than the model expects; the turnover drift (L-031) and the young-loan over-prediction seen in validation (1.10 and 1.17) point to too many defaults for current loans. Second, house prices stayed high, so borrowers in trouble could often sell rather than default, which lowers actual defaults.
+
+For loans 30 or 60 days late in July 2022, I expect the model to predict too few defaults, especially after the first three months, because it only remembers one month of history and misses loans that keep struggling (L-030).
+
+Overall, the two errors may partly cancel, so the total could look close to actual while the groups are off. I think the model may fail the default vintage bar (1.25), as vintage 2016 was already at 1.27 in validation. If it fails, the models stay @challenger and the fix belongs in the next version, validated on a new period.
 
 ## Why (the evidence on 2017-2019, scoring only)
 
