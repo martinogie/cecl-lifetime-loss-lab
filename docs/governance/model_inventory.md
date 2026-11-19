@@ -53,3 +53,11 @@ checker, in writing; there is no separate validation team, which is itself a lim
 | M-05 | Benchmark: loss-rate method | Simple reserve estimate used as a check on M-04 | 3 | not started | code in `cecl.benchmarks` | 4 |
 | M-06 | Benchmark: vintage method | Second simple check on M-04 | 3 | not started | code in `cecl.benchmarks` | 4 |
 | M-07 | Adverse scenario construction (ADR-005) | Builds the middle economic path between the Fed's baseline and severely adverse | 2: feeds M-04 through the weights | not started | code in `cecl.scenarios` | 4 |
+
+## Notes for the next annual model review
+
+- **M-01 (18 November 2026):** on 2017-2019 LightGBM tracked the loan-age and housing-turnover drift
+  better than the chosen logistic model at the current step (payoff calibration by vintage: 5 failing
+  cells vs 13), but it still fails calibration cells, so under the selection rule (ADR-009 as
+  amended, unchanged) logistic stays. At the review: consider a housing-turnover input and re-compare
+  the families. Limitations log L-031.

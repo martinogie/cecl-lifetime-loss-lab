@@ -204,7 +204,162 @@ under-projected defaults for loans late at the start. Amendment 2 (accepted 18 N
 | 60 days late | 256 | 169 (0.66) | 169 (0.66) | 173 (0.67) |
 | All | 3,162 | 2,912 (0.92) | 2,863 (0.91) | 2,962 (0.94) |
 
-Loans 60 days late at the start remain at 0.67 (L-030); diagnosis under way (scoring only).
+Loans 60 days late at the start remained at 0.67 (L-030); diagnosed and retrained below.
+
+### Retrain with three new inputs, and the last round of fixes (18 November 2026)
+
+**What changed** (approved by Martins, 18 Nov 2026; change log): "state last month", home-price gain
+since origination and SATO added to all three steps; the band bar extended to state last month; the
+projection tracks the new inputs; the December 2016 double count fixed (commit faa0e3c). Full input
+build: 609 tie-outs agree (14.2 Databricks minutes). All 9 models retrained back to back (about 216
+Databricks minutes; the current-loan EBM alone 80.7). Test months untouched; no out-of-time test.
+
+**Overlap check before retraining.** Home-price gain vs current LTV: correlation -0.45 (1999-2016) and
+-0.47 (2017-2019), R-squared about 0.2. Moderate, so both are kept in every family; within an LTV band
+payoffs still rise with home-price gain (LTV 60-80: 1.31% to 2.46% a month). LightGBM directions:
+state last month raises defaults and lowers payoffs at the current step (free at 30 and 60, where the
+pattern is not one-directional); home-price gain lowers defaults (payoffs free); SATO raises defaults
+(payoffs free). Reasons in `cecl/features.py`.
+
+**Selection (ADR-009 as amended, unchanged): logistic stays at every step.**
+
+| Step | Logistic log loss, refit -> retrain | Logistic failing cells | Best challenger | Why it does not qualify |
+|---|---|---|---|---|
+| Current | 0.07567 -> 0.07545 | 15 -> 17 (3 roll-to-30, 14 payoff) | LightGBM 0.07241 (4.0% better) | 6 cells fail: 5 payoff vintages and roll-to-30 for loans 60 days late last month (1.28) |
+| 30 days late | 0.92369 -> 0.90898 | 2 -> 2 | LightGBM 0.90188 (0.8% better) | under the 2% margin; 5 cells fail |
+| 60 days late | 1.32252 -> 1.30648 | 0 -> 0 | EBM 1.30782 (not better) | not better; 1 cell fails (default vintage 2016, 1.25) |
+
+MLflow runs (commit faa0e3c): current logistic `9f5ec09b9e624e1990c98c2af943a80a`, LightGBM
+`79d4e92046504dbab6e09e82e2c3f378`, EBM `a4d81280b5384719894b375108d89266`; 30 days logistic
+`5c3d2d4f058e4d23ab95592a8e5a1816`; 60 days logistic `4ba5bd8a41c24e2d8a31778105a20065`.
+
+Current step, failing cells: logistic 17 vs LightGBM 6.
+
+| Type | Cell | Logistic | LightGBM |
+|---|---|---|---|
+| Default-type (roll to 30) | vintage 2018 | 1.36 | pass |
+| | late-history band 0 | 1.26 | pass |
+| | late-history band 4-5 | 0.78 | pass |
+| | 60 days late last month | pass | 1.28 |
+| Payoff | vintages 2001 / 2007 / 2008 / 2018 / 2019 | 1.92 / 1.57 / 1.59 / 1.46 / 1.48 | 1.30 / 1.26 / 1.41 / 1.44 / 1.46 |
+| | vintages 2002 / 2003 / 2005 / 2006 / 2010 / 2011 / 2012 / 2017 | 0.74 / 0.67 / 1.35 / 1.62 / 0.77 / 0.73 / 0.54 / 1.41 | pass |
+| | 30 days late last month | 0.50 | pass |
+
+**The roll-back gap is closed at one month** (2017-2019, predicted / actual):
+
+| Move, by state last month | Before (no input) | After |
+|---|---|---|
+| 30 -> 60, coming down from 60 | 0.36 | **0.90** |
+| current -> 30, just cured from 30 | 0.50 | **0.90** |
+| current -> 30, just cured from 60 | 0.57 | **1.20** |
+| current -> 30, current last month | 1.18 | 1.13 |
+
+**The projection plumbing is verified.** For real loans that went 60 -> 30 -> current in early 2017,
+the inputs the projection gives the models at each month ("state last month" and "months late in the
+past 12") equal an independent count by hand over the 12-month window, and the projected relapse
+chance equals the one-month model scored on the hand-built row (for example 0.28805 vs 0.28805 for
+30 -> 60 after 60; 0.4307 vs 0.4307 for current -> 30 after a cure).
+
+**2017-2019 projection** (Databricks MLflow run `e016b68856b5403cb4f4eb2494a4200c`, all-logistic; the
+PC rerun reproduces it exactly). For information only, LightGBM at the current step with logistic at
+30 and 60 (run `036a6310deaf466f80cbbd6ad284d531`; not a selection result):
+
+| Starting state | Loans | Defaults actual | Refit (963d5a9) | **Retrain** | LightGBM-current (info) | Payoffs actual | **Retrain** | LightGBM-current (info) |
+|---|---|---|---|---|---|---|---|---|
+| Current | 275,952 | 2,377 | 2,365 (0.99) | **2,625 (1.10)** | 2,141 (0.90) | 83,337 | **63,851 (0.77)** | 68,786 (0.83) |
+| 30 days | 2,040 | 529 | 424 (0.80) | **417 (0.79)** | 444 (0.84) | 422 | 397 (0.94) | 302 (0.72) |
+| 60 days | 381 | 256 | 173 (0.67) | **182 (0.71)** | 185 (0.72) | 30 | 24 | 13 |
+| All | 278,373 | 3,162 | 2,962 (0.94) | **3,225 (1.02)** | 2,770 (0.88) | 83,789 | **64,271 (0.77)** | 69,101 (0.82) |
+
+The 1.02 total is **not** a pass in substance: current-start loans are over-projected (1.10) and
+loans late at the start under-projected (0.79 / 0.71), and the two cancel. Failing cells: retrain 1
+default cell (vintage 2016, 1.27) and 12 payoff cells; LightGBM-current 2 default cells (year 2018
+0.77, vintage 2013 0.79) and 7 payoff cells. Read against Amendment 2 (a), a default cell outside the
+bar on the test would fail it.
+
+| Default cells by vintage (judged) | Actual | Refit | Retrain | LightGBM-current |
+|---|---|---|---|---|
+| 2012 | 234 | 1.04 | 1.23 | 1.07 |
+| 2013 | 377 | 0.90 | 0.94 | 0.79 |
+| 2014 | 405 | 0.98 | 1.07 | 0.87 |
+| 2015 | 388 | 1.05 | 1.11 | 0.92 |
+| 2016 | 357 | 1.22 | **1.27** | 1.08 |
+| by year 2017 / 2018 / 2019 | 1,249 / 1,050 / 863 | 1.04 / 0.83 / 0.92 | 1.09 / 0.92 / 1.04 | 0.98 / 0.77 / 0.85 |
+
+**Where the current-start over-projection comes from.** Scaling the current-loan model's payoffs up to
+the actual total (information only): one factor (x 1.305) gives payoffs 78,883 (0.95) and defaults
+2,526 (1.06); one factor per vintage gives 78,714 and 2,546 (1.07). So too few payoffs explain about a
+third to 40% of the 248 extra defaults. The rest is concentrated in 2017 (896 projected vs 679 actual;
+2018 0.95, 2019 1.10) and in young vintages (2014-2016: 1.17-1.32), where the current-loan model
+over-predicts rolls to 30 days late.
+
+**Vintage 2016.** Current at the start: 424 projected vs 321 actual (1.32); by year 2017: 121 vs 60,
+2018: 145 vs 136, 2019: 158 vs 125. 30 days late: 23 vs 29; 60 days late: 6 vs 7. The miss is young
+loans in their first projected year, as before the retrain (2017: 143 vs 80).
+
+**Loans 60 days late at the start** (381 loans, 256 defaults):
+
+| Months at 60 before Jan 2017 | Actual | Before | After |
+|---|---|---|---|
+| 1 | 171 | 120 (0.70) | 123 (0.72) |
+| 2 | 43 | 28 (0.64) | 31 (0.73) |
+| 3 | 15 | 7 (0.49) | 9 (0.57) |
+| 4-6 | 21 | 11 (0.51) | 12 (0.58) |
+| 7+ | 6 | 7 | 8 |
+
+By months after the start: 1-3: 167 vs 154 (0.92); 4-6: 32 vs 12; 7-12: 31 vs 9; 13-36: 26 vs 8. Early
+defaults are nearly right; the shortfall is defaults after month 3, after long or roundabout paths,
+which a projection of probabilities over states (not individual paths) carries only roughly (L-026,
+L-030).
+
+**Loan age and housing turnover (current step, predicted / actual; 1999-2016 is a 1-in-10 sample of
+the training months, in sample):**
+
+| Loan age | Roll to 30, 1999-2016 | Roll to 30, 2017-2019 | Payoff, 1999-2016 | Payoff, 2017-2019 |
+|---|---|---|---|---|
+| 0-1 years | 0.96 | 1.24 | 1.01 | 1.44 |
+| 2-3 | 1.02 | 1.10 | 1.00 | 1.04 |
+| 4-6 | 1.02 | 1.02 | 0.99 | 0.76 |
+| 7-10 | 1.03 | 1.03 | 0.95 | 0.87 |
+| 11+ | 1.12 | 1.04 | 1.32 | 1.09 |
+
+| Seasoned vintages (2002-2004, 2009-2013), payoffs by rate incentive | 1999-2016 | 2017-2019 | Share of the 2017-2019 miss |
+|---|---|---|---|
+| zero or below (no refinance incentive: home sales and moves) | 0.97 | 0.57 | 65% |
+| 0 to 0.5 points | 0.91 | 0.63 | 31% |
+| 0.5 to 1 | 0.97 | 0.86 | 11% |
+| over 1 (refinancing) | 1.11 | 1.09 | (over-predicted) |
+
+The pattern is not in the training years: it is drift in 2017-2019. A loan-age correction fitted on
+1999-2016 comes out at about 1.0 and changes nothing in 2017-2019 (payoff vintage failures 13 -> 13;
+roll-to-30 1 -> 3), so no fix passes the both-periods test without fitting on the validation years.
+Recorded as **L-031**, with a candidate Phase 4 overlay (ADR-006, Q2), not sized now. For information:
+LightGBM tracks the drift better (payoff vintage failures 5 vs 13), noted for the next annual review;
+the selection rule is unchanged.
+
+**Second start, January 2018 (information only; 294,224 loans, 24 months to December 2019, validation
+months only; built with the pipeline's own SQL, only the start month changed; history tie-out 0
+mismatches):**
+
+| Starting state | Loans | Defaults actual | Projected | Payoffs actual | Projected |
+|---|---|---|---|---|---|
+| Current | 291,300 | 1,588 | 1,860 (1.17) | 60,178 | 49,671 (0.83) |
+| 30 days | 2,518 | 450 | 437 (0.97) | 368 | 380 (1.03) |
+| 60 days | 406 | 229 | 191 (0.83) | 24 | 23 |
+| All | 294,224 | 2,267 | 2,488 (1.10) | 60,570 | 50,074 (0.83) |
+
+Every judged default cell passes (by year 1.13 and 1.06; vintages 2013-2017 0.99-1.24); 11 payoff cells
+fail (year 2018 0.79 and 10 vintages). Current-start loans by vintage group: 1999-2008 defaults 0.93,
+payoffs 0.90; 2009-2015 defaults 1.22, payoffs 0.70; 2016-2017 defaults 1.25, payoffs 1.06. The same
+picture as the 2017 start: young loans' defaults over-projected, seasoned loans' payoffs under-projected.
+
+**Stopping rule (Martins, 18 Nov 2026):** this was the last round of fixes before the out-of-time test;
+what remains is recorded in the limitations log (L-028, L-029, L-030, L-031). Martins's written
+expectation for the test is committed beforehand: `docs/phase2/out_of_time_expectations.md`.
+
+Databricks minutes for this round: feature build 14.2, nine trainings about 216, two projections 7.9
+and about 8 (about 246 in all); the diagnoses ran on the PC and the SQL warehouse (a few minutes of
+warehouse time to build the January 2018 start and a training sample).
 
 ### Still to come
 
