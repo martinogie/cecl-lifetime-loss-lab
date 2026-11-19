@@ -10,6 +10,7 @@ change what it describes are listed here, each with its ADR.
 | 16 Nov 2026 | Phase 2 training on the PC | Features and training on Databricks, the PC as the reference | ADR-001 change note; Phase 2 plan |
 | 17 Nov 2026 | Section 5.1: a competing-risks hazard model (default and prepayment each month) | **Extended to a monthly multi-state (delinquency-transition) model:** current, 30, 60, 90+ default (absorbing), prepaid, with cures; logistic, LightGBM and EBM fitted for every starting state (9 models), the ADR-009 rule choosing at each step | ADR-011; ADR-009 Amendment 1 (accepted); docs/phase2/plan_multistate.md |
 | 18 Nov 2026 | Phase 7: a Methods page (PD, LGD, EAD, CECL explained simply); Phase 8: monitoring of PD drift and calibration | **Added:** a website "Models & Methods" page (data preparation to testing) and model results published automatically after every training; Phase 8 drift monitoring split into a weekly score-stability check and quarterly performance monitoring with alerts; training curves change only on retraining. Not built yet | This file, section "Phase 7 and 8 additions"; docs/phase2/plan_multistate.md, "Model documentation" |
+| 19 Nov 2026 | Section 5.1: three model families (logistic, LightGBM, EBM) | **Model v2** (after v1 failed its out-of-time test): logistic and LightGBM only, 6 models; the EBM is dropped for v2 (v1's records keep it) | ADR-009 Amendment 3; `docs/phase2/model_v2_plan.md` |
 
 ## Phase 7 and 8 additions (Martins, 18 November 2026; not built yet)
 
@@ -29,7 +30,8 @@ terms: never loan rows). Sections:
 6. Sampling and weights (current -> current months 1 in 25, weighted; every measure weighted).
 7. The multi-state design (ADR-011): states, transitions, the projection.
 8. Tuning: the walk-forward folds (ADR-009 Amendment 1).
-9. Training: the three families per step, training curves, the fit table.
+9. Training: the families per step (v1: logistic, LightGBM and EBM; v2: logistic and LightGBM),
+   training curves, the fit table.
 10. Selection: the ADR-009 rule with its amendments, and the winner table.
 11. The out-of-time test: protocol, pass mark (Amendment 2) and result.
 

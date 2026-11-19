@@ -343,8 +343,12 @@ is added one at a time to the current-loan logistic model and kept only if it do
 - worsens no fold by more than 0.1%;
 - has a sign with a business reason.
 
-**C (selection).** v1's grids, the 2% rule per step on the average F1-F4 log loss, every bar passed and
-reason codes required, ties to the simpler family, and the combination check of Amendment 1.
+**Families.** v2 fits two families per step: logistic and LightGBM (2 x 3 = 6 models). The EBM is not
+used in v2 (not in the main fit, the walk-forward exams or the holdout); v1's records keep it.
+
+**C (selection).** v1's grids for logistic and LightGBM, the 2% rule per step on the average F1-F4 log
+loss, every bar passed and reason codes required, ties to the simpler family (logistic, then LightGBM),
+and the combination check of Amendment 1.
 
 **Walk-forward requirement (the chosen combination).** Each fold's fitted models are projected 36
 months from the start of the fold's scored period.
@@ -372,3 +376,5 @@ or tuned on it. Any relaunch needs Martins's approval.
 **Decision on this amendment:**
 
 "Decision (Martins Ogiekpolor, 19 November 2026): Model v2 is selected and judged under the rules in this amendment, fixed before any v2 training. Each historical exam (2011–2013, 2014–2016, 2017–2019) must have total defaults and each year within 0.80–1.25. The 2008–2010 crisis exam passes if v2 is closer to actual defaults than the v1-style benchmark. The holdout (July 2024 – June 2026) passes only if every judged default cell and the total are within 0.80–1.25. The holdout runs once; any relaunch needs my approval. Promotion to @champion requires the holdout pass, my written review and one clean future Freddie quarter."
+
+"EBM is dropped for v2 to cut training time; it never won a step in v1 and logistic already provides the explainable benchmark."

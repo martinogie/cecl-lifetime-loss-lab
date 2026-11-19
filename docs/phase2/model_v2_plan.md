@@ -13,11 +13,13 @@
 Educational model on Freddie Mac conforming mortgages; not an audited reserve and not accounting
 advice.
 
-## 1. Design: unchanged structure, all 9 models
+## 1. Design: unchanged structure, 6 models (logistic and LightGBM)
 
 The same multi-state design as v1 (ADR-011): for each starting state (current, 30 days, 60 days late)
-one model predicts next month's state (current, 30, 60, default, prepaid); three families (logistic,
-LightGBM with monotone constraints, EBM) at each step, so **3 x 3 = 9 models**. Same default definition
+one model predicts next month's state (current, 30, 60, default, prepaid); two families (logistic and
+LightGBM with monotone constraints) at each step, so **2 x 3 = 6 models**. **EBM is dropped for v2**
+(Martins, 19 November 2026): it never won a step in v1, it was the slowest family, and logistic already
+provides the explainable benchmark. v1's records keep the EBM as they were. Same default definition
 (ADR-002), same sample weighting (ADR-007), same projection idea.
 
 **One change to the projection is needed, and I recommend it (decision D1).** The new memory inputs
@@ -50,8 +52,7 @@ Why this fixes v1's mistake: v1 learned one smooth effect, "further below market
 let the model give locked-in loans their own roll rate instead of extending that line. No monotone
 constraint on any lock input for rolls to worse states: v1's lesson is that the direction is not
 known in advance. Logistic gets the bands and the interaction as explicit inputs (it cannot find
-interactions itself); LightGBM finds interactions itself; the EBM is allowed the pairs
-lock x loan age and lock x late history. The bands use the 1- and 2-point cut points named in the
+interactions itself); LightGBM finds interactions itself. The bands use the 1- and 2-point cut points named in the
 diagnosis; they are fixed now, not searched.
 
 **b. Longer memory** (L-030):
@@ -84,7 +85,7 @@ path; card delinquency has no Fed path and would need a separate model linking i
 to the current-loan logistic model; it is kept only if it improves the **average** walk-forward log
 loss of the current step over folds F1-F4 (section 3) by at least **0.2%**, worsens no single fold
 by more than 0.1%, and its sign makes business sense (more inflation or falling real income -> more
-rolls). Kept candidates go into all 9 models. Why so small a threshold: a national variable moves the
+rolls). Kept candidates go into all 6 models. Why so small a threshold: a national variable moves the
 whole book together and its gain in log loss is small even when it matters; the projection bars
 (section 4) are the real test.
 
@@ -154,22 +155,23 @@ loss yet (L-004).
 
 ## 7. Cost and timing
 
-Databricks minutes (estimates from v1's measured runs: feature build 14.2, nine trainings about 216
-with three folds, the current-loan EBM alone 80.7, a projection about 8):
+Databricks minutes, **revised after dropping the EBM** (estimates from v1's measured runs: feature
+build 14.2; nine trainings about 216 with three folds, of which the three EBMs took about 100 (the
+current-loan EBM alone 80.7), so the six logistic and LightGBM trainings took about 116; a projection
+about 8):
 
 | Step | Estimate (minutes) |
 |---|---|
 | Feature build with the new inputs | 20 |
 | Household-stress screening (logistic, current step, 4 folds) | 25 |
-| 9 models, tuned over 4 folds, on 1.45x the data | 400-450 (EBM about 160 of it) |
-| Walk-forward projections (4 folds x chosen and benchmark, path simulation) | 80 |
-| COVID sensitivity (information) | 30 |
-| **Total before the holdout** | **about 550-600 (9-10 hours)** |
+| 6 models, tuned over 4 folds, on 1.45x the data, plus the F5 fits | 250-280 |
+| Walk-forward projections (F1-F5, chosen and benchmark combinations, path simulation) | 80-100 |
+| COVID sensitivity (information) | 25 |
+| **Total before the holdout** | **about 400-450 (7-7.5 hours)**, was 550-600 with the EBM |
 | Holdout exam, later, once | about 60 |
 
-**Option to cut about 100 minutes (decision D6):** fit the current-loan EBM on a fixed 1-in-2 sample of
-current loan-months, weighted by 2 (the ADR-007 method). It has no effect on the selection rule; the
-learning curve is reported.
+**Decision D6 (the 1-in-2 sample for the current-loan EBM) no longer applies:** the EBM is dropped for
+v2.
 
 **Timing.** Today is Thursday 19 November. Code, tests and local checks: Thursday and Friday. Databricks:
 Friday evening to Saturday, in batches, each job started outside the blocked windows (never 02:30-04:00
@@ -199,6 +201,6 @@ on Databricks and the PC).
 | D3 | Only household-stress inputs with a Fed scenario path are eligible (card delinquency information only) | yes |
 | D4 | COVID months stay out of fitting, used for history inputs; sensitivity repeated | yes |
 | D5 | `@champion` needs the holdout pass, your review and one clean quarter | yes |
-| D6 | Current-loan EBM on a 1-in-2 sample to save about 100 minutes | your call; I lean yes |
+| D6 | Current-loan EBM on a 1-in-2 sample to save about 100 minutes | approved, then made moot: EBM dropped for v2 (Martins, 19 Nov 2026) |
 | - | Add fold F4 (2017-2019) to the three you named; F5 reported only | yes |
 | - | Amendment 3 as drafted (especially the F1 "closer than benchmark" rule and the holdout total bar) | please read and edit |

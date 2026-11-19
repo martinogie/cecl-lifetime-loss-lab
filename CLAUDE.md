@@ -173,7 +173,9 @@ site/                   website source;  scripts/export_site_data.py
   (delinquency-transition) model: current, 30, 60, 90+ default, prepaid (ADR-011, 17 Nov 2026)**. Inputs: loan age, credit score, current
   LTV (updated with HPI), DTI, rate incentive (note rate vs market), past delinquency, state unemployment.
   Three families tracked in MLflow: logistic hazard (bank-standard benchmark), LightGBM with monotonic
-  constraints explained with SHAP, and an Explainable Boosting Machine. Selection rule committed **before**
+  constraints explained with SHAP, and an Explainable Boosting Machine (v1). **Model v2 (ADR-009
+  Amendment 3, 19 Nov 2026) uses logistic and LightGBM only (6 models); the EBM is dropped for v2.**
+  Selection rule committed **before**
   the final test.
 - **LGD:** two-step (chance of any loss, then severity) from actual losses; tied to house prices so it rises
   in a downturn.
