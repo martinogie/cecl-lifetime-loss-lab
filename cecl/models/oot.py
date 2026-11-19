@@ -82,3 +82,12 @@ def registered_name(step: str) -> str:
     if step not in STEPS:
         raise ValueError(f"unknown step {step!r}")
     return f"pd_transition_{step}"
+
+
+def start_actuals_tie_out(start_ids: Any, actual_ids: Any) -> tuple[int, int]:
+    """(start loans with no outcome row, outcome rows not in the start table). The first must be 0.
+    The second is allowed: a loan whose start-month row is censored (it left the data that month) has
+    an outcome row but is not alive, so it is not in the start table (15 such loans in July 2022, 3 in
+    January 2017; found by the first launch, 18 November 2026, which stopped here before scoring)."""
+    start, actual = set(start_ids), set(actual_ids)
+    return len(start - actual), len(actual - start)

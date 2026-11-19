@@ -81,10 +81,10 @@ start[list(multistate.HISTORY)] = start[list(multistate.HISTORY)].fillna(0.0)
 mismatched = multistate.check_history(start)
 if mismatched:
     raise ValueError(f"{mismatched:,} loans' start history does not match late_months_12: stopping")
-if len(actuals) != len(start):
-    raise ValueError(
-        f"tie-out: {len(start):,} loans in the start table but {len(actuals):,} with actuals: stopping"
-    )
+no_outcome, not_alive = oot.start_actuals_tie_out(start["loan_id"], actuals["loan_id"])
+if no_outcome:
+    raise ValueError(f"tie-out: {no_outcome:,} start loans have no outcome row: stopping")
+print(f"{not_alive:,} loans with a censored {oot.TEST_START} row are not in the start table (not alive)")
 macro = multistate.Macro.from_tables(spark.table(f"{SILVER}.macro_state_monthly").toPandas(),
                                      spark.table(f"{SILVER}.macro_national_monthly").toPandas())  # fmt: skip
 print(f"loans alive in {oot.TEST_START}: {len(start):,}; history and actuals tie out")

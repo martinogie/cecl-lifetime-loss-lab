@@ -422,3 +422,10 @@ def test_oot_guards() -> None:
     assert oot.registered_name("30") == "pd_transition_30"
     with pytest.raises(ValueError):
         oot.registered_name("90")
+
+
+def test_oot_start_tie_out_allows_censored_start_rows() -> None:
+    from cecl.models import oot
+
+    assert oot.start_actuals_tie_out(["a", "b"], ["a", "b", "c"]) == (0, 1)  # c: censored in the start month
+    assert oot.start_actuals_tie_out(["a", "b"], ["a"]) == (1, 0)  # b has no outcome: stops the test
