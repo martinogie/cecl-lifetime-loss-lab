@@ -495,6 +495,135 @@ resources:
           timeout_seconds: 5400
           max_retries: 0
 
+    # ------------------------------------------------------------ model v2 (ADR-009 Amendment 3)
+    # No time limits (Martins, 18 Nov 2026: "I do not need any limit at all"). No schedules: started by
+    # scripts/run_job.py, which refuses Monday before 13:00 Chicago and 02:30-04:00.
+    transition_features_v2:
+      name: cecl_lab_transition_features_v2_${var.env}
+      description: "Model v2: load the household-stress series, then the v2 transition tables and walk-forward start tables per vintage (tie-outs, contract)"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: pinned
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: tables
+          default: household_monthly
+        - name: years
+          default: "1999-2026"
+      tasks:
+        - task_key: load_household
+          notebook_task:
+            notebook_path: ./notebooks/35_load_macro.py
+          environment_key: pinned
+          timeout_seconds: 0
+          max_retries: 0
+        - task_key: transition_features_v2
+          depends_on: [{task_key: load_household}]
+          notebook_task:
+            notebook_path: ./notebooks/42_transition_features_v2.py
+          environment_key: pinned
+          timeout_seconds: 0
+          max_retries: 0
+
+    train_transition_v2:
+      name: cecl_lab_train_transition_v2_${var.env}
+      description: "Model v2: train ONE family (logistic or LightGBM) for ONE starting state; walk-forward exams F1-F4, F5 for information (cecl.models.v2_pipeline)"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: family
+          default: logistic
+        - name: start_state
+          default: "60"
+        - name: mode
+          default: train
+        - name: stress
+          default: ""
+        - name: settings
+          default: ""
+        - name: code_version
+          default: unknown
+        - name: data_snapshot
+          default: cecl-2026Q2-data-v1
+      tasks:
+        - task_key: train
+          notebook_task:
+            notebook_path: ./notebooks/52_train_transition_v2.py
+          environment_key: ml
+          timeout_seconds: 0
+          max_retries: 0
+
+    walk_forward_v2:
+      name: cecl_lab_walk_forward_v2_${var.env}
+      description: "Model v2: the walk-forward exams (path simulation from each exam's start; Amendment 3 bars); never the holdout"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: chosen
+          default: "{}"
+        - name: logistic
+          default: "{}"
+        - name: paths
+          default: "8"
+        - name: exams
+          default: "F1,F2,F3,F4,F5"
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: walk_forward
+          notebook_task:
+            notebook_path: ./notebooks/58_walk_forward_v2.py
+          environment_key: ml
+          timeout_seconds: 0
+          max_retries: 0
+
 targets:
   dev:
     # Not "mode: development": that mode prefixes every name with dev_<user>_ (schemas, volume,

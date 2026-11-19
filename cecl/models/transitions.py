@@ -35,10 +35,18 @@ from cecl.models.binning import FeatureBins, fit_bins, one_hot
 # 3+ late months on 2017-2019). Found by the 2017-2019 projection check; ADR-009 Amendment 2.
 # "State last month" (0, 1, 2) gets fixed cuts at every step for the same reason: at the current step
 # about 99% of months have the value 0, so quantile cuts would collapse it too.
+# Model v2 (ADR-009 Amendment 3): the new inputs get fixed whole-number cuts at every step for the same
+# reason (most months are 0, so quantile cuts would collapse): worst state in 6 months (0, 1, 2), months
+# since the first missed payment, and years locked in (rate lock x age). The 0/1 inputs need no fixed cut.
+_V2_EDGES: dict[str, tuple[float, ...]] = {
+    "worst_state_6": (0, 1),
+    "months_since_first_miss": (0, 1, 3, 6, 12, 24, 36),
+    "locked_x_age": (0, 2, 5, 10, 15),
+}
 FIXED_EDGES: dict[int, dict[str, tuple[float, ...]]] = {
-    fx.CURRENT: {"late_months_12": (0, 1, 2, 3, 5, 8), "state_last_month": (0, 1)},
-    fx.LATE_30: {"state_last_month": (0, 1)},
-    fx.LATE_60: {"state_last_month": (0, 1)},
+    fx.CURRENT: {"late_months_12": (0, 1, 2, 3, 5, 8), "state_last_month": (0, 1)} | _V2_EDGES,
+    fx.LATE_30: {"state_last_month": (0, 1)} | _V2_EDGES,
+    fx.LATE_60: {"state_last_month": (0, 1)} | _V2_EDGES,
 }
 
 FEATURES = fx.TRANSITION_FEATURES
@@ -51,7 +59,7 @@ PROB_FLOOR = 1e-6
 # is often a month late rolls on less often than one late for the first time, so for the 30 and 60
 # models "months late in the past 12" is left unconstrained (on the 2009 vintage the constraint
 # merged all its bins into one, removing it from the model; 17 Nov 2026).
-UNCONSTRAINED_WHEN_LATE = ("late_months_12", "state_last_month")
+UNCONSTRAINED_WHEN_LATE = ("late_months_12", "state_last_month", "worst_state_6", "ever_missed")
 SIMPLICITY_ORDER = ("logistic", "ebm", "lightgbm")  # ties go to the simpler family (ADR-009 C)
 
 
@@ -69,7 +77,7 @@ def role(start: int, dest: int) -> str:
 def directions(start: int, dest: int, features: tuple[str, ...] = FEATURES) -> list[int]:
     """Monotonic constraints for one destination's model: a feature that raises default risk raises
     rolls to worse states and lowers cures; prepayment keeps its own directions."""
-    known = {f.name: f for f in fx.model_features("buckets") + fx.TRANSITION_EXTRA}
+    known = {f.name: f for f in fx.model_features("buckets") + fx.V2_ALL_EXTRA}
     r = role(start, dest)
     if r == "prepay":
         out = [known[f].prepay_direction for f in features]

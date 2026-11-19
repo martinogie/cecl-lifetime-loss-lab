@@ -122,7 +122,7 @@ def test_reason_codes() -> None:
     ]
     assert codes[1] == []
     table = reasons.wording_table()
-    assert len(table) == len(fx.model_features("buckets") + fx.TRANSITION_EXTRA) and all(
+    assert len(table) == len(fx.model_features("buckets") + fx.V2_ALL_EXTRA) and all(
         row["example"] for row in table
     )
 

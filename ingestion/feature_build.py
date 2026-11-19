@@ -70,6 +70,7 @@ def local_relations(root: Path, vintage: int) -> dict[str, str]:
         "silver": "silver",
         "state": f"read_parquet('{macro}/state_monthly.parquet')",
         "national": f"read_parquet('{macro}/national_monthly.parquet')",
+        "household": f"read_parquet('{macro}/household_monthly.parquet')",  # model v2 only
     }
 
 
@@ -80,6 +81,7 @@ def databricks_relations(schema: Any, vintage: int) -> dict[str, str]:
         "silver": schema("silver"),
         "state": f"{schema('silver')}.macro_state_monthly",
         "national": f"{schema('silver')}.macro_national_monthly",
+        "household": f"{schema('silver')}.macro_household_monthly",  # model v2 only
     }
 
 
@@ -93,10 +95,50 @@ def horizon_condition(dialect: str, seed: str = fx.SAMPLE_SEED, every: int = HOR
     return f"({DIALECTS[dialect]['hex8'].format(s=key)} % {every}) = 0"
 
 
-def _rows_ctes(vintage: int, rel: dict[str, str], dialect: str) -> str:
-    """Every non-censored loan-month of the vintage with its features (shared by both tables)."""
+def _rows_ctes(vintage: int, rel: dict[str, str], dialect: str, v2: bool = False) -> str:
+    """Every non-censored loan-month of the vintage with its features (shared by both tables).
+    `v2=True` (model v2, ADR-009 Amendment 3) adds the longer-memory and household-stress inputs and
+    labels rows with the v2 split; with `v2=False` the query is exactly v1's."""
     d = DIALECTS[dialect]
     v = int(vintage)
+    prev_month = d["add_months"].format(d="l.month", n=-1)
+    # model v2: longer memory over the loan's own rows (only rows before t, as every other input)
+    v2_window = (
+        """,
+        coalesce(max(least(p.effective_months_late, 2)) over (
+            partition by p.loan_id order by p.period_ym rows between 7 preceding and 2 preceding), 0)
+            as worst_state_6,
+        -- calendar months, not loan age: Freddie's loan age can restart (e.g. after a modification)
+        min(case when p.effective_months_late >= 1
+                 then cast(substr(p.period_ym, 1, 4) as int) * 12 + cast(substr(p.period_ym, 5, 2) as int) end) over (
+            partition by p.loan_id order by p.period_ym rows between unbounded preceding and 1 preceding)
+            as first_miss_index,
+        coalesce(max(case when p.flagged_pause then 1 else 0 end) over (
+            partition by p.loan_id order by p.period_ym rows between 12 preceding and 1 preceding), 0)
+            as paused_12"""
+        if v2
+        else ""
+    )
+    v2_columns = (
+        """,
+        cast(l.worst_state_6 as double) as worst_state_6,
+        cast(case when l.first_miss_index is null then 0
+                  else least(cast(substr(l.period_ym, 1, 4) as int) * 12 + cast(substr(l.period_ym, 5, 2) as int)
+                             - l.first_miss_index, 60) end as double) as months_since_first_miss,
+        cast(l.paused_12 as double) as paused_12,
+        hh_cpi.value as cpi_inflation_12,
+        hh_inc.value as real_income_growth_12,
+        hh_card.value as card_delinquency"""
+        if v2
+        else ""
+    )
+    v2_joins = "".join(
+        f"\n    left join hh {a} on {a}.variable = '{name}' and {a}.month = {prev_month}"
+        for a, name in (("hh_cpi", "cpi_inflation_12"), ("hh_inc", "real_income_growth_12"),
+                        ("hh_card", "card_delinquency"))
+    ) if v2 else ""  # fmt: skip
+    v2_cte = f"\nhh as (select variable, month, value from {rel['household']})," if v2 else ""
+    split_expr = fx.v2_split_sql("l.period_ym") if v2 else fx.split_sql("l.period_ym")
 
     def prev(col: str, n: int = -1) -> str:
         return d["add_months"].format(d=col, n=n)
@@ -130,17 +172,17 @@ lagged as (
         lag(p.remaining_months) over w as remaining_prev,
         coalesce(sum(case when p.effective_months_late >= 1 then 1 else 0 end) over (
             partition by p.loan_id order by p.period_ym rows between 12 preceding and 1 preceding), 0)
-            as late_months_12
+            as late_months_12{v2_window}
     from p left join m on m.loan_id = p.loan_id and m.period_ym = p.period_ym
     window w as (partition by p.loan_id order by p.period_ym)
 ),
 hpi as (select state, month, value from {rel["state"]} where variable = 'hpi'),
 ur as (select state, month, value from {rel["state"]} where variable = 'unemployment_rate'),
-mkt as (select month, value from {rel["national"]} where variable = 'mortgage_rate_30y'),
+mkt as (select month, value from {rel["national"]} where variable = 'mortgage_rate_30y'),{v2_cte}
 rows as (
     select
         l.loan_id, l.vintage_year, l.period_ym, l.status,
-        {fx.split_sql("l.period_ym")} as split,
+        {split_expr} as split,
         case l.status when 'defaulted' then {fx.DEFAULT} when 'prepaid' then {fx.PREPAY} else {fx.NONE} end
             as outcome,
         substr(l.period_ym, 1, 4) as obs_year,
@@ -180,7 +222,7 @@ rows as (
         coalesce(l.rate_prev, o.orig_rate) as rate_start,
         cast(coalesce(l.remaining_prev, l.remaining_months + 1) as double) as remaining_start,
         cast(o.orig_ltv as double) as orig_ltv,
-        h0.value as hpi_orig
+        h0.value as hpi_orig{v2_columns}
     from lagged l
     join o on o.loan_id = l.loan_id
     left join hpi h1 on h1.state = o.property_state and h1.month = {prev("l.month")}
@@ -188,7 +230,7 @@ rows as (
     left join ur u1 on u1.state = o.property_state and u1.month = {prev("l.month")}
     left join ur u13 on u13.state = o.property_state and u13.month = {prev("l.month", -13)}
     left join mkt mk on mk.month = {prev("l.month")}
-    left join mkt mo on mo.month = o.orig_month
+    left join mkt mo on mo.month = o.orig_month{v2_joins}
     where l.status <> '{fx.EXCLUDED_STATUS}'
 )"""
 
@@ -239,7 +281,7 @@ TRANSITION_DROP = ("sampled", "n_all", "status", "obs_year", "outcome", "months_
                    "upb_start", "rate_start", "remaining_start", "orig_ltv", "hpi_orig")  # fmt: skip
 
 
-def transitions_sql(vintage: int, rel: dict[str, str], dialect: str) -> str:
+def transitions_sql(vintage: int, rel: dict[str, str], dialect: str, v2: bool = False) -> str:
     """The transition table for one vintage (all splits): every live loan-month with its starting
     state and this month's state. Months that start current and stay current (the vast majority) are
     sampled 1 in 25 by the same fixed hash, weighted per stratum (vintage x observation year) so the
@@ -251,7 +293,7 @@ def transitions_sql(vintage: int, rel: dict[str, str], dialect: str) -> str:
         return f"({t}state_prev = {fx.CURRENT} and {t}state = {fx.CURRENT})"
 
     return (
-        _rows_ctes(vintage, rel, dialect)
+        _rows_ctes(vintage, rel, dialect, v2)
         + f""",
 flagged as (select r.*, {sample_condition(dialect)} as sampled from rows r),
 strata_all as (select obs_year, count(*) filter (where {stay()}) as n_all from rows group by obs_year),
@@ -273,6 +315,7 @@ def projection_start_sql(
     dialect: str,
     split: str = fx.VALIDATE,
     window: tuple[str, str] | None = None,
+    v2: bool = False,
 ) -> str:
     """Every loan alive in the start month (its non-censored row for that month) with what is known
     at the start: its starting state, the transition features and what the projection needs to roll
@@ -283,7 +326,7 @@ def projection_start_sql(
     ex = DIALECTS[dialect]["star_except"]
     drop = "status, obs_year, outcome, months_late_prev, eltv_prev, split"
     return (
-        _rows_ctes(vintage, rel, dialect)
+        _rows_ctes(vintage, rel, dialect, v2)
         + f"\nselect r.* {ex} ({drop}) from rows r where r.period_ym = '{start}'\n"
     )
 
@@ -554,3 +597,61 @@ def eltv_check_sql(relation: str) -> str:
         "corr(current_ltv, eltv_prev), avg(case when abs(current_ltv - eltv_prev) <= 10 then 1.0 else 0.0 end) "
         f"from {relation} where current_ltv is not null and eltv_prev is not null"
     )
+
+
+# ------------------------------------------------------------------- model v2 (ADR-009 Amendment 3)
+# Projection starts for the walk-forward exams: (start month, last month). F1-F4 run 36 months; F5
+# (information) runs to June 2024. The holdout's July 2024 start is never built here: the holdout
+# command builds it at run time, as v1's out-of-time test did.
+V2_PROJECTION_STARTS: tuple[tuple[str, str], ...] = (
+    ("200801", "201012"), ("201101", "201312"), ("201401", "201612"), ("201701", "201912"),
+    ("202207", "202406"),
+)  # fmt: skip
+V2_HISTORY_MONTHS = 12
+V2_START_MONTHS: tuple[str, ...] = tuple(start for start, _ in V2_PROJECTION_STARTS)
+
+
+def v2_projection_starts_sql(vintage: int, rel: dict[str, str], dialect: str,
+                             starts: Sequence[str] = V2_START_MONTHS) -> str:  # fmt: skip
+    """Every loan alive in any of the start months, with its v2 inputs, in one pass over the vintage
+    (column `start_ym`). Weight 1, no sampling."""
+    ex = DIALECTS[dialect]["star_except"]
+    drop = "status, obs_year, outcome, months_late_prev, eltv_prev, split"
+    in_list = ", ".join(f"'{s}'" for s in starts)
+    return (
+        _rows_ctes(vintage, rel, dialect, v2=True)
+        + f"\nselect r.* {ex} ({drop}), r.period_ym as start_ym from rows r where r.period_ym in ({in_list})\n"
+    )
+
+
+def v2_projection_actuals_sql(panel_rel: str,
+                              windows: Sequence[tuple[str, str]] = V2_PROJECTION_STARTS) -> str:  # fmt: skip
+    """Per start window, per loan with a panel row in the start month: its last row in the window and
+    that row's status (as projection_actuals_sql), with `start_ym`."""
+    parts = [f"select '{a}' as start_ym, * from ({projection_actuals_sql(panel_rel, window=(a, b))})"
+             for a, b in windows]  # fmt: skip
+    return "\nunion all\n".join(parts)
+
+
+def v2_projection_history_sql(panel_rel: str, starts: Sequence[str] = V2_START_MONTHS) -> str:  # fmt: skip
+    """Per start month and loan alive in it: the state (0, 1, 2: months late, capped at 2) and the
+    payment-pause flag of each of its 12 panel rows before the start (j = 1 is the row just before),
+    which the path simulation needs for the v2 history inputs. Missing rows count as current, no pause."""
+    cols = ",\n       ".join(
+        f"cast(max(case when rn = {j} then st else 0 end) as double) as state_hist_{j},\n"
+        f"       cast(max(case when rn = {j} then pz else 0 end) as double) as pause_hist_{j}"
+        for j in range(1, V2_HISTORY_MONTHS + 1)
+    )
+    parts = []
+    for s in starts:
+        parts.append(f"""
+select '{s}' as start_ym, loan_id,
+       {cols}
+from (
+    select loan_id, least(effective_months_late, 2) as st, case when flagged_pause then 1 else 0 end as pz,
+           row_number() over (partition by loan_id order by period_ym desc) as rn
+    from {panel_rel}
+    where period_ym < '{s}'
+      and loan_id in (select loan_id from {panel_rel} where period_ym = '{s}')
+) h where rn <= {V2_HISTORY_MONTHS} group by loan_id""")
+    return "\nunion all\n".join(parts)

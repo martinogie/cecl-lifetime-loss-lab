@@ -11,6 +11,9 @@ what happens in month *t*. A model never sees the month it predicts.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
 
 # ---------------------------------------------------------------------------- split (ADR-009 A)
 # By observation month (YYYYMM). Martins's decision, 16 November 2026.
@@ -240,3 +243,96 @@ MISSING_SHARE_EXCEPTIONS = {"orig_dti": 0.10}
 
 def max_missing_share(feature: str) -> float:
     return MISSING_SHARE_EXCEPTIONS.get(feature, MAX_MISSING_SHARE)
+
+
+# ---------------------------------------------------------------------------- model v2 (ADR-009 Amendment 3)
+# Approved by Martins 19 November 2026 (docs/phase2/model_v2_plan.md). v1's definitions above are
+# unchanged, so v1's tables and models can be rebuilt exactly; v2 has its own split and tables.
+V2_TRAIN, V2_COVID, V2_HOLDOUT = "train", "covid", "holdout"
+V2_SPLITS: tuple[tuple[str, str, str], ...] = (
+    (V2_TRAIN, "199901", "201912"),
+    (V2_COVID, "202001", "202206"),  # not fitted (decision D4); used only to compute history inputs
+    (V2_TRAIN, "202207", "202406"),
+    (V2_HOLDOUT, "202407", "202606"),  # scored once, by the holdout command only
+)
+V2_HOLDOUT_SPLITS = (V2_HOLDOUT,)
+# Walk-forward exams (last training month, first scored month, last scored month). F1-F4 tune and
+# select; F5 is reported only (information). Each trains on every training month up to its cut.
+V2_FOLDS: tuple[tuple[str, str, str], ...] = (
+    ("200712", "200801", "201012"),  # F1: the crisis
+    ("201012", "201101", "201312"),  # F2
+    ("201312", "201401", "201612"),  # F3
+    ("201612", "201701", "201912"),  # F4
+)
+V2_INFO_FOLD = ("201912", "202207", "202406")  # F5, information only
+V2_FOLD_NAMES = ("F1 2008-2010", "F2 2011-2013", "F3 2014-2016", "F4 2017-2019")
+
+
+def v2_split_of(period_ym: str) -> str:
+    for name, first, last in V2_SPLITS:
+        if first <= period_ym <= last:
+            return name
+    raise ValueError(f"{period_ym!r} is outside every v2 split (1999-01 to 2026-06)")
+
+
+def v2_split_sql(column: str = "period_ym") -> str:
+    cases = " ".join(f"when {column} between '{a}' and '{b}' then '{n}'" for n, a, b in V2_SPLITS)
+    return f"case {cases} end"
+
+
+# New stored inputs (built by ingestion/feature_build.py with v2=True). Directions as in v1: +1 means
+# more of it, more rolls to worse states (monotone in LightGBM, bins in the logistic model); 0 free.
+V2_EXTRA: tuple[Feature, ...] = (
+    Feature("worst_state_6", "worst state in the 6 months before the starting month (t-7 to t-2): 0 current, 1 = 30, 2 = 60 days late", 1, -1),
+    Feature("months_since_first_miss", "calendar months from the loan's first 30+ days late month (up to t-1) to t, capped at 60; 0 if never late", 0, 0),
+    Feature("paused_12", "1 if any of the 12 months before t was a flagged payment pause (flags from 2014, L-016)", 1, -1),
+)  # fmt: skip
+# Household-stress candidates (national, 12-month change to t-1). Only those with a Fed scenario path
+# are eligible (decision D3); card delinquency is screened for information only.
+V2_STRESS: tuple[Feature, ...] = (
+    Feature("cpi_inflation_12", "CPI inflation over the 12 months to t-1, % (FRED CPIAUCSL)", 1, 0),
+    Feature("real_income_growth_12", "real disposable income growth over the 12 months to t-1, % (FRED DSPIC96)", -1, 0),
+    Feature("card_delinquency", "bank credit-card delinquency rate, latest quarter ended by t-1, % (FRED DRCCLACBS)", 1, 0),
+)  # fmt: skip
+V2_STRESS_ELIGIBLE = ("cpi_inflation_12", "real_income_growth_12")
+# Rate lock (finding 1 of the out-of-time diagnosis), derived at model time from the rate incentive and
+# loan age, so the projection gets them for free. No monotone constraint (v1's lesson: the direction of
+# "below market" is not known in advance). Cut points fixed now (1 and 2 points), not searched.
+V2_DERIVED_FEATURES: tuple[Feature, ...] = (
+    Feature("locked_1", "1 if the loan rate is at least 1 point below the market rate (rate lock)", 0, 0),
+    Feature("locked_2", "1 if the loan rate is at least 2 points below the market rate", 0, 0),
+    Feature("locked_x_age", "locked_1 x loan age in years (seasoned locked loans fell behind most)", 0, 0),
+    Feature("ever_missed", "1 if the loan has ever been 30+ days late (so 'never' is not read as 0 months)", 1, -1),
+)  # fmt: skip
+V2_DERIVED = {
+    "locked_1": lambda X: (np.asarray(X["rate_incentive"], dtype=float) <= -1.0).astype(float),
+    "locked_2": lambda X: (np.asarray(X["rate_incentive"], dtype=float) <= -2.0).astype(float),
+    "locked_x_age": lambda X: (
+        (np.asarray(X["rate_incentive"], dtype=float) <= -1.0).astype(float)
+        * np.asarray(X["loan_age"], dtype=float)
+        / 12.0
+    ),
+    "ever_missed": lambda X: (np.asarray(X["months_since_first_miss"], dtype=float) > 0).astype(float),
+}
+V2_STORED = TRANSITION_FEATURES + tuple(f.name for f in V2_EXTRA)  # columns the v2 table must carry
+V2_BASE_FEATURES = V2_STORED + tuple(f.name for f in V2_DERIVED_FEATURES)  # 28 inputs before stress
+V2_ALL_EXTRA = TRANSITION_EXTRA + V2_EXTRA + V2_STRESS + V2_DERIVED_FEATURES
+RANGES.update({"worst_state_6": (0, 2), "months_since_first_miss": (0, 60), "paused_12": (0, 1),
+               "cpi_inflation_12": (-5, 20), "real_income_growth_12": (-40, 40), "card_delinquency": (0, 20)})  # fmt: skip
+
+
+def v2_features(stress: tuple[str, ...] = ()) -> tuple[str, ...]:
+    """v2's inputs: all v1 inputs, the memory and rate-lock inputs, plus the kept stress inputs."""
+    bad = [s for s in stress if s not in {f.name for f in V2_STRESS}]
+    if bad:
+        raise ValueError(f"unknown household-stress input(s): {bad}")
+    return V2_BASE_FEATURES + tuple(stress)
+
+
+def with_derived(X: dict[str, Any], features: tuple[str, ...]) -> dict[str, Any]:
+    """Adds any derived v2 input the feature list asks for (computed from the stored ones)."""
+    out = dict(X)
+    for name in features:
+        if name in V2_DERIVED and name not in out:
+            out[name] = V2_DERIVED[name](out)
+    return out

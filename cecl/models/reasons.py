@@ -60,6 +60,31 @@ WORDING: dict[str, Callable[[float], str]] = {
     "sato": lambda v: (
         f"Loan rate {abs(v):.2f} points {'above' if v >= 0 else 'below'} the market rate when it was made"
     ),
+    # model v2 (ADR-009 Amendment 3)
+    "worst_state_6": lambda v: (
+        "Up to date in the 6 months before"
+        if v < 0.5
+        else f"{30 * int(round(v))} days late in the past 6 months"
+    ),
+    "months_since_first_miss": lambda v: (
+        "Never missed a payment" if v < 0.5 else f"First missed a payment {v:.0f} months ago"
+    ),
+    "ever_missed": lambda v: "Has missed a payment before" if v else "Has never missed a payment",
+    "paused_12": lambda v: (
+        "Payment pause in the last 12 months" if v else "No payment pause in the last 12 months"
+    ),
+    "locked_1": lambda v: "Loan rate 1+ point below market (rate lock)" if v else "Not rate-locked (1 point)",
+    "locked_2": lambda v: (
+        "Loan rate 2+ points below market (deep rate lock)" if v else "Not deeply rate-locked"
+    ),
+    "locked_x_age": lambda v: (
+        f"Rate-locked loan, {v:.0f} years old" if v > 0 else "Not a rate-locked seasoned loan"
+    ),
+    "cpi_inflation_12": lambda v: f"Consumer prices up {v:.1f}% in a year",
+    "real_income_growth_12": lambda v: (
+        f"Real household income {'up' if v >= 0 else 'down'} {abs(v):.1f}% in a year"
+    ),
+    "card_delinquency": lambda v: f"Credit-card delinquency at {v:.1f}% nationally",
 }
 
 
@@ -86,6 +111,8 @@ def wording_table() -> list[dict[str, str]]:
                 "months_late_prev": 2, "late_months_12": 3, "unemployment": 7.8, "unemployment_change_12": 3.1,
                 "forbearance_prev": 1, "mi_pct": 25, "orig_upb": 250000, "term_over_360": 1, "purpose_cashout": 1,
                 "purpose_refi": 1, "occupancy_investor": 1, "occupancy_second": 1, "relief_refinance": 1, "originated_2009_on": 1, "era_2005_2008": 1, "calendar_month": 7,
-                "state_last_month": 2, "hpi_gain": 0.35, "sato": 0.6}  # fmt: skip
-    names = [f.name for f in fx.model_features("buckets") + fx.TRANSITION_EXTRA]
+                "state_last_month": 2, "hpi_gain": 0.35, "sato": 0.6, "worst_state_6": 1,
+                "months_since_first_miss": 14, "ever_missed": 1, "paused_12": 1, "locked_1": 1, "locked_2": 1,
+                "locked_x_age": 6, "cpi_inflation_12": 6.5, "real_income_growth_12": -2.0, "card_delinquency": 3.4}  # fmt: skip
+    names = [f.name for f in fx.model_features("buckets") + fx.V2_ALL_EXTRA]
     return [{"feature": f, "example": sentence(f, examples[f])} for f in names]
