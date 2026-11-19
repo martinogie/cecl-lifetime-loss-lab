@@ -313,3 +313,60 @@ months are not touched.
   remaining gap goes in the limitations log (L-030); it is not accepted as fixed.
 
 Logistic's own recorded failures at the chosen steps (15 cells for the current-loan model, mostly payoffs, plus the 4-5 band for current -> 30; at 30 days late, prepaid 2017 and the 1-late-month band for 30 -> 60) are entered in the limitations log (L-029) and tracked in monitoring.
+
+## Amendment 3: model v2 (proposed, not accepted)
+
+- **Status of this amendment:** **proposed**, 19 November 2026. Written **before** any v2 training; to be
+  accepted and committed before training starts. Plan: `docs/phase2/model_v2_plan.md`.
+- **Why:** model v1 failed the out-of-time test (L-032). Martins decided (19 November 2026) to build a
+  second version (v2) before Phase 4. v1 keeps its record, its `@challenger` alias and Amendments 1-2.
+  This amendment fixes v2's split, pass rule and selection rule in advance, so the results cannot shape
+  their own pass marks.
+
+**A (split).** Training: January 1999 - December 2019 and July 2022 - June 2024. January 2020 - June 2022
+(COVID) is not fitted; it is used only to compute history inputs. Holdout: July 2024 - June 2026, run
+once, labelled "not fully clean: the rate-lock idea came from the 2022-2026 diagnosis". Walk-forward
+folds, each trained on all training months before its scored period: F1 to 2007 / 2008-2010; F2 to 2010 /
+2011-2013; F3 to 2013 / 2014-2016; F4 to 2016 / 2017-2019. F5 (to 2019 / July 2022 - June 2024) is
+reported only. Clean test: future Freddie Mac quarters (Phase 8).
+
+**B (measures), per transition model.** The main measure is weighted log loss over next month's states,
+averaged over F1-F4, with each fold reported. Calibration bars: 0.80-1.25 in every cell with at least 200
+actual moves, on each fold's scored months (by year, by vintage, whole period and late-history band, as
+in Amendments 1 and 2). New: a rate-lock band bar (incentive 2+ points below market, 1-2 below, 0-1
+below, 0-1 above, more than 1 above), judged in-sample on July 2022 - June 2024 and labelled in-sample.
+AUC, Gini, training curves and the fit table are reported.
+
+**Household-stress inputs.** Only candidates with a path in the Fed's 2026 scenarios are eligible. Each
+is added one at a time to the current-loan logistic model and kept only if it does all three of:
+- improves the average F1-F4 log loss by at least 0.2%;
+- worsens no fold by more than 0.1%;
+- has a sign with a business reason.
+
+**C (selection).** v1's grids, the 2% rule per step on the average F1-F4 log loss, every bar passed and
+reason codes required, ties to the simpler family, and the combination check of Amendment 1.
+
+**Walk-forward requirement (the chosen combination).** Each fold's fitted models are projected 36
+months from the start of the fold's scored period.
+- F2, F3 and F4: total projected defaults within 0.80-1.25, and every default cell by year with at least
+  200 actual defaults within 0.80-1.25.
+- F1: the total must be closer to 1.0 than the v1-input logistic benchmark on the same fold.
+- On a failure, the combination check applies. If all-logistic also fails, the failure is recorded and
+  the work stops for Martins.
+
+**E (holdout pass).** v2 passes the holdout only if both hold in the full projection from 1 July 2024:
+- every judged default cell (by year and by vintage, with at least 200 actual defaults) is within
+  0.80-1.25;
+- total projected defaults are within 0.80-1.25.
+
+Payoff cells are reported; those outside the bar are recorded under L-028 and do not fail. Transition
+calibration, log loss, AUC and Gini are reported. The holdout runs once, and nothing is chosen, swapped
+or tuned on it. Any relaunch needs Martins's approval.
+
+**Promotion.**
+- A holdout pass: v2 may be used in Phase 4 as `@challenger`, labelled "holdout passed, not fully clean".
+- `@champion`: needs Martins's written review and the first clean Freddie quarter with total defaults
+  within 0.80-1.25.
+- A fail: v2 stays `@challenger` and the result is recorded.
+
+**Decision on this amendment (Martins):** _(to be written by Martins)_
