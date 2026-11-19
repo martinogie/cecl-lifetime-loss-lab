@@ -437,7 +437,80 @@ minutes):
 Adding the COVID months lowers projected defaults by about 12% and raises payoffs. Every 2017-2019 default
 cell would pass, but it was not the locked set and was not tested out of time.
 
+### Model v2: walk-forward exams failed at the crisis exam; work stopped before the holdout (19 November 2026)
+
+Rules: ADR-009 Amendment 3 (accepted 19 November 2026, before any v2 training), plan
+`docs/phase2/model_v2_plan.md`. The rate-lock inputs were identified from the version 1 out-of-time diagnosis. The July 2024 – June 2026 holdout was not used for training or model selection.
+
+**What v2 is.** The same three steps (loans current, 30 and 60 days late), with 28 inputs: v1's 21 plus
+rate lock (`locked_1`, `locked_2`, `locked_x_age`) and longer memory (`worst_state_6`,
+`months_since_first_miss`, `paused_12`, `ever_missed`). Trained on 1999-2019 plus July 2022 - June 2024; the
+COVID months (2020 - June 2022) are not fitted. Projection by path simulation (`cecl/models/simulate.py`,
+8 paths per loan, fixed seed) instead of v1's slice projection (L-026). Logistic and LightGBM only (the EBM
+is dropped for v2). Code `c160e46`.
+
+**Household stress inputs: none kept.** Screened on the current-loan logistic model against the keep rule
+(average F1-F4 log-loss gain at least 0.2%, no exam more than 0.1% worse, a Fed scenario path needed;
+MLflow run `881837c1`): CPI inflation -0.065% average (worst exam +0.33%), real income growth -0.60% (worst
++1.9%), card delinquency +0.14% (no Fed path, so not eligible; information only).
+
+**Selection (2% rule on the average F1-F4 log loss; record `docs/phase2/model_v2_selection.json`, MLflow
+run `4e886684`):**
+
+| Step | Logistic (C) | LightGBM (leaves, min weight) | LightGBM gain | Bars (logistic / LightGBM) | Winner |
+|---|---|---|---|---|---|
+| Current | 0.09506 (1.0) | 0.09216 (15, 200) | +3.05% | fail / fail | logistic |
+| 30 days | 0.94888 (1.0) | 0.94881 (15, 200) | +0.01% | fail / fail | logistic |
+| 60 days | 1.18578 (1.0) | 1.21373 (15, 50) | -2.36% | fail / fail | logistic |
+
+At the current step LightGBM clears the 2% margin but fails calibration cells, so it does not qualify;
+logistic is kept at every step with its failing cells recorded. Most failing cells are on the crisis exam
+F1 (payoffs over-predicted 1.5-4x while refinancing froze) and payoffs on F2-F4 (L-028). The chosen and
+the all-logistic combinations are therefore the same, so the combination check cannot change anything.
+Training runs: current `d0e07d92`, 30 `995197d8`, 60 `aafd64ee` (LightGBM: `d4663583`, `985a16b3`,
+`5f0eac08`).
+
+**Walk-forward exams (36-month projections with the economy as it happened; Databricks run
+648217473030703, MLflow run `5ccd125f`):**
+
+| Exam | Trained to | Start | Loans | Defaults actual | Projected | Ratio | By year | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| F1 crisis | 2007 | Jan 2008 | 223,495 | 14,756 | 5,552 | 0.38 | 0.59 / 0.33 / 0.30 | **fail**: v1-style benchmark 5,763 (0.39) is closer |
+| F2 | 2010 | Jan 2011 | 241,427 | 10,150 | 9,303 | 0.92 | 0.92 / 0.95 / 0.86 | pass |
+| F3 | 2013 | Jan 2014 | 232,310 | 4,071 | 4,439 | 1.09 | 1.07 / 1.11 / 1.09 | pass |
+| F4 | 2016 | Jan 2017 | 278,373 | 3,162 | 3,449 | 1.09 | 1.12 / 1.06 / 1.08 | pass |
+| F5 (information) | 2019 | Jul 2022 | 258,228 | 2,057 | 1,481 (24 months) | 0.72 | 1.00 / 0.69 / 0.58 | reported only |
+
+Under Amendment 3 a walk-forward failure triggers the combination check; all-logistic is the same
+combination and fails too, so **the failure is recorded and the work stops for Martins.** The holdout was
+not run; nothing was tuned, swapped or re-chosen after the exams; v2 is not registered.
+
+**What the crisis exam shows.** Both v2 and the v1-style benchmark (v1's inputs and logistic settings,
+refitted on the same months, v1's projection) project about 38-39% of the 2008-2010 defaults: by starting
+state, current loans 4,537 vs 13,049 (0.35), 30 days late 730 vs 1,273 (0.57), 60 days late 285 vs 434
+(0.66); by vintage 2005-2007 at 0.26-0.42; payoffs 115,246 vs 86,706 (1.33). v2 is 1.4 points further from
+actual than the benchmark (0.376 vs 0.391). A model trained only on 1999-2007 has never seen a national
+house-price fall, so neither version can extrapolate to it; the exam was set as "no worse than v1", and
+v2 is marginally worse, so it fails as written.
+
+**Other exam detail (reported, not part of the pass rule for F2-F4).** Vintage default cells outside
+0.80-1.25: F2 2002-2003 (0.74-0.77); F3 2011-2013 (1.32-1.43); F4 2012 (1.48) and 2016 (1.33). Payoffs:
+F2 81,995 vs 125,898 (0.65), F3 0.97, F4 65,101 vs 83,789 (0.78), so the payoff under-projection after the
+first year (L-028) remains. Start histories rebuilt from the panel matched every start row's inputs on all
+five exams (0 mismatches); simulation noise (F4 all-logistic, seeds 7 and 8) 0.69% on total defaults.
+
+**F5 (information; trained to 2019, so it has not seen the rate-lock period).** Defaults 1.00 in late
+2022, then 0.69 (2023) and 0.58 (2024); current loans 0.73, 30 days 0.60, 60 days 0.92. v1's out-of-time
+test from the same start (trained to 2016, a 48-month projection) gave 1.07, 0.57 and 0.46 in those years.
+This is the limit stated in the plan: before 2022 the exams can show "no harm" but not that the rate-lock
+fix works; only the final v2 fit sees July 2022 - June 2024.
+
+Databricks minutes for v2: feature build 18.9, screening 17.0, six trainings 139.5 (current LightGBM
+89.8), walk-forward 10.1: about 186 in all (plan estimate 400-450).
+
 ### Still to come
 
 - The out-of-time test ran once on 18-19 November 2026 and **failed** (above); the models stay @challenger.
+- Model v2 failed the walk-forward crisis exam (above); the work stopped for Martins's decision before the
+  holdout. The v2 holdout expectations (`docs/phase2/model_v2_holdout_expectations.md`) stay blank.
 - Registration of the @challenger, model card and model inventory entries (step M9).

@@ -46,7 +46,7 @@ checker, in writing; there is no separate validation team, which is itself a lim
 
 | Model ID | Name | Purpose | Proposed tier | Status | Registry name | Phase |
 |---|---|---|---|---|---|---|
-| M-01 | Lifetime PD and prepayment (competing-risks hazard) | Monthly chance of default and of prepayment for each loan over its life | 1: the main driver of the reserve; three model families | @challenger (19 Nov 2026): multi-state logistic transition models; **failed the out-of-time test** (L-032); not champion | `<catalog>.ml.pd_transition_current`, `_30`, `_60` (`@challenger`) | 2 |
+| M-01 | Lifetime PD and prepayment (competing-risks hazard) | Monthly chance of default and of prepayment for each loan over its life | 1: the main driver of the reserve; three model families | @challenger (19 Nov 2026): multi-state logistic transition models; **failed the out-of-time test** (L-032); not champion. Version 2 (ADR-009 Amendment 3, code `c160e46`) failed the walk-forward crisis exam (L-035): stopped before its holdout, not registered | `<catalog>.ml.pd_transition_current`, `_30`, `_60` (`@challenger`) | 2 |
 | M-02 | LGD (two-step) | Chance of any loss once defaulted, then the size of the loss; tied to house prices | 1: directly multiplies the reserve | draft (Phase 3, 19 Nov 2026): two-step monotone trees on every ADR-002 default; docs/phase3/model_documentation.md; L-033 | `<catalog>.ml.lgd` (not registered yet) | 3 |
 | M-03 | EAD (balance projection) | Balance owed at each future month, from the payment schedule and prepayment | 2: mostly mechanical for fixed-rate loans | draft (Phase 3, 19 Nov 2026): schedule plus partial prepayment by loan age; within 2% on held-out loans; L-034 | code in `cecl.ead` | 3 |
 | M-04 | CECL engine (aggregation, forecast, reversion, scenario weighting) | Combines M-01 to M-03 into each loan's and the book's lifetime expected loss | 1: produces the reported reserve | not started | code in `cecl.engine` | 4 |
@@ -61,3 +61,6 @@ checker, in writing; there is no separate validation team, which is itself a lim
   cells vs 13), but it still fails calibration cells, so under the selection rule (ADR-009 as
   amended, unchanged) logistic stays. At the review: consider a housing-turnover input and re-compare
   the families. Limitations log L-031.
+- **M-01 version 2 (19 November 2026):** logistic at all three steps (LightGBM 3.05% better at the current
+  step but failing calibration cells). Walk-forward: 2011-2013, 2014-2016 and 2017-2019 pass; the 2008-2010
+  crisis exam fails (0.38 vs the v1-style benchmark's 0.39). Stopped for Martins before the holdout (L-035).

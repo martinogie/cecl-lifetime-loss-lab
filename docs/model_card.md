@@ -34,3 +34,23 @@ audited bank reserve and not accounting advice.
 - **Known limitations so far:** L-016 (forbearance flags only from 2014), L-018, L-023, L-024 (DTI
   missing for relief refinances; relief refinance is a feature), L-025, and the default-level shift
   between the training and validation years (ADR-010).
+
+## M-01 version 2 (ADR-009 Amendment 3): stopped after the walk-forward exams, 19 November 2026
+
+- **What changed from version 1:** the same three transition steps (current, 30 and 60 days late) with
+  28 inputs: version 1's 21 plus rate lock (`locked_1`, `locked_2`, `locked_x_age`) and longer memory
+  (`worst_state_6`, `months_since_first_miss`, `paused_12`, `ever_missed`); trained on 1999-2019 and July
+  2022 - June 2024 (COVID months not fitted); projected by path simulation (8 paths per loan) instead of
+  the slice projection; families logistic and LightGBM only (the EBM is dropped for v2). No household-stress
+  input passed the keep rule.
+- The rate-lock inputs were identified from the version 1 out-of-time diagnosis. The July 2024 – June 2026 holdout was not used for training or model selection.
+- **Selected:** logistic at all three steps (LightGBM was 3.05% better at the current step but failed
+  calibration cells). Code `c160e46`; selection record `docs/phase2/model_v2_selection.json`.
+- **Walk-forward exams:** 2011-2013 (0.92), 2014-2016 (1.09) and 2017-2019 (1.09) pass on total defaults and
+  every year. The 2008-2010 crisis exam fails: v2 projected 0.38 of actual defaults against 0.39 for the
+  v1-style benchmark, so it is not closer. 2022-2024 (information, trained to 2019): 0.72.
+- **Status:** not registered, not used. Under Amendment 3 the work stopped for Martins before the holdout;
+  version 1 stays `@challenger` with its out-of-time failure (L-032). Limitations: L-035 (this result),
+  L-028 (payoffs), L-036 (household-stress inputs).
+- Full results: validation report, "Model v2". Educational model on Freddie Mac conforming mortgages; not
+  an audited bank reserve.
