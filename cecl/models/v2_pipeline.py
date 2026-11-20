@@ -319,3 +319,24 @@ def crisis_verdict(v2_check: Any, benchmark_check: Any) -> dict[str, Any]:
     """F1: passes if v2's total projected defaults are closer to actual than the v1-style benchmark's."""
     r2, rb = default_ratio(v2_check), default_ratio(benchmark_check)
     return {"v2_ratio": r2, "benchmark_ratio": rb, "passes": abs(r2 - 1.0) < abs(rb - 1.0)}
+
+
+# ---------------------------------------------------------------------------- holdout (Amendment 3 E; locked by Amendment 5)
+HOLDOUT_START, HOLDOUT_END = next((a, b) for name, a, b in fx.V2_SPLITS if name == fx.V2_HOLDOUT)
+HOLDOUT_MONTHS = 24  # July 2024 - June 2026
+
+
+def holdout_verdict(check: Any) -> dict[str, Any]:
+    """ADR-009 Amendment 3 E: v2 passes only if every judged default cell (by year and vintage, at least
+    200 actual defaults) is within 0.80-1.25 **and** total projected defaults are within 0.80-1.25.
+    Payoff cells are reported (failures recorded under L-028) and do not fail."""
+    from cecl.models import oot
+
+    cells = oot.verdict(check)
+    total = default_ratio(check)
+    return {"passes": bool(cells["passes"] and in_bar(total)), "total_ratio": total, "total_passes": in_bar(total),
+            "cells_pass": cells["passes"], "judged_default_cells": cells["judged_default_cells"],
+            "judged_payoff_cells": cells["judged_payoff_cells"], "failing_default_cells": cells["failing_default_cells"],
+            "failing_payoff_cells_recorded_under_L028": cells["failing_payoff_cells_recorded_under_L028"],
+            "rule": "ADR-009 Amendment 3 E (locked by Amendment 5): every judged default cell and the total "
+                    "within 0.80-1.25; payoff cells reported (L-028)"}  # fmt: skip

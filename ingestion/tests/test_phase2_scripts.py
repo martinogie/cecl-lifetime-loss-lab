@@ -118,3 +118,74 @@ def test_preflight_checks_counts_and_dates() -> None:
     assert len(oot_preflight.problems(bad)) == 3
     q = oot_preflight.queries("g", "s")
     assert all("model" not in sql and "outcome" not in sql for sql in q.values())  # counts and dates only
+
+
+def test_v2_holdout_guards_on_the_documents() -> None:
+    from cecl.models import oot
+    from scripts import run_v2_holdout as h
+
+    adr = (ROOT / "docs/adr/009-model-selection-rule.md").read_text(encoding="utf-8")
+    final = f"# x\n\n{oot.EXPECTATIONS_FINAL} (19 November 2026)\n"
+    assert h.document_problems(adr, final) == []
+    assert h.document_problems(adr, "- **Status:** draft\n")  # expectations not final
+    no_lock = adr.replace(h.LOCK, "the holdout rules are open")
+    assert h.document_problems(no_lock, final)
+    assert h.document_problems(adr.split("## Amendment 5")[0], final)  # no Amendment 5
+
+
+def test_v2_holdout_needs_a_passing_downturn_check_for_the_same_runs() -> None:
+    import json
+    from types import SimpleNamespace as NS
+
+    from scripts import run_v2_holdout as h
+
+    runs = {"current": "a", "30": "b", "60": "c"}
+
+    def run(rid: str, passes: float, **tags: str) -> NS:
+        return NS(
+            info=NS(run_id=rid),
+            data=NS(params={"runs": json.dumps(runs)}, metrics={"passes": passes}, tags=tags),
+        )
+
+    assert h.downturn_passed(run("k", 1.0), None, runs)
+    failed = run("k", 0.0)
+    assert not h.downturn_passed(failed, None, runs)
+    assert h.downturn_passed(failed, run("r", 1.0, source_run="k"), runs)
+    assert not h.downturn_passed(failed, run("r", 1.0, source_run="other"), runs)
+    assert not h.downturn_passed(run("k", 1.0), None, runs | {"60": "z"})  # a different model set
+
+
+def test_v2_holdout_verdict_needs_cells_and_total() -> None:
+    from cecl.models import multistate
+    from cecl.models import v2_pipeline as v2
+
+    def cell(event: str, ratio: float, actual: float = 500.0) -> multistate.Cell:
+        return multistate.Cell(
+            event,
+            "year",
+            "2025",
+            actual,
+            actual * ratio,
+            ratio,
+            actual >= 200,
+            0.80 <= ratio <= 1.25 or actual < 200,
+        )
+
+    ok = multistate.Check(cells=[cell("default", 1.0), cell("prepaid", 0.5)],
+                          totals={"default_actual": 1000.0, "default_projected": 1050.0})  # fmt: skip
+    out = v2.holdout_verdict(ok)
+    assert out["passes"] and len(out["failing_payoff_cells_recorded_under_L028"]) == 1  # payoffs never fail
+    bad_total = multistate.Check(
+        cells=[cell("default", 1.0)], totals={"default_actual": 1000.0, "default_projected": 1300.0}
+    )
+    assert not v2.holdout_verdict(bad_total)["passes"]
+    bad_cell = multistate.Check(
+        cells=[cell("default", 1.3)], totals={"default_actual": 1000.0, "default_projected": 1000.0}
+    )
+    assert not v2.holdout_verdict(bad_cell)["passes"]
+    small = multistate.Check(
+        cells=[cell("default", 2.0, actual=50.0)],
+        totals={"default_actual": 1000.0, "default_projected": 1000.0},
+    )
+    assert v2.holdout_verdict(small)["passes"]  # a cell under 200 actual defaults is not judged
+    assert (v2.HOLDOUT_START, v2.HOLDOUT_END, v2.HOLDOUT_MONTHS) == ("202407", "202606", 24)
