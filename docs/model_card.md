@@ -49,6 +49,11 @@ audited bank reserve and not accounting advice.
 - **Walk-forward exams:** 2011-2013 (0.92), 2014-2016 (1.09) and 2017-2019 (1.09) pass on total defaults and
   every year. The 2008-2010 crisis exam fails: v2 projected 0.38 of actual defaults against 0.39 for the
   v1-style benchmark, so it is not closer. 2022-2024 (information, trained to 2019): 0.72.
+- **ADR-009 Amendment 4 (19 November 2026), written after the crisis-exam result:** the crisis exam is now
+  information only (the failure stays on record, L-035); in its place the final v2 fit must pass a
+  downturn-sensitivity check (house prices -10/-20/-30%, unemployment +2/+4 points; thresholds proposed,
+  awaiting Martins's approval; not yet run). If it passes, v2 becomes `@challenger` in dev and v1's alias is
+  retired; the holdout then runs once.
 - **Status:** not registered, not used. Under Amendment 3 the work stopped for Martins before the holdout;
   version 1 stays `@challenger` with its out-of-time failure (L-032). Limitations: L-035 (this result),
   L-028 (payoffs), L-036 (household-stress inputs).

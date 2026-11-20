@@ -378,3 +378,75 @@ or tuned on it. Any relaunch needs Martins's approval.
 "Decision (Martins Ogiekpolor, 19 November 2026): Model v2 is selected and judged under the rules in this amendment, fixed before any v2 training. Each historical exam (2011–2013, 2014–2016, 2017–2019) must have total defaults and each year within 0.80–1.25. The 2008–2010 crisis exam passes if v2 is closer to actual defaults than the v1-style benchmark. The holdout (July 2024 – June 2026) passes only if every judged default cell and the total are within 0.80–1.25. The holdout runs once; any relaunch needs my approval. Promotion to @champion requires the holdout pass, my written review and one clean future Freddie quarter."
 
 "EBM is dropped for v2 to cut training time; it never won a step in v1 and logistic already provides the explainable benchmark."
+
+## Amendment 4: the crisis exam becomes information only; a downturn-sensitivity check before the holdout
+
+- **Status:** Decision accepted, 19 November 2026. **Written after the model v2 walk-forward results were
+  known**, including the failed 2008-2010 crisis exam (L-035). The sensitivity-check thresholds below are
+  **proposed and awaiting Martins's approval**; the check does not run until they are approved and fixed here.
+- **Timing, stated plainly:** Amendments 1-3 were all fixed before the results they govern. This one was not:
+  it changes a rule (the F1 crisis exam) after v2 had failed it. The failure is not erased: L-035 and the
+  walk-forward record (MLflow `5ccd125f`) stay exactly as written, and every place that reports v2 states
+  that the crisis-exam rule was changed after the result.
+
+**Why.** Under Amendment 3, F1 (trained to 2007, projected over 2008-2010) passed if v2's total defaults
+were closer to actual than the v1-style benchmark. v2 projected 0.38 of actual defaults and the benchmark
+0.39. Training months up to 2007 contain no national house-price fall, so neither model can project the
+crisis; the comparison was between two models that both miss by about 60%, and could not test what it was
+meant to (whether v2 responds properly to a downturn). F2, F3 and F4 passed (0.92, 1.09, 1.09).
+
+**What changes.**
+1. **F1 becomes information only.** It is still run and reported with the v1-style benchmark; it no longer
+   decides anything.
+2. **Downturn-sensitivity check (new, replaces F1 as a requirement).** Before the holdout, the final v2 fit
+   must pass the check below, with thresholds fixed in this amendment before the check runs.
+3. **Registration on passing the check.** If the final v2 fit passes, v2 is registered in dev as
+   `@challenger` (`cecl_lab_dev.ml.pd_v2_transition_current`, `_30`, `_60`) and v1's `@challenger` alias is
+   retired (removed from v1's model versions; v1's versions, runs and its out-of-time failure, L-032, stay on
+   record). This replaces Amendment 3's "a holdout pass: v2 may be used in Phase 4 as `@challenger`". The
+   holdout then runs once, as in Amendment 3: a pass labels v2 "holdout passed"; a fail is recorded and v2
+   stays `@challenger` with the failure stated next to every figure.
+4. **If the check fails:** v2 is not registered, the holdout is not run, the result goes in the limitations
+   log, and the work stops for Martins.
+5. **Unchanged:** every other Amendment 3 rule (inputs, split, selection, the F2-F4 requirement, the holdout
+   pass rule E). Promotion to `@champion` still needs the holdout pass, Martins's written review and one clean
+   future Freddie quarter with total defaults within 0.80-1.25.
+
+**The check: set-up (proposed, fixed before it runs).**
+
+| Item | Setting |
+|---|---|
+| Models | The final v2 fits (logistic at all three steps; runs `d0e07d92`, `995197d8`, `aafd64ee`; code `c160e46`) |
+| Book | Every loan alive on 1 July 2022 (gold `projection_v2_start`, start 202207: 258,228 loans), with its start history; inside the training window, so no holdout row is read |
+| Horizon and method | 36 months; the v2 path simulation, 8 paths per loan, the **same seed in every scenario** so the scenarios differ only by the economy |
+| Baseline | Every economic input (state house-price index, state unemployment, mortgage rate) held at its June 2022 value for all 36 months; the actual economy after June 2022 is not used |
+| Shocks | One at a time, against the baseline: house prices -10%, -20%, -30% (every state's index multiplied by 0.90 / 0.80 / 0.70); unemployment +2 and +4 points (every state). Each shock builds in a straight line over the first 12 months and is then held to month 36; everything else stays at the baseline |
+| Measure | Total projected defaults over the 36 months, all starting states, as a ratio to the baseline (R). Reported but not judged: R by starting state, by year and by current-LTV band at the start; payoffs |
+
+**Pass thresholds (proposed, awaiting approval).** All must hold:
+
+| # | Test | Threshold |
+|---|---|---|
+| 1 | Rises monotonically | Each step at least **2%** above the one before: baseline < HPI -10% < -20% < -30%, and baseline < unemployment +2 < +4 |
+| 2 | Material, house prices | R(HPI -20%) at least **1.10**; R(HPI -30%) at least **1.25** |
+| 3 | Material, unemployment | R(+2 points) at least **1.10**; R(+4 points) at least **1.25** |
+| 4 | Plausible | No R above **10** (a larger jump points to a broken input path, not a real response) |
+| 5 | Mechanics | Start histories rebuilt with 0 mismatches, and a tie-out that the house-price and unemployment inputs fed to the models differ from the baseline by exactly the shock in every month |
+
+*Why these numbers.* 2% per step is about three times the simulation noise measured on F4 (0.69% between two
+seeds; with one shared seed the noise in a difference is smaller still). The book on 1 July 2022 has a large
+equity cushion after the 2020-2022 house-price gains, so even a 30% fall leaves most loans below 80% LTV;
+the floors test that the model reacts in the right direction by a meaningful amount, not that it reproduces
+2008, which the crisis exam showed it cannot. For scale: Freddie's actual defaults in 2008-2010 were about 6x
+those of 2017-2019, on a book with less equity and looser underwriting, so +25% for a 30% house-price fall
+or a 4-point unemployment rise is a deliberately modest bar. The thresholds were written before any shocked
+projection was run; no sensitivity of the v2 models had been computed.
+
+**Decision on this amendment:**
+
+"Decision (Martins Ogiekpolor, 19 November 2026, written after the F1 crisis exam result): The 2008–2010 crisis exam becomes information only. A model trained on 1999–2007 has never seen a national house-price fall, so neither v2 (0.38) nor the v1-style benchmark (0.39) can project the crisis; the original 'closer than v1' rule could not test what it was meant to. The failure stays on record as L-035. In its place, before the holdout, the final v2 fit must pass a downturn-sensitivity check: projected defaults must rise monotonically and materially as house prices fall 10/20/30% and unemployment rises 2/4 points, with thresholds fixed in this amendment before the check runs. All other Amendment 3 rules are unchanged."
+
+"If the final v2 fit passes the downturn-sensitivity check, v2 is registered as @challenger in dev and v1's alias is retired (v1's runs and its out-of-time failure stay on record). Promotion to @champion still requires the holdout pass, my written review and one clean future Freddie quarter."
+
+**Thresholds approval:** _awaiting Martins (approve as written, or state the changed numbers here before the
+check runs)._

@@ -508,9 +508,30 @@ fix works; only the final v2 fit sees July 2022 - June 2024.
 Databricks minutes for v2: feature build 18.9, screening 17.0, six trainings 139.5 (current LightGBM
 89.8), walk-forward 10.1: about 186 in all (plan estimate 400-450).
 
+### ADR-009 Amendment 4: written after the crisis-exam result (19 November 2026)
+
+**Timing, stated plainly: this amendment was written after the v2 walk-forward results were known,
+including the failed crisis exam.** Amendments 1-3 were fixed before the results they govern; this one
+was not. The crisis-exam failure stays on record exactly as reported above (L-035, MLflow `5ccd125f`).
+
+- **Change:** the 2008-2010 crisis exam becomes information only. Reason (Martins's decision): a model
+  trained on 1999-2007 has never seen a national house-price fall, so neither v2 (0.38) nor the v1-style
+  benchmark (0.39) can project the crisis, and the "closer than v1" rule could not test what it was meant to.
+- **Replacement test, before the holdout:** a downturn-sensitivity check on the final v2 fit. Projected
+  defaults on the 1 July 2022 book (36 months, economy held at June 2022 levels as the baseline) must rise
+  monotonically and materially as house prices fall 10/20/30% and unemployment rises 2/4 points. The
+  thresholds are proposed in ADR-009 Amendment 4 and **await Martins's approval; the check has not run**.
+- **If it passes:** v2 is registered in dev as `@challenger` and v1's alias is retired (v1's runs and its
+  out-of-time failure, L-032, stay on record); then the holdout runs once under the unchanged Amendment 3
+  rule E. **If it fails:** v2 is not registered, the holdout is not run, and the work stops for Martins.
+- Every other Amendment 3 rule is unchanged, including the champion criteria.
+
 ### Still to come
 
 - The out-of-time test ran once on 18-19 November 2026 and **failed** (above); the models stay @challenger.
 - Model v2 failed the walk-forward crisis exam (above); the work stopped for Martins's decision before the
   holdout. The v2 holdout expectations (`docs/phase2/model_v2_holdout_expectations.md`) stay blank.
+- ADR-009 Amendment 4 (written after the crisis-exam result): approve the downturn-sensitivity thresholds,
+  run the check on the final v2 fit, then (if it passes) register v2 `@challenger`, fill in the holdout
+  expectations and run the holdout once.
 - Registration of the @challenger, model card and model inventory entries (step M9).
