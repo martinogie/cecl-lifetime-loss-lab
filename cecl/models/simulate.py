@@ -112,7 +112,8 @@ def stress_inputs(hh: Household | None, start_ym: str, k: int, n: int, features:
 
 def project(models: dict[int, Any], start: Any, history: Any, macro: multistate.Macro, start_ym: str,
             months: int, household: Household | None = None, paths: int = 8, seed: int = 7,
-            observer: Any = None, first_state: Any = None, first_pause: Any = None) -> multistate.Projection:  # fmt: skip
+            observer: Any = None, first_state: Any = None, first_pause: Any = None,
+            payoff_multiplier: float = 1.0) -> multistate.Projection:  # fmt: skip
     """Play every loan in `start` forward `months` months along `paths` random paths each, with one
     transition model per live state (`models[state].predict_proba(inputs)` -> n x 5).
 
@@ -123,7 +124,10 @@ def project(models: dict[int, Any], start: Any, history: Any, macro: multistate.
     `first_state` (the reserve engine): each loan's **actual** state at the end of month 0 (0, 1 or 2; the
     loan is alive). Month 0 is then not projected (its chances stay 0): every path starts month 1 from the
     known state, with month 0's actual payment-pause flag `first_pause` (0 if not given) in its history.
-    So a reserve at the end of month 0 projects only the months after it, from what is known on that date."""
+    So a reserve at the end of month 0 projects only the months after it, from what is known on that date.
+
+    `payoff_multiplier` (Phase 5 sensitivity only; 1.0 = the model as fitted): each month's payoff chance is
+    multiplied by it, and the other outcomes are scaled so the chances still add up to 1."""
     rng = np.random.default_rng(seed)
     n = len(start)
     loan = np.repeat(np.arange(n), paths)
@@ -159,6 +163,8 @@ def project(models: dict[int, Any], start: Any, history: Any, macro: multistate.
             X |= {f: hist[f][first_row] for f in PATH_INPUTS}
             X = fx.with_derived(X, feature_sets[s])
             P = models[s].predict_proba({f: X[f] for f in feature_sets[s]})[back.ravel()]
+            if payoff_multiplier != 1.0:
+                P = scale_payoff(P, payoff_multiplier)
             probs[s] = P
             p_def[:, k] += np.bincount(loan[rows], P[:, fx.DEFAULTED], minlength=n) / paths
             p_pre[:, k] += np.bincount(loan[rows], P[:, fx.PREPAID], minlength=n) / paths
@@ -177,6 +183,18 @@ def project(models: dict[int, Any], start: Any, history: Any, macro: multistate.
             newest = np.repeat(np.asarray(first_pause, dtype=np.int8), paths)
         pauses = np.column_stack([newest, pauses[:, :-1]])
     return multistate.Projection(p_def, p_pre, [multistate.add_months(start_ym, k) for k in range(months)])
+
+
+def scale_payoff(P: np.ndarray, m: float) -> np.ndarray:
+    """Multiply the payoff column by `m` (capped below 1) and rescale the other outcomes to keep each row
+    summing to 1, in proportion to their own chances."""
+    pp = P[:, fx.PREPAID]
+    new_pp = np.minimum(pp * m, 0.999)
+    rest = 1.0 - pp
+    factor = np.where(rest > 0, (1.0 - new_pp) / np.where(rest > 0, rest, 1.0), 0.0)
+    out = P * factor[:, None]
+    out[:, fx.PREPAID] = new_pp
+    return out
 
 
 def v1_history(history: Any) -> Any:

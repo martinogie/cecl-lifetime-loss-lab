@@ -42,6 +42,38 @@ FED_PUBLISHED = {2025: "202502", 2026: "202602"}  # scenario year -> publication
 FED_TABLES = {2025: "fed_paths_2025", 2026: "fed_paths"}  # silver table per scenario year
 
 
+@dataclass(frozen=True)
+class Shock:
+    """A custom shock on top of a Fed path (Phase 5, Martins 20 November 2026): house prices x (1 + hpi_pct),
+    unemployment + unemployment_pts, mortgage rate + rate_pts, reached in a straight line over `ramp_months`
+    (12 = 4 quarters; 1 = an immediate jump in the first month), held to the end of the forecast, then the
+    usual reversion (ADR-003) from the shocked level. House prices revert in growth, so their level stays
+    lower; unemployment and the rate revert to their long-run levels."""
+
+    hpi_pct: float = 0.0
+    unemployment_pts: float = 0.0
+    rate_pts: float = 0.0
+    ramp_months: int = 12
+
+    def ramp(self, months: int) -> np.ndarray:
+        """Share of the shock in place in months 1..months after the reserve date."""
+        return np.minimum(np.arange(1, months + 1) / self.ramp_months, 1.0)
+
+
+SHOCKS = {  # all on the Fed baseline
+    "hpi_m10": Shock(hpi_pct=-0.10),
+    "hpi_m20": Shock(hpi_pct=-0.20),
+    "hpi_m30": Shock(hpi_pct=-0.30),
+    "unemployment_p2": Shock(unemployment_pts=2.0),
+    "unemployment_p4": Shock(unemployment_pts=4.0),
+    "rates_up2": Shock(rate_pts=2.0),
+    "rates_down2": Shock(rate_pts=-2.0),
+    "hpi_m20_unemployment_p2": Shock(hpi_pct=-0.20, unemployment_pts=2.0),
+    "hpi_m30_unemployment_p4": Shock(hpi_pct=-0.30, unemployment_pts=4.0),
+    "hpi_m30_immediate": Shock(hpi_pct=-0.30, ramp_months=1),  # information only
+}
+
+
 def fed_year(reserve_ym: str) -> int:
     """The Fed scenario year a reserve dated `reserve_ym` uses: the latest one published by then."""
     known = [y for y, pub in FED_PUBLISHED.items() if pub <= reserve_ym]
@@ -155,12 +187,13 @@ def long_run_values(long_run: Any) -> dict[str, dict[str, float]]:
 
 def build(scenario: str, reserve_ym: str, state_monthly: Any, national_monthly: Any, fed_paths: Any, long_run: Any,
           weights: dict[str, float], horizon: int, forecast_months: int = FORECAST_MONTHS,
-          reversion_months: int = REVERSION_MONTHS) -> Scenario:  # fmt: skip
+          reversion_months: int = REVERSION_MONTHS, shock: Shock | None = None) -> Scenario:  # fmt: skip
     """The scenario's economy for a reserve month: history up to `reserve_ym`, then `horizon` months.
 
     `forecast_months` (reasonable-and-supportable period) and `reversion_months` (straight-line reversion to the
     long-run values) are settings; the defaults are ADR-003's 24 and 12. The forecast cannot run past the end of
-    the Fed's paths (no made-up quarters), and reversion must be at least one month.
+    the Fed's paths (no made-up quarters), and reversion must be at least one month. `shock` (Phase 5) is
+    added to the Fed path during the forecast, before the reversion.
     """
     import pandas as pd
 
@@ -170,6 +203,8 @@ def build(scenario: str, reserve_ym: str, state_monthly: Any, national_monthly: 
         raise ValueError(f"forecast_months must be 1-{fed_months} (the Fed's paths end there), got {f}")
     if rv < 1:
         raise ValueError(f"reversion_months must be at least 1, got {rv}")
+    shock = shock or Shock()
+    ramp = shock.ramp(f)
     lr = long_run_values(long_run)
     months = [multistate.add_months(reserve_ym, k) for k in range(1, horizon + 1)]
     tables, rescaled = {}, {}
@@ -184,13 +219,14 @@ def build(scenario: str, reserve_ym: str, state_monthly: Any, national_monthly: 
         for j, st in enumerate(hist.columns):
             a, beta = float(anchor[st]), b[st]
             if var == "unemployment_rate":
-                path = a + beta * nat[1 : f + 1]
+                path = a + beta * nat[1 : f + 1] + shock.unemployment_pts * ramp
                 target = lr["unemployment_rate"].get(st, lr["unemployment_rate"]["US"])
                 rev = path[-1] + (target - path[-1]) * np.arange(1, rv + 1) / rv
                 tail = np.full(max(horizon - f - rv, 0), target)
                 series = np.concatenate([path, rev, tail])
             else:
                 logp = np.log(a) + beta * nat[: f + 1]  # index 0 = R
+                logp[1:] += np.log1p(shock.hpi_pct) * ramp
                 g_end = logp[-1] - logp[-2]
                 g_lr = lr["hpi_growth"].get(st, lr["hpi_growth"]["US"]) / 12.0
                 g = g_end + (g_lr - g_end) * np.arange(1, rv + 1) / rv
@@ -201,7 +237,11 @@ def build(scenario: str, reserve_ym: str, state_monthly: Any, national_monthly: 
     rate_hist = national(national_monthly, "mortgage_rate_30y")
     rate_hist = rate_hist[rate_hist.index <= reserve_ym]
     a = float(rate_hist.loc[reserve_ym])
-    path = a + national_changes(fed_paths, scenario, "mortgage_rate_30y", f + 3)[1 : f + 1]
+    path = (
+        a
+        + national_changes(fed_paths, scenario, "mortgage_rate_30y", f + 3)[1 : f + 1]
+        + shock.rate_pts * ramp
+    )
     target = lr["mortgage_rate_30y"]["US"]
     rev = path[-1] + (target - path[-1]) * np.arange(1, rv + 1) / rv
     rate = np.concatenate([path, rev, np.full(max(horizon - f - rv, 0), target)])[:horizon]

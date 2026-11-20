@@ -850,6 +850,8 @@ resources:
           default: "24"
         - name: reversion_months
           default: "12"
+        - name: variants
+          default: ""
         - name: code_version
           default: unknown
       tasks:

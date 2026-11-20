@@ -1,6 +1,6 @@
 # Phase 5 plan: stress testing and sensitivity
 
-**Status (20 November 2026): proposed, waiting for Martins's decisions (below). Nothing built.**
+**Status (20 November 2026): decisions taken (end of this file); building.**
 
 Educational model on Freddie Mac conforming mortgages (sample book); not an audited reserve and not
 accounting advice. Model v2 failed its holdout (L-038), and the check that measured it was biased
@@ -90,3 +90,15 @@ Never on a Monday before 13:00 or between 02:30 and 04:00 (enforced by `scripts/
    5% and 10%.
 4. **Benchmark:** DFAST 2026 severely adverse first-lien 9-quarter loss rate (1.5% aggregate,
    0.9-2.8%) as the main published comparison; the Freddie ratio stays as context.
+
+## Decisions (Martins, 20 November 2026)
+
+1. **Shock design:** approved as proposed (on top of the Fed baseline, reached over 4 quarters, held for the
+   24-month forecast, then reverted). Also report one immediate-jump case (house prices -30% in July 2026)
+   for information only.
+2. **Combined shocks:** keep both (-20% / +2 points and -30% / +4 points).
+3. **Sensitivity ranges:** approved (payoff x0.8 and x1.2; LGD floors 5% and 10%). Scenario weights must
+   cover at least 80/15/5, 60/30/10 (booked), 50/35/15 and 40/40/20, with the reserve under each.
+4. **Main benchmark:** the DFAST 2026 9-quarter severely adverse first-lien mortgage loss rate (1.5%, range
+   0.9-2.8%). Compared like for like: our book's projected losses over the same 9 quarters under the Fed
+   severely adverse path, as % of balances. Freddie's 0.19% ratio stays as context.
