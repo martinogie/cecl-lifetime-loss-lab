@@ -382,8 +382,9 @@ or tuned on it. Any relaunch needs Martins's approval.
 ## Amendment 4: the crisis exam becomes information only; a downturn-sensitivity check before the holdout
 
 - **Status:** Decision accepted, 19 November 2026. **Written after the model v2 walk-forward results were
-  known**, including the failed 2008-2010 crisis exam (L-035). The sensitivity-check thresholds below are
-  **proposed and awaiting Martins's approval**; the check does not run until they are approved and fixed here.
+  known**, including the failed 2008-2010 crisis exam (L-035). The sensitivity-check thresholds below were
+  approved by Martins on 19 November 2026, with two added tests (6 and 7), before any shock code was written
+  or run.
 - **Timing, stated plainly:** Amendments 1-3 were all fixed before the results they govern. This one was not:
   it changes a rule (the F1 crisis exam) after v2 had failed it. The failure is not erased: L-035 and the
   walk-forward record (MLflow `5ccd125f`) stay exactly as written, and every place that reports v2 states
@@ -412,7 +413,7 @@ meant to (whether v2 responds properly to a downturn). F2, F3 and F4 passed (0.9
    pass rule E). Promotion to `@champion` still needs the holdout pass, Martins's written review and one clean
    future Freddie quarter with total defaults within 0.80-1.25.
 
-**The check: set-up (proposed, fixed before it runs).**
+**The check: set-up (approved, fixed before it runs).**
 
 | Item | Setting |
 |---|---|
@@ -423,7 +424,7 @@ meant to (whether v2 responds properly to a downturn). F2, F3 and F4 passed (0.9
 | Shocks | One at a time, against the baseline: house prices -10%, -20%, -30% (every state's index multiplied by 0.90 / 0.80 / 0.70); unemployment +2 and +4 points (every state). Each shock builds in a straight line over the first 12 months and is then held to month 36; everything else stays at the baseline |
 | Measure | Total projected defaults over the 36 months, all starting states, as a ratio to the baseline (R). Reported but not judged: R by starting state, by year and by current-LTV band at the start; payoffs |
 
-**Pass thresholds (proposed, awaiting approval).** All must hold:
+**Pass thresholds 1-5 (approved; tests 6 and 7 below).**
 
 | # | Test | Threshold |
 |---|---|---|
@@ -448,5 +449,15 @@ projection was run; no sensitivity of the v2 models had been computed.
 
 "If the final v2 fit passes the downturn-sensitivity check, v2 is registered as @challenger in dev and v1's alias is retired (v1's runs and its out-of-time failure stay on record). Promotion to @champion still requires the holdout pass, my written review and one clean future Freddie quarter."
 
-**Thresholds approval:** _awaiting Martins (approve as written, or state the changed numbers here before the
-check runs)._
+**Thresholds approval (Martins, 19 November 2026, before any shock code was written or run):** tests 1-5
+approved as written, with two additions, also fixed before anything runs:
+
+| # | Test | Threshold |
+|---|---|---|
+| 6 | Combined shock | House prices -30% **and** unemployment +4 points together (same 12-month build-up, then held): R at least **1.50**, and higher than R for either single shock alone (HPI -30%; unemployment +4) |
+| 7 | Risk ordering | Under the HPI -30% shock and under the unemployment +4 shock, R must be larger for higher-risk loans than lower-risk loans: (a) current LTV **above 80%** vs **at or below 80%**, measured after the shock (each loan's current LTV in month 12 of that scenario, when the shock is at full size); (b) credit score **below 680** vs **740 and above**. R for a group = the group's projected defaults under the shock / the same loans' projected defaults under the baseline |
+
+Also reported, information only: R by vintage and by the 10 largest states (most loans in the book) for
+every shock.
+
+The check passes only if tests 1-7 all hold.

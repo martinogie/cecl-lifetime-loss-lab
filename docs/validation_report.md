@@ -520,7 +520,7 @@ was not. The crisis-exam failure stays on record exactly as reported above (L-03
 - **Replacement test, before the holdout:** a downturn-sensitivity check on the final v2 fit. Projected
   defaults on the 1 July 2022 book (36 months, economy held at June 2022 levels as the baseline) must rise
   monotonically and materially as house prices fall 10/20/30% and unemployment rises 2/4 points. The
-  thresholds are proposed in ADR-009 Amendment 4 and **await Martins's approval; the check has not run**.
+  thresholds (tests 1-7, ADR-009 Amendment 4) were approved by Martins and committed before any shock code was written.
 - **If it passes:** v2 is registered in dev as `@challenger` and v1's alias is retired (v1's runs and its
   out-of-time failure, L-032, stay on record); then the holdout runs once under the unchanged Amendment 3
   rule E. **If it fails:** v2 is not registered, the holdout is not run, and the work stops for Martins.

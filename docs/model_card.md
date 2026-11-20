@@ -51,8 +51,8 @@ audited bank reserve and not accounting advice.
   v1-style benchmark, so it is not closer. 2022-2024 (information, trained to 2019): 0.72.
 - **ADR-009 Amendment 4 (19 November 2026), written after the crisis-exam result:** the crisis exam is now
   information only (the failure stays on record, L-035); in its place the final v2 fit must pass a
-  downturn-sensitivity check (house prices -10/-20/-30%, unemployment +2/+4 points; thresholds proposed,
-  awaiting Martins's approval; not yet run). If it passes, v2 becomes `@challenger` in dev and v1's alias is
+  downturn-sensitivity check (house prices -10/-20/-30%, unemployment +2/+4 points, the two together, and
+  risk ordering; thresholds approved 19 November 2026 before any shock code was written). If it passes, v2 becomes `@challenger` in dev and v1's alias is
   retired; the holdout then runs once.
 - **Status:** not registered, not used. Under Amendment 3 the work stopped for Martins before the holdout;
   version 1 stays `@challenger` with its out-of-time failure (L-032). Limitations: L-035 (this result),
