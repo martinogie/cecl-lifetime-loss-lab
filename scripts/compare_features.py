@@ -46,8 +46,8 @@ def download(src: str, dst: Path, recursive: bool = False) -> None:
     subprocess.run(args + (["--recursive"] if recursive else []), capture_output=True, check=True)
 
 
-def newest_result() -> tuple[str, dict[str, Any]]:
-    names = sorted(e["name"] for e in cli("fs", "ls", RESULTS) if e["name"].startswith("features_"))
+def newest_result(prefix: str = "features_") -> tuple[str, dict[str, Any]]:
+    names = sorted(e["name"] for e in cli("fs", "ls", RESULTS) if e["name"].startswith(prefix))
     names = [n for n in names if n.endswith(".json")]
     if not names:
         raise FileNotFoundError(f"no feature result in {RESULTS}")
@@ -56,10 +56,10 @@ def newest_result() -> tuple[str, dict[str, Any]]:
         return names[-1], json.loads((Path(tmp) / names[-1]).read_text(encoding="utf-8"))
 
 
-def compare_sql(local: str, remote: str) -> str:
+def compare_sql(local: str, remote: str, columns: tuple[str, ...] = COLUMNS) -> str:
     """Rows only on one side, and per column the rows that differ (DuckDB)."""
     diffs = []
-    for c in COLUMNS:
+    for c in columns:
         if c in ("split", "property_state"):
             cond = f"l.{c} is distinct from r.{c}"
         else:
@@ -77,9 +77,9 @@ def compare_sql(local: str, remote: str) -> str:
     )
 
 
-def latest_run() -> dict[str, Any]:
+def latest_run(job: str = JOB) -> dict[str, Any]:
     jobs = {j["settings"]["name"]: j["job_id"] for j in cli("jobs", "list")}
-    runs = cli("jobs", "list-runs", "--job-id", str(jobs[JOB]), "--completed-only", "--limit", "1")
+    runs = cli("jobs", "list-runs", "--job-id", str(jobs[job]), "--completed-only", "--limit", "1")
     return dict(cli("jobs", "get-run", str(runs[0]["run_id"])))
 
 

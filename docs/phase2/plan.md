@@ -8,6 +8,9 @@
   row-by-row comparison. Everything else in this plan is unchanged: the split, the features, 1-in-25
   sampling with weights in every measure, the COVID sensitivity run, MLflow tracking, `@challenger`
   only. Details: "Where the work runs" below; ADR-001 and L-009 updated.
+- **Amended 17 November 2026 (ADR-011, accepted):** the competing-risks hazard is extended to a monthly
+  **multi-state (delinquency-transition) model**; steps 3-8 below are replaced by
+  [plan_multistate.md](plan_multistate.md) (proposed, pending approval with ADR-009 Amendment 1).
 - **Source:** roadmap v2, section 4 (data, splits, known limits), section 5.1 (methods) and the
   Phase 2 acceptance criteria in section 7.
 - **What Phase 2 delivers:** one model of each loan's monthly chance of **default** and of
@@ -116,7 +119,7 @@ and of neither. All use the same features, rows and split.
 | Step | Family | How | Explained by |
 |---|---|---|---|
 | 3 | **Logistic scorecard** (the benchmark) | Multinomial logistic regression on binned features (scorecard-style bins, monotonic where expected), statsmodels or scikit-learn | Coefficients; points per bin |
-| 4 | **LightGBM** | Gradient-boosted trees with monotonic constraints on the features marked monotonic above; tuned on the training years only (time-ordered folds) | SHAP values |
+| 4 | **LightGBM** | Gradient-boosted trees with monotonic constraints on the features marked monotonic above; tuned on the training years only (one inner time split: fit 1999-2013, judge 2014-2016, then refit on all training years) | SHAP values |
 | 5 | **Explainable Boosting Machine** (InterpretML) | An additive model of one-feature shapes plus a few pairwise interactions | Its own shape plots |
 
 If the EBM is too slow for the daily allowance on the full training rows, it is trained on a smaller

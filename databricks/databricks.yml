@@ -227,6 +227,16 @@ resources:
           default: "1"
         - name: tune
           default: "true"
+        - name: settings
+          default: ""
+        - name: era
+          default: none
+        - name: learning_curve
+          default: "false"
+        - name: curve_fractions
+          default: "0.1;0.25;0.5;1.0"
+        - name: ebm_curve_outer_bags
+          default: "1"
         - name: code_version
           default: unknown
         - name: data_snapshot
@@ -241,8 +251,8 @@ resources:
 
     oot_test:
       name: cecl_lab_oot_test_${var.env}
-      description: "The out-of-time test, once (ADR-009 E): started only by scripts/run_oot_test.py"
-      timeout_seconds: 3600
+      description: "The out-of-time test, once (ADR-009 E; multi-state, Amendments 1 E and 2): started only by scripts/run_oot_test.py"
+      timeout_seconds: 0  # no limit (Martins, 19 Nov 2026); never started where it could run into 02:30 Central
       max_concurrent_runs: 1
       queue:
         enabled: true
@@ -264,9 +274,13 @@ resources:
           default: ${var.env}
         - name: layout
           default: ${var.layout}
-        - name: runs
+        - name: locked
           default: "{}"
-        - name: chosen
+        - name: info_combinations
+          default: "{}"
+        - name: info_models
+          default: "{}"
+        - name: selection_run
           default: ""
         - name: adr_009_commit
           default: ""
@@ -277,7 +291,493 @@ resources:
           notebook_task:
             notebook_path: ./notebooks/60_out_of_time_test.py
           environment_key: ml
-          timeout_seconds: 3600
+          timeout_seconds: 0
+          max_retries: 0
+
+    diagnostics:
+      name: cecl_lab_diagnostics_${var.env}
+      description: "Score the trained models on the training and validation rows and run the calibration diagnostics (no training; never the test months)"
+      timeout_seconds: 2400
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      # No schedule here: started by hand (never on a Monday before 13:00 Chicago).
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - interpret-core==0.7.8
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: runs
+          default: "{}"
+      tasks:
+        - task_key: diagnostics
+          notebook_task:
+            notebook_path: ./notebooks/55_diagnostics.py
+          environment_key: ml
+          timeout_seconds: 2400
+          max_retries: 0
+
+    horizon_start_date:
+      name: cecl_lab_horizon_start_date_${var.env}
+      description: "Re-report 12/24/36-month AUC from start-date information only for trained models (scoring only, validation months only)"
+      timeout_seconds: 1800
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      # No schedule here: started by hand (never on a Monday before 13:00 Chicago).
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - interpret-core==0.7.8
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: runs
+          default: "{}"
+      tasks:
+        - task_key: horizon
+          notebook_task:
+            notebook_path: ./notebooks/56_horizon_start_date.py
+          environment_key: ml
+          timeout_seconds: 1800
+          max_retries: 0
+
+    # ---------------------------------------------------------------- multi-state design (ADR-011)
+    transition_features:
+      name: cecl_lab_transition_features_${var.env}
+      description: "The multi-state transition table and the 2017 projection tables per vintage (ingestion.feature_build, Spark dialect), with tie-outs and contract"
+      timeout_seconds: 7200
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      # No schedule here: started by hand or by the PC's scripts (never on a Monday before 13:00 Chicago).
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: pinned
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: years
+          default: "2005,2009,2019"
+        - name: export_slice
+          default: "true"
+      tasks:
+        - task_key: transition_features
+          notebook_task:
+            notebook_path: ./notebooks/41_transition_features.py
+          environment_key: pinned
+          timeout_seconds: 7200
+          max_retries: 0
+
+    train_transition:
+      name: cecl_lab_train_transition_${var.env}
+      description: "Train ONE family for ONE starting state (walk-forward tuning on 1999-2016, validation on 2017-2019; cecl.models.transition_pipeline); one model per run"
+      timeout_seconds: 14400
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      # No schedule here: started by hand or by scripts/run_sequence.py (never on a Monday before 13:00 Chicago).
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - interpret-core==0.7.8
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: family
+          default: logistic
+        - name: start_state
+          default: "60"
+        - name: include_covid
+          default: "false"
+        - name: ebm_sample_every
+          default: "1"
+        - name: ebm_sample_states
+          default: "stay;prepaid"
+        - name: tune
+          default: "true"
+        - name: settings
+          default: ""
+        - name: learning_curve
+          default: "true"
+        - name: curve_fractions
+          default: "0.1;0.25;0.5;1.0"
+        - name: ebm_curve_outer_bags
+          default: "1"
+        - name: code_version
+          default: unknown
+        - name: data_snapshot
+          default: cecl-2026Q2-data-v1
+      tasks:
+        - task_key: train
+          notebook_task:
+            notebook_path: ./notebooks/51_train_transition.py
+          environment_key: ml
+          timeout_seconds: 14400
+          max_retries: 0
+
+    projection_check:
+      name: cecl_lab_projection_check_${var.env}
+      description: "Play loans alive in January 2017 forward 36 months with chosen transition models; projected vs actual defaults and prepayments (validation months only)"
+      timeout_seconds: 5400
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      # No schedule here: started by hand (never on a Monday before 13:00 Chicago).
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - interpret-core==0.7.8
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: combinations
+          default: "{}"
+        - name: benchmark
+          default: all_logistic
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: projection
+          notebook_task:
+            notebook_path: ./notebooks/57_projection_check.py
+          environment_key: ml
+          timeout_seconds: 5400
+          max_retries: 0
+
+    # ------------------------------------------------------------ model v2 (ADR-009 Amendment 3)
+    # No time limits (Martins, 18 Nov 2026: "I do not need any limit at all"). No schedules: started by
+    # scripts/run_job.py, which refuses Monday before 13:00 Chicago and 02:30-04:00.
+    transition_features_v2:
+      name: cecl_lab_transition_features_v2_${var.env}
+      description: "Model v2: load the household-stress series, then the v2 transition tables and walk-forward start tables per vintage (tie-outs, contract)"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: pinned
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: tables
+          default: household_monthly
+        - name: years
+          default: "1999-2026"
+      tasks:
+        - task_key: load_household
+          notebook_task:
+            notebook_path: ./notebooks/35_load_macro.py
+          environment_key: pinned
+          timeout_seconds: 0
+          max_retries: 0
+        - task_key: transition_features_v2
+          depends_on: [{task_key: load_household}]
+          notebook_task:
+            notebook_path: ./notebooks/42_transition_features_v2.py
+          environment_key: pinned
+          timeout_seconds: 0
+          max_retries: 0
+
+    train_transition_v2:
+      name: cecl_lab_train_transition_v2_${var.env}
+      description: "Model v2: train ONE family (logistic or LightGBM) for ONE starting state; walk-forward exams F1-F4, F5 for information (cecl.models.v2_pipeline)"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: family
+          default: logistic
+        - name: start_state
+          default: "60"
+        - name: mode
+          default: train
+        - name: stress
+          default: ""
+        - name: settings
+          default: ""
+        - name: code_version
+          default: unknown
+        - name: data_snapshot
+          default: cecl-2026Q2-data-v1
+      tasks:
+        - task_key: train
+          notebook_task:
+            notebook_path: ./notebooks/52_train_transition_v2.py
+          environment_key: ml
+          timeout_seconds: 0
+          max_retries: 0
+
+    walk_forward_v2:
+      name: cecl_lab_walk_forward_v2_${var.env}
+      description: "Model v2: the walk-forward exams (path simulation from each exam's start; Amendment 3 bars); never the holdout"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: chosen
+          default: "{}"
+        - name: logistic
+          default: "{}"
+        - name: paths
+          default: "8"
+        - name: exams
+          default: "F1,F2,F3,F4,F5"
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: walk_forward
+          notebook_task:
+            notebook_path: ./notebooks/58_walk_forward_v2.py
+          environment_key: ml
+          timeout_seconds: 0
+          max_retries: 0
+
+    downturn_check_v2:
+      name: cecl_lab_downturn_check_v2_${var.env}
+      description: "Model v2: downturn-sensitivity check (ADR-009 Amendment 4) on the 1 July 2022 book; never the holdout"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: runs
+          default: "{}"
+        - name: paths
+          default: "8"
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: downturn_check
+          notebook_task:
+            notebook_path: ./notebooks/59_downturn_check_v2.py
+          environment_key: ml
+          timeout_seconds: 0
+          max_retries: 0
+
+    holdout_v2:
+      name: cecl_lab_holdout_v2_${var.env}
+      description: "Model v2: the holdout (July 2024 - June 2026), once; started only by scripts/run_v2_holdout.py"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: false
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: runs
+          default: "{}"
+        - name: v1_runs
+          default: "{}"
+        - name: paths
+          default: "8"
+        - name: adr_009_commit
+          default: ""
+        - name: expectations_commit
+          default: ""
+        - name: downturn_runs
+          default: ""
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: holdout
+          notebook_task:
+            notebook_path: ./notebooks/61_holdout_v2.py
+          environment_key: ml
+          timeout_seconds: 0
+          max_retries: 0
+
+    history_drift_v2:
+      name: cecl_lab_history_drift_v2_${var.env}
+      description: "Model v2 diagnosis (scoring only, for the next version): simulated vs actual memory inputs by projection month"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: runs
+          default: "{}"
+        - name: paths
+          default: "8"
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: history_drift
+          notebook_task:
+            notebook_path: ./notebooks/62_history_drift_v2.py
+          environment_key: ml
+          timeout_seconds: 0
+          max_retries: 0
+
+    overlay_inputs_v2:
+      name: cecl_lab_overlay_inputs_v2_${var.env}
+      description: "Phase 4 overlay sizing inputs: v2 monthly default chances for the 1 July 2024 book (reproduces the holdout projection; nothing judged)"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: runs
+          default: "{}"
+        - name: expected_total
+          default: ""
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: overlay_inputs
+          notebook_task:
+            notebook_path: ./notebooks/63_overlay_inputs_v2.py
+          environment_key: ml
+          timeout_seconds: 0
           max_retries: 0
 
 targets:

@@ -74,3 +74,17 @@ fed:
     "10-year Treasury yield": [-2, 20]
     "Mortgage rate": [1, 20]
     "House Price Index (Level)": [10, 5000]
+
+fred_household:
+  # Model v2 household-stress candidates (docs/phase2/model_v2_plan.md, decision D3), national.
+  # Downloaded from FRED's public CSV endpoint (no API key), checked here, kept in their own silver
+  # table (household_monthly) so v1's economic tables are not touched. Only CPI inflation and real
+  # disposable income have a path in the Fed's 2026 scenarios; card delinquency is information only.
+  csv_url: "https://fred.stlouisfed.org/graph/fredgraph.csv?id={id}&cosd={start}"
+  start: "1990-01-01"
+  series:
+    - {id: CPIAUCSL, name: cpi_index, frequency: monthly, min: 100, max: 1000, max_age_days: 50,
+       known_gaps: ["2025-10-01"]}   # no October 2025 CPI (federal shutdown), as UNRATE; L-021
+    - {id: DSPIC96, name: real_disposable_income, frequency: monthly, min: 5000, max: 50000, max_age_days: 80}
+    - {id: DRCCLACBS, name: card_delinquency, frequency: quarterly, min: 0, max: 20, max_age_days: 200,
+       start: "1991-01-01"}   # the series begins in 1991 Q1

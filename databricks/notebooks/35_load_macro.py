@@ -15,6 +15,7 @@ import os
 
 dbutils.widgets.text("env", "")
 dbutils.widgets.text("layout", "catalogs")
+dbutils.widgets.text("tables", "")  # empty = the four v1 tables; e.g. "household_monthly" (model v2)
 os.environ["CECL_ENV"] = dbutils.widgets.get("env")
 os.environ["CECL_DATABRICKS_LAYOUT"] = dbutils.widgets.get("layout")
 
@@ -26,7 +27,12 @@ environment.require_airflow_env()
 SILVER = environment.databricks_schema("silver")
 environment.assert_can_write(SILVER)
 FILES = "/Volumes/" + environment.databricks_schema("bronze").replace(".", "/") + "/raw/macro_silver"
-TABLES = ("state_monthly", "national_monthly", "long_run_averages", "fed_paths")
+DEFAULT_TABLES = ("state_monthly", "national_monthly", "long_run_averages", "fed_paths")
+KNOWN = DEFAULT_TABLES + ("household_monthly",)  # household_monthly: model v2's stress inputs
+chosen = [t.strip() for t in dbutils.widgets.get("tables").split(",") if t.strip()]
+TABLES = tuple(chosen) or DEFAULT_TABLES
+if set(TABLES) - set(KNOWN):
+    raise ValueError(f"unknown macro table(s): {sorted(set(TABLES) - set(KNOWN))}")
 
 # COMMAND ----------
 

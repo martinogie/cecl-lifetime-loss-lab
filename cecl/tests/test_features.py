@@ -38,7 +38,9 @@ def test_current_ltv_and_rate_incentive() -> None:
 
 def test_feature_definitions_are_consistent() -> None:
     assert len(set(fx.FEATURE_NAMES)) == len(fx.FEATURE_NAMES)
-    assert set(fx.RANGES) <= set(fx.FEATURE_NAMES)
+    assert set(fx.RANGES) <= set(fx.FEATURE_NAMES) | set(fx.TRANSITION_FEATURES) | {
+        f.name for f in fx.V2_ALL_EXTRA
+    }
     directions = {f.name: (f.default_direction, f.prepay_direction) for f in fx.FEATURES}
     assert directions["credit_score"] == (-1, 0) and directions["current_ltv"] == (1, 0)
     assert directions["rate_incentive"] == (0, 1)

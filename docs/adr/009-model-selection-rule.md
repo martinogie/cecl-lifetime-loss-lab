@@ -115,3 +115,378 @@ tuned on it.
 *Why:* this mirrors bank practice: an explainable benchmark that a challenger must clearly beat,
 calibration bars that allow for sampling noise but catch real bias, and a clean, untouched final
 test.
+
+## Amendment 1: the multi-state design (ADR-011)
+
+- **Status of this amendment:** accepted, 17 November 2026 (with the tuning method added at
+  approval). Locked before any training and before the out-of-time test.
+- **Why:** ADR-011 (accepted 17 November 2026) replaces the single default/prepayment model with a
+  monthly multi-state model. For each starting state (current, 30, 60) one model predicts next month's
+  state; all three families (logistic, LightGBM, EBM) are fitted for every starting state, each only
+  on the loan-months that start there: **3 transitions x 3 families = 9 models**. The original
+  Decision above (split, bar, 2% rule, single test) is kept; this amendment says how it applies.
+
+**A (split): unchanged.** Train on 1999-2016, choose on 2017-2019, test once on July 2022 - June 2026;
+the COVID months (2020 - June 2022) stay out of fitting and choosing, with the sensitivity run.
+
+**B (measures), for each transition model** (starting state current, 30 or 60), all weighted:
+- **log loss over next month's states** (for example from 30: current, 30, 60, default, prepaid) on
+  the 2017-2019 loan-months that start in that state: the main measure;
+- **calibration bars per transition:** predicted ÷ actual counts of each move out of that state
+  (for example current -> 30, current -> prepaid, 30 -> current, 30 -> 60, 60 -> default), by calendar
+  year and by vintage, must fall within **0.80-1.25** in every cell with **at least 200 actual moves**
+  of that kind; and for each move with at least 200 actual moves over the whole 2017-2019 period, the
+  whole-period ratio must also fall within the bar (this catches a rare move, such as 60 -> default
+  by vintage, whose cells are mostly under 200). Cells and moves below the minimum are reported, not
+  judged. Why 200: the same minimum as the original B; with 200 events, sampling noise alone stays
+  well inside 0.80-1.25 (about ±14% at two standard errors).
+- AUC and Gini of each move out of that state, reported (not judged); training curves and the
+  training-vs-validation fit table with its verdict, reported;
+- **projection check on 2017-2019 (the chosen combination):** loans alive in January 2017, played
+  forward month by month from their state that month with the three chosen transition models (the
+  economy as it actually happened; each loan's later delinquency not known): projected vs actual
+  defaults and prepayments by year and by vintage, against the same bar (cells with at least 200
+  actual events). The all-logistic combination is projected too, as the benchmark.
+
+**C (selection), the 2% rule applied per transition.** At each step (current, 30, 60) separately, the
+logistic model stays unless LightGBM or the EBM **improves that transition's validation log loss by at
+least 2%**, **passes that transition's calibration bars** and **produces reason codes** (top drivers of
+the adverse moves: current -> 30, 30 -> 60, 60 -> default); ties go to the simpler family (logistic,
+then EBM, then LightGBM). If both challengers qualify, the one with the lower log loss wins (the
+simpler one if within 2% of each other). If the logistic model itself fails a bar at a step and no
+challenger qualifies, logistic is kept and the failure is recorded, not hidden (the optional ADR-010
+extras may then be tested with Martins's approval).
+
+**Tuning (added at approval, 17 November 2026).** Each of the 9 models is tuned on the training
+years only (1999-2016); the 2017-2019 validation years and the test months are never used for tuning.
+- **Measure:** the step's own weighted log loss across **all its destinations** (for example from 30:
+  cure, stay, roll to 60, default, prepay), not default log loss alone.
+- **Walk-forward folds (three):** train to 2007 / score 2008-2010; train to 2010 / score 2011-2013;
+  train to 2013 / score 2014-2016. The setting with the **best average log loss across the three
+  folds** is chosen and refitted on all of 1999-2016; each fold's score is reported.
+- **Grids:** logistic: regularisation C in {0.1, 1.0}; LightGBM: tree size (`num_leaves`) in {15, 31,
+  63} x minimum leaf weight (`min_child_weight`) in {20, 50, 200} (9 settings; 400 rounds, learning
+  rate 0.05 fixed); **EBM: default settings, not tuned** (its learning curve shows whether that holds
+  it back).
+
+**Combination check.** If the chosen combination fails a projection cell that the all-logistic
+combination passes, the challengers are swapped back to logistic one step at a time, starting with the
+step whose swap brings that cell closest to 1.0 (the step's effect, measured), until the combination
+passes that cell or is all-logistic; every swap is recorded.
+
+**D (mixed winners, how they are documented).** Different steps may end with different families.
+This is recorded in:
+- a **selection table** in the validation report: one row per step x family (log loss, % gain over
+  logistic, each bar pass/fail, reason codes yes/no, fit verdict), the winner of each step and why;
+- the **combination record**: the three chosen models with their family and MLflow run ID, logged
+  together as one MLflow run (tags `transition_current`, `transition_30`, `transition_60`) and
+  registered as one `@challenger` model whose wrapper holds the three; the projection check of the
+  chosen and all-logistic combinations next to each other;
+- the **model card** and **model inventory** (M-01): which family serves each step, the reason codes
+  per step, and that the combination is validated as a whole by the projection check;
+- any combination-check swap, with the projection cells before and after.
+
+**E (the out-of-time test, once), what it measures:**
+1. the **full multi-state projection** of the chosen combination from each loan's state on 1 July
+   2022 to June 2026: projected vs actual **defaults and prepayments by vintage and by year**, against
+   the 0.80-1.25 bar (cells with at least 200 actual events);
+2. **each transition's calibration** (predicted ÷ actual moves by year and vintage, and whole
+   period) on the test months;
+3. log loss, AUC and Gini of each transition, reported.
+It runs once, after this amendment is accepted and committed; its results are recorded whatever they
+show; no model is chosen, swapped or tuned on it (the original E).
+
+**Decision on this amendment (Martins, 17 November 2026):** ADR-009 Amendment 1: approved as written, including the combination check (keep it). Tune each step on its own log loss across all its destinations (for example from 30: cure, stay, roll to 60, default, prepay). Walk-forward tuning with three time folds (train to 2007 / test 2008–2010; train to 2010 / test 2011–2013; train to 2013 / test 2014–2016), choosing the setting with the best average across the folds and reporting each fold, plus the wider LightGBM grid (tree size plus minimum leaf weight). EBM stays on defaults; its learning curve will show whether that’s holding it back. The 2017–2019 validation years and the test months are never used for tuning.
+
+
+## Amendment 2: a late-history calibration bar; the out-of-time verdict, payoffs, champion promotion
+
+- **Status of this amendment:** accepted, 18 November 2026 (approved as drafted, with one sentence added
+  to (d)). Accepted and committed **before**
+  the out-of-time test runs; the test command refuses to run without it (original E).
+- **Why:** after the 2017-2019 validation (validation report, Phase 2), four points were not written
+  down anywhere: (1) what counts as an overall pass on the out-of-time test; (2) how payoff cells
+  count, given the known payoff shortfall (limitations log L-028); (3) what a model needs to be
+  promoted from `@challenger` to `@champion` (control C12 had a process but no criteria); (4) what
+  happens to the shortfall in projected defaults for loans already late at the start. They are fixed
+  here, before the test, so the test cannot shape its own pass mark.
+- **And a new selection bar (added 18 November 2026).** The diagnosis below found a build mistake in
+  the current-loan logistic model that **the existing bars could not catch**: they judge calibration
+  by year, by vintage and over the whole period, and in each of those the model's over-prediction for
+  loans late once and its under-prediction for chronic late payers cancel out. Only a split by
+  late-payment history shows it. So every model now also has to pass calibration by late-history band.
+
+**Context for (d): the late-loan shortfall, diagnosed (scoring only, 2017-2019).** In the
+2017-2019 projection, loans 30 or 60 days late in January 2017 are projected at 0.68 and 0.66 of
+their actual defaults; loans current at the start at 0.98. Scoring the 2017-2019 loan-months by
+"months late in the past 12" shows why:
+
+| Months late in the past 12 (loan current now) | Actual rolls to 30 | Predicted (logistic) | Ratio | LightGBM | EBM |
+|---|---|---|---|---|---|
+| 1 | 5,914 | 9,244 | 1.56 | 0.90 | 0.96 |
+| 2 | 3,586 | 2,764 | 0.77 | 0.86 | 0.93 |
+| 3 | 2,390 | 1,397 | 0.58 | 0.88 | 1.01 |
+| 4-5 | 3,095 | 1,295 | 0.42 | 0.96 | 0.96 |
+| 6-8 | 2,409 | 887 | 0.37 | 1.00 | 1.10 |
+| 9-12 | 719 | 274 | 0.38 | 1.11 | 1.33 |
+
+The current-loan logistic scorecard has a single cut for this input (0 vs 1 or more): its bins are
+cut at weighted quantiles, and about 98% of current loan-months have the value 0, so the quantiles
+collapse to one cut. It therefore gives a loan late once and a loan late ten times the same roll rate:
+too high for the first, far too low for chronic payers. The errors cancel in the one-step totals
+(which is why the one-step checks passed), but in the projection a loan that is late at the start
+and cures goes back to the current-loan model and is scored as a one-time late payer, so its next
+roll and default are under-projected. The 30- and 60-day models have 7-8 cuts for this input and are
+calibrated within 0.95-1.16 in every band with real volume; LightGBM and the EBM handle it correctly.
+
+It is fixable only by refitting the current-loan logistic model with whole-month cut points for this
+input (0, 1, 2, 3, 5, 8), a retraining, then re-running the selection and the 2017-2019 projection
+check. It cannot be fixed in the projection code. *(Secondary finding, same cause: credit score has no cuts at
+all in the 30- and 60-day logistic models; both still calibrate by band, so it is recorded, not
+fixed here.)*
+
+**The new bar (B, added to Amendment 1 B).** For each transition model, the calibration of every move
+out of that state (predicted / actual) must also fall within **0.80-1.25** in each **late-payment-history
+band**: months late in the past 12 = **0, 1, 2-3, 4-5, 6+**, in every band with at least 200 actual
+moves of that kind (bands below the minimum are reported, not judged). It applies at every step
+(current, 30, 60), alongside the existing bars (by year, by vintage, whole period); the selection rule
+(C) is otherwise unchanged: a challenger must pass every bar, including this one, and the logistic
+model is kept, with its failures recorded, if no challenger qualifies. The selection at all three
+steps is re-run under the amended bars on 2017-2019 only.
+
+**Decision on this amendment (Martins, 18 November 2026):**
+
+**(a) Overall verdict.** The out-of-time test passes when **every judged default cell** (by year and
+by vintage, cells with at least 200 actual defaults, in the full multi-state projection from 1 July
+2022) is inside **0.80-1.25**. Each transition's calibration, log loss, AUC and Gini are reported
+with it (Amendment 1 E), but the verdict is on the projected defaults.
+
+**(b) Payoffs.** Payoff cells are reported in full. A payoff cell outside 0.80-1.25 is recorded
+under **L-028** and **does not fail the test**.
+
+**(c) Champion promotion.** A model (or combination) is promoted from `@challenger` to `@champion`
+only if it **passes the out-of-time test** under (a) **and** Martins has written a review approving
+it; the promotion happens only in prod (control C12). A combination that fails (a) stays
+`@challenger`; any fix is a new model version validated on a new period (original E).
+
+**(d) The late-loan shortfall: fixed, not accepted.** The shortfall is not accepted as a known
+limitation. The current-loan logistic model is refitted with whole-month cuts (0, 1, 2, 3, 5, 8) for
+"months late in the past 12": this corrects a build mistake so the benchmark can compete fairly; it is
+not a tuning on results. The late-history band bar (above) is added to the selection rule because
+the old bars could not catch the mistake. The selection is re-run at all three steps under the
+amended rule, on 2017-2019 only, and the 2017-2019 projection is re-run with the winners. The test
+months are not touched.
+
+**Results (2017-2019 only; recorded before acceptance).**
+
+- **The refit** (commit 963d5a9; MLflow run `bc66cf67e80c4722ba8461791045c90b`; walk-forward tuning
+  chose C = 0.1): all six whole-month cuts survive; the training roll rate to 30 rises from 0.35% a
+  month (never late) to 29.5% (9+ late months). Log loss 0.07588 -> 0.07567. Calibration of
+  current -> 30 by late-history band, before -> after: 0: 1.18 -> 1.21; 1: 1.56 -> 1.03; 2-3:
+  0.70 -> 0.86; 4-5: 0.42 -> **0.73 (still fails)**; 6+: 0.37 -> 0.86. The scorecard adds each input's
+  effect separately and cannot combine late history with other inputs; LightGBM and the EBM, which
+  can, pass every band (0.87-1.15).
+- **Selection under the amended bars, per step:**
+
+| Step | Logistic | LightGBM | EBM | Winner and why |
+|---|---|---|---|---|
+| 60 days late | 1.32252; passes every bar, including the bands | 4.0% worse; 7 cells fail (3 by band) | 0.03% worse; passes every bar | **Logistic**: neither challenger is better |
+| 30 days late | 0.92369; 2 cells fail (prepaid 2017; 30 -> 60 for 1 late month by band, 1.28) | 0.4% better; 5 fail | 0.7% better; 6 fail | **Logistic**: neither challenger is 2% better, and both fail bars |
+| Current | refit 0.07567; 15 fail (13 payoff cells, 30 -> 60 vintage 2018, the 4-5 band) | 4.0% better; 6 fail (5 payoff cells by vintage, current -> 30 vintage 2003 at 0.76); passes every band | 3.6% better; 7 fail (mostly payoffs by vintage); passes every band | **Logistic (refit)**: both challengers are over 2% better and pass the new band bar, but still fail payoff calibration by vintage |
+
+  Logistic is kept at every step; its own failures are recorded (the rule as written). The combination
+  check has nothing to swap.
+- **The 2017-2019 projection with the winners** (Databricks MLflow run `bd92a516887941f58dd574f5e2fb191f`,
+  commit 963d5a9; the same projection rerun on the PC reproduces its totals): defaults 2,962 vs 3,162
+  (0.94); every default cell passes (by year 1.04 / 0.83 / 0.92; vintages 2012-2016 0.90-1.22).
+  Payoffs 67,291 vs 83,789 (0.80), the same 11 failing cells as before (L-028).
+
+| Starting state (Jan 2017) | Actual defaults | Faded history (100e781) | Exact history (9548682) | Refit (963d5a9) |
+|---|---|---|---|---|
+| Current | 2,377 | 2,388 (1.00) | 2,335 (0.98) | 2,365 (0.99) |
+| 30 days late | 529 | 355 (0.67) | 358 (0.68) | 424 (0.80) |
+| 60 days late | 256 | 169 (0.66) | 169 (0.66) | 173 (0.67) |
+| All | 3,162 | 2,912 (0.92) | 2,863 (0.91) | 2,962 (0.94) |
+
+  The refit closes much of the gap for loans 30 days late at the start; loans 60 days late at the
+  start are unchanged at 0.67, so their shortfall has another cause (not yet diagnosed). That
+  remaining gap goes in the limitations log (L-030); it is not accepted as fixed.
+
+Logistic's own recorded failures at the chosen steps (15 cells for the current-loan model, mostly payoffs, plus the 4-5 band for current -> 30; at 30 days late, prepaid 2017 and the 1-late-month band for 30 -> 60) are entered in the limitations log (L-029) and tracked in monitoring.
+
+## Amendment 3: model v2
+
+- **Status of this amendment:** **accepted**, 19 November 2026. Written, accepted and committed **before**
+  any v2 training. Plan: `docs/phase2/model_v2_plan.md`.
+- **Why:** model v1 failed the out-of-time test (L-032). Martins decided (19 November 2026) to build a
+  second version (v2) before Phase 4. v1 keeps its record, its `@challenger` alias and Amendments 1-2.
+  This amendment fixes v2's split, pass rule and selection rule in advance, so the results cannot shape
+  their own pass marks.
+
+**A (split).** Training: January 1999 - December 2019 and July 2022 - June 2024. January 2020 - June 2022
+(COVID) is not fitted; it is used only to compute history inputs. Holdout: July 2024 - June 2026, run
+once, after selection. Walk-forward
+folds, each trained on all training months before its scored period: F1 to 2007 / 2008-2010; F2 to 2010 /
+2011-2013; F3 to 2013 / 2014-2016; F4 to 2016 / 2017-2019. F5 (to 2019 / July 2022 - June 2024) is
+reported only. Clean test: future Freddie Mac quarters (Phase 8).
+
+**B (measures), per transition model.** The main measure is weighted log loss over next month's states,
+averaged over F1-F4, with each fold reported. Calibration bars: 0.80-1.25 in every cell with at least 200
+actual moves, on each fold's scored months (by year, by vintage, whole period and late-history band, as
+in Amendments 1 and 2). New: a rate-lock band bar (incentive 2+ points below market, 1-2 below, 0-1
+below, 0-1 above, more than 1 above), judged in-sample on July 2022 - June 2024 and labelled in-sample.
+AUC, Gini, training curves and the fit table are reported.
+
+**Household-stress inputs.** Only candidates with a path in the Fed's 2026 scenarios are eligible. Each
+is added one at a time to the current-loan logistic model and kept only if it does all three of:
+- improves the average F1-F4 log loss by at least 0.2%;
+- worsens no fold by more than 0.1%;
+- has a sign with a business reason.
+
+**Families.** v2 fits two families per step: logistic and LightGBM (2 x 3 = 6 models). The EBM is not
+used in v2 (not in the main fit, the walk-forward exams or the holdout); v1's records keep it.
+
+**C (selection).** v1's grids for logistic and LightGBM, the 2% rule per step on the average F1-F4 log
+loss, every bar passed and reason codes required, ties to the simpler family (logistic, then LightGBM),
+and the combination check of Amendment 1.
+
+**Walk-forward requirement (the chosen combination).** Each fold's fitted models are projected 36
+months from the start of the fold's scored period.
+- F2, F3 and F4: total projected defaults within 0.80-1.25, and every default cell by year with at least
+  200 actual defaults within 0.80-1.25.
+- F1: the total must be closer to 1.0 than the v1-input logistic benchmark on the same fold.
+- On a failure, the combination check applies. If all-logistic also fails, the failure is recorded and
+  the work stops for Martins.
+
+**E (holdout pass).** v2 passes the holdout only if both hold in the full projection from 1 July 2024:
+- every judged default cell (by year and by vintage, with at least 200 actual defaults) is within
+  0.80-1.25;
+- total projected defaults are within 0.80-1.25.
+
+Payoff cells are reported; those outside the bar are recorded under L-028 and do not fail. Transition
+calibration, log loss, AUC and Gini are reported. The holdout runs once, and nothing is chosen, swapped
+or tuned on it. Any relaunch needs Martins's approval.
+
+**Promotion.**
+- A holdout pass: v2 may be used in Phase 4 as `@challenger`, labelled "holdout passed".
+- `@champion`: needs Martins's written review and the first clean Freddie quarter with total defaults
+  within 0.80-1.25.
+- A fail: v2 stays `@challenger` and the result is recorded.
+
+**Decision on this amendment:**
+
+"Decision (Martins Ogiekpolor, 19 November 2026): Model v2 is selected and judged under the rules in this amendment, fixed before any v2 training. Each historical exam (2011–2013, 2014–2016, 2017–2019) must have total defaults and each year within 0.80–1.25. The 2008–2010 crisis exam passes if v2 is closer to actual defaults than the v1-style benchmark. The holdout (July 2024 – June 2026) passes only if every judged default cell and the total are within 0.80–1.25. The holdout runs once; any relaunch needs my approval. Promotion to @champion requires the holdout pass, my written review and one clean future Freddie quarter."
+
+"EBM is dropped for v2 to cut training time; it never won a step in v1 and logistic already provides the explainable benchmark."
+
+## Amendment 4: the crisis exam becomes information only; a downturn-sensitivity check before the holdout
+
+- **Status:** Decision accepted, 19 November 2026. **Written after the model v2 walk-forward results were
+  known**, including the failed 2008-2010 crisis exam (L-035). The sensitivity-check thresholds below were
+  approved by Martins on 19 November 2026, with two added tests (6 and 7), before any shock code was written
+  or run.
+- **Timing, stated plainly:** Amendments 1-3 were all fixed before the results they govern. This one was not:
+  it changes a rule (the F1 crisis exam) after v2 had failed it. The failure is not erased: L-035 and the
+  walk-forward record (MLflow `5ccd125f`) stay exactly as written, and every place that reports v2 states
+  that the crisis-exam rule was changed after the result.
+
+**Why.** Under Amendment 3, F1 (trained to 2007, projected over 2008-2010) passed if v2's total defaults
+were closer to actual than the v1-style benchmark. v2 projected 0.38 of actual defaults and the benchmark
+0.39. Training months up to 2007 contain no national house-price fall, so neither model can project the
+crisis; the comparison was between two models that both miss by about 60%, and could not test what it was
+meant to (whether v2 responds properly to a downturn). F2, F3 and F4 passed (0.92, 1.09, 1.09).
+
+**What changes.**
+1. **F1 becomes information only.** It is still run and reported with the v1-style benchmark; it no longer
+   decides anything.
+2. **Downturn-sensitivity check (new, replaces F1 as a requirement).** Before the holdout, the final v2 fit
+   must pass the check below, with thresholds fixed in this amendment before the check runs.
+3. **Registration on passing the check.** If the final v2 fit passes, v2 is registered in dev as
+   `@challenger` (`cecl_lab_dev.ml.pd_v2_transition_current`, `_30`, `_60`) and v1's `@challenger` alias is
+   retired (removed from v1's model versions; v1's versions, runs and its out-of-time failure, L-032, stay on
+   record). This replaces Amendment 3's "a holdout pass: v2 may be used in Phase 4 as `@challenger`". The
+   holdout then runs once, as in Amendment 3: a pass labels v2 "holdout passed"; a fail is recorded and v2
+   stays `@challenger` with the failure stated next to every figure.
+4. **If the check fails:** v2 is not registered, the holdout is not run, the result goes in the limitations
+   log, and the work stops for Martins.
+5. **Unchanged:** every other Amendment 3 rule (inputs, split, selection, the F2-F4 requirement, the holdout
+   pass rule E). Promotion to `@champion` still needs the holdout pass, Martins's written review and one clean
+   future Freddie quarter with total defaults within 0.80-1.25.
+
+**The check: set-up (approved, fixed before it runs).**
+
+| Item | Setting |
+|---|---|
+| Models | The final v2 fits (logistic at all three steps; runs `d0e07d92`, `995197d8`, `aafd64ee`; code `c160e46`) |
+| Book | Every loan alive on 1 July 2022 (gold `projection_v2_start`, start 202207: 258,228 loans), with its start history; inside the training window, so no holdout row is read |
+| Horizon and method | 36 months; the v2 path simulation, 8 paths per loan, the **same seed in every scenario** so the scenarios differ only by the economy |
+| Baseline | Every economic input (state house-price index, state unemployment, mortgage rate) held at its June 2022 value for all 36 months; the actual economy after June 2022 is not used |
+| Shocks | One at a time, against the baseline: house prices -10%, -20%, -30% (every state's index multiplied by 0.90 / 0.80 / 0.70); unemployment +2 and +4 points (every state). Each shock builds in a straight line over the first 12 months and is then held to month 36; everything else stays at the baseline |
+| Measure | Total projected defaults over the 36 months, all starting states, as a ratio to the baseline (R). Reported but not judged: R by starting state, by year and by current-LTV band at the start; payoffs |
+
+**Pass thresholds 1-5 (approved; tests 6 and 7 below).**
+
+| # | Test | Threshold |
+|---|---|---|
+| 1 | Rises monotonically | Each step at least **2%** above the one before: baseline < HPI -10% < -20% < -30%, and baseline < unemployment +2 < +4 |
+| 2 | Material, house prices | R(HPI -20%) at least **1.10**; R(HPI -30%) at least **1.25** |
+| 3 | Material, unemployment | R(+2 points) at least **1.10**; R(+4 points) at least **1.25** |
+| 4 | Plausible | No R above **10** (a larger jump points to a broken input path, not a real response) |
+| 5 | Mechanics | Start histories rebuilt with 0 mismatches, and a tie-out that the house-price and unemployment inputs fed to the models differ from the baseline by exactly the shock in every month |
+
+*Why these numbers.* 2% per step is about three times the simulation noise measured on F4 (0.69% between two
+seeds; with one shared seed the noise in a difference is smaller still). The book on 1 July 2022 has a large
+equity cushion after the 2020-2022 house-price gains, so even a 30% fall leaves most loans below 80% LTV;
+the floors test that the model reacts in the right direction by a meaningful amount, not that it reproduces
+2008, which the crisis exam showed it cannot. For scale: Freddie's actual defaults in 2008-2010 were about 6x
+those of 2017-2019, on a book with less equity and looser underwriting, so +25% for a 30% house-price fall
+or a 4-point unemployment rise is a deliberately modest bar. The thresholds were written before any shocked
+projection was run; no sensitivity of the v2 models had been computed.
+
+**Decision on this amendment:**
+
+"Decision (Martins Ogiekpolor, 19 November 2026, written after the F1 crisis exam result): The 2008–2010 crisis exam becomes information only. A model trained on 1999–2007 has never seen a national house-price fall, so neither v2 (0.38) nor the v1-style benchmark (0.39) can project the crisis; the original 'closer than v1' rule could not test what it was meant to. The failure stays on record as L-035. In its place, before the holdout, the final v2 fit must pass a downturn-sensitivity check: projected defaults must rise monotonically and materially as house prices fall 10/20/30% and unemployment rises 2/4 points, with thresholds fixed in this amendment before the check runs. All other Amendment 3 rules are unchanged."
+
+"If the final v2 fit passes the downturn-sensitivity check, v2 is registered as @challenger in dev and v1's alias is retired (v1's runs and its out-of-time failure stay on record). Promotion to @champion still requires the holdout pass, my written review and one clean future Freddie quarter."
+
+**Thresholds approval (Martins, 19 November 2026, before any shock code was written or run):** tests 1-5
+approved as written, with two additions, also fixed before anything runs:
+
+| # | Test | Threshold |
+|---|---|---|
+| 6 | Combined shock | House prices -30% **and** unemployment +4 points together (same 12-month build-up, then held): R at least **1.50**, and higher than R for either single shock alone (HPI -30%; unemployment +4) |
+| 7 | Risk ordering | Under the HPI -30% shock and under the unemployment +4 shock, R must be larger for higher-risk loans than lower-risk loans: (a) current LTV **above 80%** vs **at or below 80%**, measured after the shock (each loan's current LTV in month 12 of that scenario, when the shock is at full size); (b) credit score **below 680** vs **740 and above**. R for a group = the group's projected defaults under the shock / the same loans' projected defaults under the baseline |
+
+Also reported, information only: R by vintage and by the 10 largest states (most loans in the book) for
+every shock.
+
+The check passes only if tests 1-7 all hold.
+
+## Amendment 5: test 7 measured in percentage points; the holdout rules locked
+
+- **Status:** accepted, 19 November 2026. **Written after the downturn-sensitivity check result was known**,
+  including the failure of test 7 as approved (L-037, MLflow `69232827`). This is the second rule change made
+  after a result (Amendment 4 was the first); both are disclosed wherever v2 is reported.
+- **What does not change:** L-037 and the test-7 failure stay on record exactly as written. The check is
+  **not re-run**: the scenarios, models, book and projections are unchanged, and test 7 is re-evaluated on
+  the saved results of that run (`downturn_check.json`). Tests 1-6 keep their results.
+
+**The change.** Test 7 (risk ordering) compares groups by the **rise in their projected default rate, in
+percentage points**, instead of by the ratio R. For each comparison (house prices -30%: LTV above 80% vs at
+or below after the shock, and credit score below 680 vs 740+; unemployment +4: the same two), with a
+group's default rate = its 36-month projected defaults / its loans:
+
+> rise = default rate under the shock - default rate under the baseline (same loans);
+> the riskier group's rise must be larger than the safer group's.
+
+All four comparisons must hold. Everything else in Amendment 4 is unchanged: if the check now passes, v2 is
+registered as `@challenger` in dev and v1's alias is retired (v1's runs and L-032 stay on record); then the
+holdout runs once.
+
+**The lock.** This is the last change to v2's validation rules. The holdout rules (Amendment 3, E) are
+locked: the holdout runs once, nothing is chosen, swapped or tuned on it, and its result stands whatever it
+shows. No further amendment to v2's validation rules will be made.
+
+**Decision on this amendment:**
+
+"Decision (Martins Ogiekpolor, 19 November 2026, written after the downturn-check result): Test 7 as approved failed on 2 of 4 comparisons. On review, the ratio R was the wrong measure for comparing groups with very different starting default rates: higher-risk groups added more defaults in absolute terms but less as a ratio, which is the expected pattern. Test 7 is therefore measured as the rise in default rate in percentage points (riskier group's rise must exceed the safer group's). The original result stays on record as L-037. This is the last rule change: the holdout rules are locked, and the holdout result will stand whatever it shows, with no further amendments to v2's validation rules."

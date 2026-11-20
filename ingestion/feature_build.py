@@ -70,6 +70,7 @@ def local_relations(root: Path, vintage: int) -> dict[str, str]:
         "silver": "silver",
         "state": f"read_parquet('{macro}/state_monthly.parquet')",
         "national": f"read_parquet('{macro}/national_monthly.parquet')",
+        "household": f"read_parquet('{macro}/household_monthly.parquet')",  # model v2 only
     }
 
 
@@ -80,6 +81,7 @@ def databricks_relations(schema: Any, vintage: int) -> dict[str, str]:
         "silver": schema("silver"),
         "state": f"{schema('silver')}.macro_state_monthly",
         "national": f"{schema('silver')}.macro_national_monthly",
+        "household": f"{schema('silver')}.macro_household_monthly",  # model v2 only
     }
 
 
@@ -93,10 +95,50 @@ def horizon_condition(dialect: str, seed: str = fx.SAMPLE_SEED, every: int = HOR
     return f"({DIALECTS[dialect]['hex8'].format(s=key)} % {every}) = 0"
 
 
-def _rows_ctes(vintage: int, rel: dict[str, str], dialect: str) -> str:
-    """Every non-censored loan-month of the vintage with its features (shared by both tables)."""
+def _rows_ctes(vintage: int, rel: dict[str, str], dialect: str, v2: bool = False) -> str:
+    """Every non-censored loan-month of the vintage with its features (shared by both tables).
+    `v2=True` (model v2, ADR-009 Amendment 3) adds the longer-memory and household-stress inputs and
+    labels rows with the v2 split; with `v2=False` the query is exactly v1's."""
     d = DIALECTS[dialect]
     v = int(vintage)
+    prev_month = d["add_months"].format(d="l.month", n=-1)
+    # model v2: longer memory over the loan's own rows (only rows before t, as every other input)
+    v2_window = (
+        """,
+        coalesce(max(least(p.effective_months_late, 2)) over (
+            partition by p.loan_id order by p.period_ym rows between 7 preceding and 2 preceding), 0)
+            as worst_state_6,
+        -- calendar months, not loan age: Freddie's loan age can restart (e.g. after a modification)
+        min(case when p.effective_months_late >= 1
+                 then cast(substr(p.period_ym, 1, 4) as int) * 12 + cast(substr(p.period_ym, 5, 2) as int) end) over (
+            partition by p.loan_id order by p.period_ym rows between unbounded preceding and 1 preceding)
+            as first_miss_index,
+        coalesce(max(case when p.flagged_pause then 1 else 0 end) over (
+            partition by p.loan_id order by p.period_ym rows between 12 preceding and 1 preceding), 0)
+            as paused_12"""
+        if v2
+        else ""
+    )
+    v2_columns = (
+        """,
+        cast(l.worst_state_6 as double) as worst_state_6,
+        cast(case when l.first_miss_index is null then 0
+                  else least(cast(substr(l.period_ym, 1, 4) as int) * 12 + cast(substr(l.period_ym, 5, 2) as int)
+                             - l.first_miss_index, 60) end as double) as months_since_first_miss,
+        cast(l.paused_12 as double) as paused_12,
+        hh_cpi.value as cpi_inflation_12,
+        hh_inc.value as real_income_growth_12,
+        hh_card.value as card_delinquency"""
+        if v2
+        else ""
+    )
+    v2_joins = "".join(
+        f"\n    left join hh {a} on {a}.variable = '{name}' and {a}.month = {prev_month}"
+        for a, name in (("hh_cpi", "cpi_inflation_12"), ("hh_inc", "real_income_growth_12"),
+                        ("hh_card", "card_delinquency"))
+    ) if v2 else ""  # fmt: skip
+    v2_cte = f"\nhh as (select variable, month, value from {rel['household']})," if v2 else ""
+    split_expr = fx.v2_split_sql("l.period_ym") if v2 else fx.split_sql("l.period_ym")
 
     def prev(col: str, n: int = -1) -> str:
         return d["add_months"].format(d=col, n=n)
@@ -104,7 +146,8 @@ def _rows_ctes(vintage: int, rel: dict[str, str], dialect: str) -> str:
     return f"""
 with p as (
     select loan_id, vintage_year, period_ym, loan_age, cast(current_upb as double) as upb, status,
-           effective_months_late, flagged_pause, {d["to_month"].format(c="period_ym")} as month
+           effective_months_late, flagged_pause, remaining_months,
+           {d["to_month"].format(c="period_ym")} as month
     from {rel["panel"]}
 ),
 m as (
@@ -123,21 +166,23 @@ lagged as (
         lag(p.upb) over w as upb_prev,
         lag(m.rate) over w as rate_prev,
         lag(p.effective_months_late) over w as late_prev,
+        lag(p.effective_months_late, 2) over w as late_prev2,
         lag(p.flagged_pause) over w as pause_prev,
         lag(m.eltv) over w as eltv_prev,
+        lag(p.remaining_months) over w as remaining_prev,
         coalesce(sum(case when p.effective_months_late >= 1 then 1 else 0 end) over (
             partition by p.loan_id order by p.period_ym rows between 12 preceding and 1 preceding), 0)
-            as late_months_12
+            as late_months_12{v2_window}
     from p left join m on m.loan_id = p.loan_id and m.period_ym = p.period_ym
     window w as (partition by p.loan_id order by p.period_ym)
 ),
 hpi as (select state, month, value from {rel["state"]} where variable = 'hpi'),
 ur as (select state, month, value from {rel["state"]} where variable = 'unemployment_rate'),
-mkt as (select month, value from {rel["national"]} where variable = 'mortgage_rate_30y'),
+mkt as (select month, value from {rel["national"]} where variable = 'mortgage_rate_30y'),{v2_cte}
 rows as (
     select
         l.loan_id, l.vintage_year, l.period_ym, l.status,
-        {fx.split_sql("l.period_ym")} as split,
+        {split_expr} as split,
         case l.status when 'defaulted' then {fx.DEFAULT} when 'prepaid' then {fx.PREPAY} else {fx.NONE} end
             as outcome,
         substr(l.period_ym, 1, 4) as obs_year,
@@ -162,7 +207,22 @@ rows as (
         case when o.relief_refinance then 1.0 else 0.0 end as relief_refinance,
         cast(month(l.month) as double) as calendar_month,
         o.property_state,
-        cast(l.eltv_prev as double) as eltv_prev
+        cast(l.eltv_prev as double) as eltv_prev,
+        -- transition-only inputs (Martins, 18 Nov 2026): the state the month before the starting
+        -- state, the state house-price change since origination, and the rate at origination minus
+        -- the market rate in the origination month (SATO)
+        cast(coalesce(l.late_prev2, 0) as double) as state_last_month,
+        h1.value / h0.value - 1.0 as hpi_gain,
+        o.orig_rate - mo.value as sato,
+        -- multi-state (ADR-011): the starting state (last month's) and this month's state
+        cast(coalesce(l.late_prev, 0) as int) as state_prev,
+        cast({fx.state_sql("l.status", "l.effective_months_late")} as int) as state,
+        -- for the projection tables only: what is needed to roll a loan forward from its start month
+        coalesce(l.upb_prev, o.orig_upb) as upb_start,
+        coalesce(l.rate_prev, o.orig_rate) as rate_start,
+        cast(coalesce(l.remaining_prev, l.remaining_months + 1) as double) as remaining_start,
+        cast(o.orig_ltv as double) as orig_ltv,
+        h0.value as hpi_orig{v2_columns}
     from lagged l
     join o on o.loan_id = l.loan_id
     left join hpi h1 on h1.state = o.property_state and h1.month = {prev("l.month")}
@@ -170,6 +230,7 @@ rows as (
     left join ur u1 on u1.state = o.property_state and u1.month = {prev("l.month")}
     left join ur u13 on u13.state = o.property_state and u13.month = {prev("l.month", -13)}
     left join mkt mk on mk.month = {prev("l.month")}
+    left join mkt mo on mo.month = o.orig_month{v2_joins}
     where l.status <> '{fx.EXCLUDED_STATUS}'
 )"""
 
@@ -191,7 +252,8 @@ kept as (
 strata_kept as (
     select obs_year, count(*) filter (where outcome = {fx.NONE}) as n_kept from kept group by obs_year
 )
-select k.* {ex} (sampled, n_all, status, obs_year),
+select k.* {ex} (sampled, n_all, status, obs_year, state_prev, state, upb_start, rate_start, remaining_start, orig_ltv, hpi_orig,
+                 state_last_month, hpi_gain, sato),
        case when k.outcome = {fx.NONE} then cast(k.n_all as double) / sk.n_kept else 1.0 end as weight
 from kept k join strata_kept sk on sk.obs_year = k.obs_year
 """
@@ -205,9 +267,163 @@ def horizon_sql(vintage: int, rel: dict[str, str], dialect: str) -> str:
     return (
         _rows_ctes(vintage, rel, dialect)
         + f"""
-select r.* {ex} (status, obs_year), 1.0 as weight
+select r.* {ex} (status, obs_year, state_prev, state, upb_start, rate_start, remaining_start, orig_ltv, hpi_orig,
+                 state_last_month, hpi_gain, sato), 1.0 as weight
 from rows r where r.split in ({splits}) and {horizon_condition(dialect)}
 """
+    )
+
+
+# ------------------------------------------------------------------- multi-state tables (ADR-011)
+PROJECTION_START = {fx.VALIDATE: ("201701", "201912")}  # start month, last month; the test's start
+# (July 2022) is added only when Martins approves the out-of-time test (ADR-009 E).
+TRANSITION_DROP = ("sampled", "n_all", "status", "obs_year", "outcome", "months_late_prev", "eltv_prev",
+                   "upb_start", "rate_start", "remaining_start", "orig_ltv", "hpi_orig")  # fmt: skip
+
+
+def transitions_sql(vintage: int, rel: dict[str, str], dialect: str, v2: bool = False) -> str:
+    """The transition table for one vintage (all splits): every live loan-month with its starting
+    state and this month's state. Months that start current and stay current (the vast majority) are
+    sampled 1 in 25 by the same fixed hash, weighted per stratum (vintage x observation year) so the
+    weighted count equals the panel's exactly; every other move, and every month starting 30 or 60
+    days late, is kept with weight 1 (Phase 2 plan, multi-state)."""
+    ex = DIALECTS[dialect]["star_except"]
+
+    def stay(t: str = "") -> str:
+        return f"({t}state_prev = {fx.CURRENT} and {t}state = {fx.CURRENT})"
+
+    return (
+        _rows_ctes(vintage, rel, dialect, v2)
+        + f""",
+flagged as (select r.*, {sample_condition(dialect)} as sampled from rows r),
+strata_all as (select obs_year, count(*) filter (where {stay()}) as n_all from rows group by obs_year),
+kept as (
+    select f.*, s.n_all from flagged f join strata_all s on s.obs_year = f.obs_year
+    where not {stay("f.")} or f.sampled or s.n_all < {SMALL_STRATUM}
+),
+strata_kept as (select obs_year, count(*) filter (where {stay()}) as n_kept from kept group by obs_year)
+select k.* {ex} ({", ".join(TRANSITION_DROP)}),
+       case when {stay("k.")} then cast(k.n_all as double) / sk.n_kept else 1.0 end as weight
+from kept k join strata_kept sk on sk.obs_year = k.obs_year
+"""
+    )
+
+
+def projection_start_sql(
+    vintage: int,
+    rel: dict[str, str],
+    dialect: str,
+    split: str = fx.VALIDATE,
+    window: tuple[str, str] | None = None,
+    v2: bool = False,
+) -> str:
+    """Every loan alive in the start month (its non-censored row for that month) with what is known
+    at the start: its starting state, the transition features and what the projection needs to roll
+    it forward (balance, rate, remaining term, origination value inputs). Weight 1, no sampling.
+    `window` (start, last month) overrides the split's: the out-of-time test builds its July 2022
+    start at run time this way, so the regular build never writes a test-month table (ADR-009 E)."""
+    start, _ = window or PROJECTION_START[split]
+    ex = DIALECTS[dialect]["star_except"]
+    drop = "status, obs_year, outcome, months_late_prev, eltv_prev, split"
+    return (
+        _rows_ctes(vintage, rel, dialect, v2)
+        + f"\nselect r.* {ex} ({drop}) from rows r where r.period_ym = '{start}'\n"
+    )
+
+
+def projection_actuals_sql(
+    panel_rel: str, split: str = fx.VALIDATE, window: tuple[str, str] | None = None
+) -> str:
+    """Per loan with a panel row in the start month: its last row within the window and that row's
+    status (defaulted, prepaid, censored, or still current/delinquent at the window's end)."""
+    start, end = window or PROJECTION_START[split]
+    return (
+        f"select loan_id, max(period_ym) as last_ym, max_by(status, period_ym) as last_status "
+        f"from {panel_rel} where period_ym between '{start}' and '{end}' "
+        f"group by loan_id having min(period_ym) = '{start}'"
+    )
+
+
+def projection_history_sql(
+    panel_rel: str, split: str = fx.VALIDATE, window: tuple[str, str] | None = None
+) -> str:
+    """Per loan with a panel row in the start month: whether each of its 12 panel rows before the start
+    month was 30+ days late (late_hist_1 = the row just before the start, ... late_hist_12), the same
+    rows the feature "months late in the past 12" counts (rows between 12 preceding and 1 preceding),
+    so the 12 flags add up to the start row's late_months_12. Missing rows (a loan younger than a
+    year) count as not late. Any engine."""
+    start, _ = window or PROJECTION_START[split]
+    flags = ",\n       ".join(
+        f"cast(max(case when rn = {j} and late then 1 else 0 end) as double) as late_hist_{j}"
+        for j in range(1, 13)
+    )
+    return f"""
+with h as (
+    select loan_id, effective_months_late >= 1 as late,
+           row_number() over (partition by loan_id order by period_ym desc) as rn
+    from {panel_rel}
+    where period_ym < '{start}'
+      and loan_id in (select loan_id from {panel_rel} where period_ym = '{start}')
+)
+select loan_id,
+       {flags}
+from h where rn <= 12 group by loan_id
+"""
+
+
+def panel_moves_sql(panel_rel: str) -> str:
+    """Moves counted straight from the panel (no joins, no sampling): the tie-outs' reference."""
+    return f"""
+with p as (
+    select status, effective_months_late,
+           lag(effective_months_late) over (partition by loan_id order by period_ym) as late_prev
+    from {panel_rel}
+)
+select cast(coalesce(late_prev, 0) as int) as state_prev, cast({fx.state_sql()} as int) as state, count(*) as n
+from p where status <> '{fx.EXCLUDED_STATUS}' group by 1, 2
+"""
+
+
+def moves_sql(relation: str) -> str:
+    """The transition table's moves, weighted (any engine)."""
+    return f"select state_prev, state, count(*) as n, sum(weight) as w from {relation} group by state_prev, state"
+
+
+def transition_tie_outs(vintage: int, panel: Sequence[int], panel_moves: dict[tuple[int, int], int],
+                        table_moves: dict[tuple[int, int], float]) -> list[TieOut]:  # fmt: skip
+    """Every move (starting state x destination) in the panel equals the weighted table's; every live
+    loan-month is in exactly one starting state; the moves into default and prepaid equal the panel's
+    first defaults and prepayments; panel rows = moves + censored."""
+    defaults, prepays, _none, censored, total = (int(x) for x in panel)
+    v = int(vintage)
+    out = [TieOut(f"vintage {v}: moves {fx.STATES[a]} -> {fx.STATES[b]}, panel vs weighted table",
+                  int(panel_moves.get((a, b), 0)), round(table_moves.get((a, b), 0.0)))
+           for a, b in sorted(set(panel_moves) | set(table_moves))]  # fmt: skip
+    for start in fx.LIVE_STATES:
+        out.append(TieOut(f"vintage {v}: months starting {fx.STATES[start]}, panel vs weighted table",
+                          sum(n for (a, _), n in panel_moves.items() if a == start),
+                          round(sum(w for (a, _), w in table_moves.items() if a == start))))  # fmt: skip
+    bad_start = sum(n for (a, _), n in panel_moves.items() if a not in fx.LIVE_STATES)
+    out.append(TieOut(f"vintage {v}: loan-months outside the three starting states", 0, int(bad_start)))
+    into = {
+        d: round(sum(w for (_, b), w in table_moves.items() if b == d)) for d in (fx.DEFAULTED, fx.PREPAID)
+    }
+    out += [
+        TieOut(f"vintage {v}: moves into default = panel first defaults", defaults, into[fx.DEFAULTED]),
+        TieOut(f"vintage {v}: moves into prepaid = panel prepayments", prepays, into[fx.PREPAID]),
+        TieOut(f"vintage {v}: panel rows = moves + censored", total, sum(panel_moves.values()) + censored),
+    ]
+    return out
+
+
+def state_check_sql(relation: str) -> str:
+    """Rows whose states are not allowed: a starting state outside current/30/60, or a destination
+    outside the five states (contract on the new columns)."""
+    live = ", ".join(str(s) for s in fx.LIVE_STATES)
+    every = ", ".join(str(i) for i in range(len(fx.STATES)))
+    return (
+        f"select count(*) filter (where state_prev is null or state_prev not in ({live})), "
+        f"count(*) filter (where state is null or state not in ({every})) from {relation}"
     )
 
 
@@ -289,6 +505,49 @@ def build_vintage(con: Any, root: Path, vintage: int) -> VintageResult:
     return result
 
 
+@dataclass
+class TransitionResult:
+    vintage: int
+    rows_by_split: dict[str, int] = field(default_factory=dict)
+    projection_loans: int = 0
+    tie_outs: list[TieOut] = field(default_factory=list)
+
+
+def build_transitions_vintage(con: Any, root: Path, vintage: int) -> TransitionResult:
+    """Build, tie out and write one vintage's transition table (and its 2017 projection tables) on the
+    PC (DuckDB). The tie-outs are checked before anything is written."""
+    from cecl import controls
+
+    rel = local_relations(root, vintage)
+    table: pa.Table = con.sql(
+        transitions_sql(vintage, rel, "duckdb") + " order by loan_id, period_ym"
+    ).to_arrow_table()
+    panel = con.execute(panel_counts_sql(rel["panel"])).fetchall()[0]
+    panel_moves = {
+        (int(a), int(b)): int(n) for a, b, n in con.execute(panel_moves_sql(rel["panel"])).fetchall()
+    }
+    con.register("transitions_tmp", table)
+    table_moves = {
+        (int(a), int(b)): float(w) for a, b, _n, w in con.execute(moves_sql("transitions_tmp")).fetchall()
+    }
+    con.unregister("transitions_tmp")
+    result = TransitionResult(vintage, tie_outs=transition_tie_outs(vintage, panel, panel_moves, table_moves))
+    controls.enforce(result.tie_outs)
+    for split in sorted(set(table.column("split").to_pylist())):
+        part = table.filter(pc.equal(table.column("split"), split))
+        _write(part, feature_dir(root, split, "transitions") / f"vintage={vintage}.parquet")
+        result.rows_by_split[split] = part.num_rows
+    start: pa.Table = con.sql(
+        projection_start_sql(vintage, rel, "duckdb") + " order by loan_id"
+    ).to_arrow_table()
+    actuals: pa.Table = con.sql(projection_actuals_sql(rel["panel"]) + " order by loan_id").to_arrow_table()
+    folder = Path(root) / "local" / "projection" / f"split={fx.VALIDATE}"
+    _write(start, folder / "start" / f"vintage={vintage}.parquet")
+    _write(actuals, folder / "actuals" / f"vintage={vintage}.parquet")
+    result.projection_loans = start.num_rows
+    return result
+
+
 def _write(table: pa.Table, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".parquet.tmp")
@@ -303,10 +562,10 @@ def _write(table: pa.Table, path: Path) -> None:
 # ------------------------------------------------------------------------------- whole-table checks
 
 
-def contract_sql(relation: str) -> str:
+def contract_sql(relation: str, names: Sequence[str] = fx.FEATURE_NAMES) -> str:
     """Rows outside each range, and the share missing, over a feature table (any engine)."""
     checks = []
-    for name in fx.FEATURE_NAMES:
+    for name in names:
         lo, hi = fx.RANGES.get(name, (None, None))
         parts = [f"{name} < {lo}" if lo is not None else "", f"{name} > {hi}" if hi is not None else ""]
         bad = " or ".join(c for c in parts if c)
@@ -319,9 +578,9 @@ def parquet_relation(paths: Sequence[str]) -> str:
     return "read_parquet([" + ", ".join(f"'{p}'" for p in paths) + "])"
 
 
-def contract_problems(result: dict[str, Any]) -> list[str]:
+def contract_problems(result: dict[str, Any], names: Sequence[str] = fx.FEATURE_NAMES) -> list[str]:
     problems = []
-    for name in fx.FEATURE_NAMES:
+    for name in names:
         if result[f"{name}__out_of_range"]:
             problems.append(f"{name}: {result[f'{name}__out_of_range']:,} rows outside {fx.RANGES[name]}")
         if result[f"{name}__missing"] > fx.max_missing_share(name):
@@ -338,3 +597,61 @@ def eltv_check_sql(relation: str) -> str:
         "corr(current_ltv, eltv_prev), avg(case when abs(current_ltv - eltv_prev) <= 10 then 1.0 else 0.0 end) "
         f"from {relation} where current_ltv is not null and eltv_prev is not null"
     )
+
+
+# ------------------------------------------------------------------- model v2 (ADR-009 Amendment 3)
+# Projection starts for the walk-forward exams: (start month, last month). F1-F4 run 36 months; F5
+# (information) runs to June 2024. The holdout's July 2024 start is never built here: the holdout
+# command builds it at run time, as v1's out-of-time test did.
+V2_PROJECTION_STARTS: tuple[tuple[str, str], ...] = (
+    ("200801", "201012"), ("201101", "201312"), ("201401", "201612"), ("201701", "201912"),
+    ("202207", "202406"),
+)  # fmt: skip
+V2_HISTORY_MONTHS = 12
+V2_START_MONTHS: tuple[str, ...] = tuple(start for start, _ in V2_PROJECTION_STARTS)
+
+
+def v2_projection_starts_sql(vintage: int, rel: dict[str, str], dialect: str,
+                             starts: Sequence[str] = V2_START_MONTHS) -> str:  # fmt: skip
+    """Every loan alive in any of the start months, with its v2 inputs, in one pass over the vintage
+    (column `start_ym`). Weight 1, no sampling."""
+    ex = DIALECTS[dialect]["star_except"]
+    drop = "status, obs_year, outcome, months_late_prev, eltv_prev, split"
+    in_list = ", ".join(f"'{s}'" for s in starts)
+    return (
+        _rows_ctes(vintage, rel, dialect, v2=True)
+        + f"\nselect r.* {ex} ({drop}), r.period_ym as start_ym from rows r where r.period_ym in ({in_list})\n"
+    )
+
+
+def v2_projection_actuals_sql(panel_rel: str,
+                              windows: Sequence[tuple[str, str]] = V2_PROJECTION_STARTS) -> str:  # fmt: skip
+    """Per start window, per loan with a panel row in the start month: its last row in the window and
+    that row's status (as projection_actuals_sql), with `start_ym`."""
+    parts = [f"select '{a}' as start_ym, * from ({projection_actuals_sql(panel_rel, window=(a, b))})"
+             for a, b in windows]  # fmt: skip
+    return "\nunion all\n".join(parts)
+
+
+def v2_projection_history_sql(panel_rel: str, starts: Sequence[str] = V2_START_MONTHS) -> str:  # fmt: skip
+    """Per start month and loan alive in it: the state (0, 1, 2: months late, capped at 2) and the
+    payment-pause flag of each of its 12 panel rows before the start (j = 1 is the row just before),
+    which the path simulation needs for the v2 history inputs. Missing rows count as current, no pause."""
+    cols = ",\n       ".join(
+        f"cast(max(case when rn = {j} then st else 0 end) as double) as state_hist_{j},\n"
+        f"       cast(max(case when rn = {j} then pz else 0 end) as double) as pause_hist_{j}"
+        for j in range(1, V2_HISTORY_MONTHS + 1)
+    )
+    parts = []
+    for s in starts:
+        parts.append(f"""
+select '{s}' as start_ym, loan_id,
+       {cols}
+from (
+    select loan_id, least(effective_months_late, 2) as st, case when flagged_pause then 1 else 0 end as pz,
+           row_number() over (partition by loan_id order by period_ym desc) as rn
+    from {panel_rel}
+    where period_ym < '{s}'
+      and loan_id in (select loan_id from {panel_rel} where period_ym = '{s}')
+) h where rn <= {V2_HISTORY_MONTHS} group by loan_id""")
+    return "\nunion all\n".join(parts)

@@ -1,0 +1,557 @@
+{
+ "note": "Aggregates only. Educational model on Freddie Mac conforming mortgages; not an audited reserve.",
+ "lgd_defaults_by_outcome": {
+  "loss event": 19675,
+  "paid off": 16413,
+  "unresolved: sold reperforming or defect": 7166,
+  "current again": 4718,
+  "unresolved: still delinquent": 3209,
+  "unresolved: loss not yet reported": 1532
+ },
+ "lgd_events": {
+  "defaults": 52713,
+  "resolved": 40806,
+  "usable": 40571,
+  "missing_inputs": 235,
+  "gain_on_sale_counted_as_zero": 755,
+  "capped_above_150pct": 179
+ },
+ "lgd_train_to_2016": {
+  "events": 32319,
+  "actual_lgd": 0.2657195273311656,
+  "predicted_lgd": 0.2659341357224607,
+  "any_loss_actual": 0.5437358829171695,
+  "any_loss_predicted": 0.5436756236076662,
+  "groups": {
+   "default_year": [
+    {
+     "group": "1999",
+     "events": 12,
+     "actual": 0.0,
+     "predicted": 0.16031736124614965,
+     "ratio": NaN
+    },
+    {
+     "group": "2000",
+     "events": 178,
+     "actual": 0.05386764125673284,
+     "predicted": 0.1296859620312089,
+     "ratio": 2.407492865951313
+    },
+    {
+     "group": "2001",
+     "events": 694,
+     "actual": 0.04632258754600141,
+     "predicted": 0.10315640928531825,
+     "ratio": 2.2269137962743786
+    },
+    {
+     "group": "2002",
+     "events": 794,
+     "actual": 0.06537404118273812,
+     "predicted": 0.11573630828691688,
+     "ratio": 1.7703710248445954
+    },
+    {
+     "group": "2003",
+     "events": 854,
+     "actual": 0.07051765817486322,
+     "predicted": 0.12148484751326395,
+     "ratio": 1.7227578263024133
+    },
+    {
+     "group": "2004",
+     "events": 777,
+     "actual": 0.087479819200958,
+     "predicted": 0.10539671977384522,
+     "ratio": 1.2048118153025518
+    },
+    {
+     "group": "2005",
+     "events": 844,
+     "actual": 0.09620349389916118,
+     "predicted": 0.09431083683558728,
+     "ratio": 0.9803265246732332
+    },
+    {
+     "group": "2006",
+     "events": 803,
+     "actual": 0.13238981038508799,
+     "predicted": 0.11019039007268061,
+     "ratio": 0.8323177573271314
+    },
+    {
+     "group": "2007",
+     "events": 1231,
+     "actual": 0.27794673210189647,
+     "predicted": 0.19000173821087563,
+     "ratio": 0.6835904735200131
+    },
+    {
+     "group": "2008",
+     "events": 2658,
+     "actual": 0.40155594655463867,
+     "predicted": 0.3195617360127435,
+     "ratio": 0.7958087503238147
+    },
+    {
+     "group": "2009",
+     "events": 6016,
+     "actual": 0.3359818924055181,
+     "predicted": 0.33062942428411185,
+     "ratio": 0.9840691768146064
+    },
+    {
+     "group": "2010",
+     "events": 5181,
+     "actual": 0.29262796187183365,
+     "predicted": 0.31504496751651334,
+     "ratio": 1.0766058222915074
+    },
+    {
+     "group": "2011",
+     "events": 3762,
+     "actual": 0.2951433293976781,
+     "predicted": 0.3295975188977659,
+     "ratio": 1.1167371445270375
+    },
+    {
+     "group": "2012",
+     "events": 3005,
+     "actual": 0.24305066806615955,
+     "predicted": 0.26592862989030647,
+     "ratio": 1.0941283642878918
+    },
+    {
+     "group": "2013",
+     "events": 1986,
+     "actual": 0.19749428339554473,
+     "predicted": 0.1930555078096316,
+     "ratio": 0.9775245363582343
+    },
+    {
+     "group": "2014",
+     "events": 1449,
+     "actual": 0.18181617213305112,
+     "predicted": 0.1571655372470566,
+     "ratio": 0.8644200095250303
+    },
+    {
+     "group": "2015",
+     "events": 1111,
+     "actual": 0.15482225462689084,
+     "predicted": 0.13590562310843976,
+     "ratio": 0.8778171034646237
+    },
+    {
+     "group": "2016",
+     "events": 964,
+     "actual": 0.12284972680147797,
+     "predicted": 0.12162185533647768,
+     "ratio": 0.9900050940529603
+    }
+   ],
+   "outcome": [
+    {
+     "group": "current again",
+     "events": 1387,
+     "actual": 0.0,
+     "predicted": 0.24630436463422695,
+     "ratio": NaN
+    },
+    {
+     "group": "loss event",
+     "events": 18314,
+     "actual": 0.4572919170095158,
+     "predicted": 0.3093686557357644,
+     "ratio": 0.6765233414990073
+    },
+    {
+     "group": "paid off",
+     "events": 12618,
+     "actual": 0.0,
+     "predicted": 0.20092713014580268,
+     "ratio": NaN
+    }
+   ],
+   "ltv_band": [
+    {
+     "group": "100-120",
+     "events": 3604,
+     "actual": 0.3701435663132912,
+     "predicted": 0.3722977450014335,
+     "ratio": 1.005819846362854
+    },
+    {
+     "group": "120+",
+     "events": 1526,
+     "actual": 0.4064483745160876,
+     "predicted": 0.40269819004340307,
+     "ratio": 0.9907732821489335
+    },
+    {
+     "group": "60-80",
+     "events": 10790,
+     "actual": 0.2141914975450449,
+     "predicted": 0.21280563531625155,
+     "ratio": 0.9935297981260814
+    },
+    {
+     "group": "80-90",
+     "events": 5956,
+     "actual": 0.29634002939545623,
+     "predicted": 0.29412366796076667,
+     "ratio": 0.9925208840695231
+    },
+    {
+     "group": "90-100",
+     "events": 3954,
+     "actual": 0.3104272936407549,
+     "predicted": 0.314311662119488,
+     "ratio": 1.0125129734347018
+    },
+    {
+     "group": "<60",
+     "events": 6489,
+     "actual": 0.10511908042805297,
+     "predicted": 0.10852347355984197,
+     "ratio": 1.0323860627197845
+    }
+   ],
+   "judicial": [
+    {
+     "group": "0.0",
+     "events": 18196,
+     "actual": 0.23633690726978968,
+     "predicted": 0.23944456866480984,
+     "ratio": 1.0131492851917225
+    },
+    {
+     "group": "1.0",
+     "events": 14123,
+     "actual": 0.3094772311878124,
+     "predicted": 0.3053833961416555,
+     "ratio": 0.9867717730624503
+    }
+   ],
+   "mi": [
+    {
+     "group": "no MI",
+     "events": 23433,
+     "actual": 0.27978053620528404,
+     "predicted": 0.27913615319287133,
+     "ratio": 0.9976968268731178
+    },
+    {
+     "group": "with MI",
+     "events": 8886,
+     "actual": 0.2259826842334964,
+     "predicted": 0.22862482872387,
+     "ratio": 1.0116918006321387
+    }
+   ]
+  },
+  "ratio": 1.000807650056624
+ },
+ "lgd_check_2017_on": {
+  "events": 8252,
+  "actual_lgd": 0.024713618567338995,
+  "predicted_lgd": 0.054773140347572004,
+  "any_loss_actual": 0.14747939893359185,
+  "any_loss_predicted": 0.24994139821003608,
+  "groups": {
+   "default_year": [
+    {
+     "group": "2017",
+     "events": 973,
+     "actual": 0.07841581436084458,
+     "predicted": 0.09705103518365156,
+     "ratio": 1.2376462066319127
+    },
+    {
+     "group": "2018",
+     "events": 916,
+     "actual": 0.05833069064711099,
+     "predicted": 0.08252979061134519,
+     "ratio": 1.4148605081780004
+    },
+    {
+     "group": "2019",
+     "events": 1028,
+     "actual": 0.03349692275087229,
+     "predicted": 0.07591005395706799,
+     "ratio": 2.266179927082741
+    },
+    {
+     "group": "2020",
+     "events": 745,
+     "actual": 0.021515311695416615,
+     "predicted": 0.0612376937412285,
+     "ratio": 2.8462378146384886
+    },
+    {
+     "group": "2021",
+     "events": 576,
+     "actual": 0.019712248708037373,
+     "predicted": 0.026108404919879,
+     "ratio": 1.3244762333601083
+    },
+    {
+     "group": "2022",
+     "events": 668,
+     "actual": 0.015179269054388312,
+     "predicted": 0.015683638756845544,
+     "ratio": 1.033227535571709
+    },
+    {
+     "group": "2023",
+     "events": 858,
+     "actual": 0.017474686209897016,
+     "predicted": 0.041845845471504974,
+     "ratio": 2.394655043808743
+    },
+    {
+     "group": "2024",
+     "events": 1141,
+     "actual": 0.01178768983096233,
+     "predicted": 0.03949393376760573,
+     "ratio": 3.350438833559086
+    },
+    {
+     "group": "2025",
+     "events": 1078,
+     "actual": 0.003762320981621152,
+     "predicted": 0.051549078642434784,
+     "ratio": 13.701403706448971
+    },
+    {
+     "group": "2026",
+     "events": 269,
+     "actual": 0.00023207022262287924,
+     "predicted": 0.053074473470551664,
+     "ratio": 228.70005841636652
+    }
+   ],
+   "outcome": [
+    {
+     "group": "current again",
+     "events": 3264,
+     "actual": 0.0,
+     "predicted": 0.047696993846420815,
+     "ratio": NaN
+    },
+    {
+     "group": "loss event",
+     "events": 1326,
+     "actual": 0.20423941746883953,
+     "predicted": 0.09448848419157432,
+     "ratio": 0.46263588763902674
+    },
+    {
+     "group": "paid off",
+     "events": 3662,
+     "actual": 0.0,
+     "predicted": 0.05123712330385475,
+     "ratio": NaN
+    }
+   ],
+   "ltv_band": [
+    {
+     "group": "100-120",
+     "events": 44,
+     "actual": 0.23361685608125687,
+     "predicted": 0.297381030984923,
+     "ratio": 1.2729433824821597
+    },
+    {
+     "group": "120+",
+     "events": 22,
+     "actual": 0.31643591318019726,
+     "predicted": 0.35845958504742165,
+     "ratio": 1.1328031052003051
+    },
+    {
+     "group": "60-80",
+     "events": 2373,
+     "actual": 0.025327172205648302,
+     "predicted": 0.07458587757356382,
+     "ratio": 2.9448955836029005
+    },
+    {
+     "group": "80-90",
+     "events": 761,
+     "actual": 0.022952337396593178,
+     "predicted": 0.06602373204102199,
+     "ratio": 2.876558099517216
+    },
+    {
+     "group": "90-100",
+     "events": 259,
+     "actual": 0.046078231637392636,
+     "predicted": 0.08561071292970969,
+     "ratio": 1.8579426746107226
+    },
+    {
+     "group": "<60",
+     "events": 4793,
+     "actual": 0.019439945771524438,
+     "predicted": 0.030048330929841938,
+     "ratio": 1.545700347264169
+    }
+   ],
+   "judicial": [
+    {
+     "group": "0.0",
+     "events": 4618,
+     "actual": 0.01882087743907248,
+     "predicted": 0.03793607085254702,
+     "ratio": 2.0156377392794163
+    },
+    {
+     "group": "1.0",
+     "events": 3634,
+     "actual": 0.03389279939346768,
+     "predicted": 0.08100040913689248,
+     "ratio": 2.389900232097797
+    }
+   ],
+   "mi": [
+    {
+     "group": "no MI",
+     "events": 5704,
+     "actual": 0.026901526806784377,
+     "predicted": 0.05941027492290966,
+     "ratio": 2.2084350583375363
+    },
+    {
+     "group": "with MI",
+     "events": 2548,
+     "actual": 0.020839012181937844,
+     "predicted": 0.046561154619997665,
+     "ratio": 2.2343263785005325
+    }
+   ]
+  },
+  "ratio": 2.2163140617521324
+ },
+ "lgd_benchmark_ltv_table": {
+  "table": {
+   "100-120": 0.3701435663132912,
+   "<60": 0.10511908042805297,
+   "60-80": 0.2141914975450449,
+   "80-90": 0.29634002939545623,
+   "120+": 0.4064483745160876,
+   "90-100": 0.3104272936407549
+  },
+  "check_2017_on_predicted": 0.17936336963377447
+ },
+ "lgd_downturn_check_events": [
+  {
+   "hpi_shock": 0.0,
+   "lgd": 0.054773140347572004
+  },
+  {
+   "hpi_shock": -0.1,
+   "lgd": 0.17074439016054244
+  },
+  {
+   "hpi_shock": -0.2,
+   "lgd": 0.2668749644620342
+  },
+  {
+   "hpi_shock": -0.3,
+   "lgd": 0.4347426323369272
+  }
+ ],
+ "lgd_downturn_all_events": [
+  {
+   "hpi_shock": 0.0,
+   "lgd": 0.217363065405023
+  },
+  {
+   "hpi_shock": -0.1,
+   "lgd": 0.3418255545744179
+  },
+  {
+   "hpi_shock": -0.2,
+   "lgd": 0.4762694767538594
+  },
+  {
+   "hpi_shock": -0.3,
+   "lgd": 0.5949587880911449
+  }
+ ],
+ "ead_partial_prepayment_monthly": [
+  {
+   "age_band_months": "0-12",
+   "loan_months": 871246,
+   "rate": 0.001250272066349375
+  },
+  {
+   "age_band_months": "12-36",
+   "loan_months": 1362544,
+   "rate": 0.0007717114132816152
+  },
+  {
+   "age_band_months": "36-60",
+   "loan_months": 750235,
+   "rate": 0.0009272748772559482
+  },
+  {
+   "age_band_months": "60-120",
+   "loan_months": 638167,
+   "rate": 0.0012703049018506674
+  },
+  {
+   "age_band_months": "120-999",
+   "loan_months": 110949,
+   "rate": 0.0026036397726113686
+  }
+ ],
+ "ead_check_from_2017_01": [
+  {
+   "months_ahead": 12,
+   "loans": 23898,
+   "schedule_only": 1.0089873035563928,
+   "with_partial_prepayment": 0.996562991658224,
+   "median_abs_error": 0.011070701567164554,
+   "within_tolerance": true
+  },
+  {
+   "months_ahead": 24,
+   "loans": 21279,
+   "schedule_only": 1.017997661240043,
+   "with_partial_prepayment": 0.9930485484886906,
+   "median_abs_error": 0.021841713691890363,
+   "within_tolerance": true
+  },
+  {
+   "months_ahead": 36,
+   "loans": 18624,
+   "schedule_only": 1.0281509485047962,
+   "with_partial_prepayment": 0.9894581468539682,
+   "median_abs_error": 0.03290106564911727,
+   "within_tolerance": true
+  }
+ ],
+ "lgd_check_by_resolution": {
+  "2017-2021 (resolved, fair check)": {
+   "defaults": 4238,
+   "actual": 0.044,
+   "predicted": 0.072,
+   "any_loss_actual": 0.21,
+   "any_loss_predicted": 0.285,
+   "severity_given_loss_actual": 0.261,
+   "severity_given_loss_predicted": 0.296
+  },
+  "2022-2026 (many unresolved)": {
+   "defaults": 4014,
+   "actual": 0.01,
+   "predicted": 0.042,
+   "any_loss_actual": 0.081,
+   "any_loss_predicted": 0.213,
+   "severity_given_loss_actual": 0.159,
+   "severity_given_loss_predicted": 0.161
+  }
+ }
+}

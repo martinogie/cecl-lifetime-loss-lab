@@ -184,6 +184,22 @@ comma-separated pairs, so a value can't contain a comma (use ranges such as `199
 
 After each Databricks run: `CECL_ENV=local python -m scripts.record_job_minutes --job <job name>`.
 
+### The multi-state design (ADR-011; plan: docs/phase2/plan_multistate.md)
+
+Steps 2-6 above are replaced by these (the old single-model jobs stay for reproducibility). Every
+command is started from a clean commit (`scripts/run_job.py` refuses otherwise, deploys from that
+commit and records the minutes); no daily cap, but the blocked windows always apply.
+
+1. **Slice, then compare with the PC** (M2):
+   `CECL_ENV=local python -m scripts.run_job --job cecl_lab_transition_features_dev --param years=2005,2009,2019 --param export_slice=true`
+   then `CECL_ENV=local python -m scripts.compare_transitions --years 2005,2009,2019` (must show 0 differences).
+2. **Full build** (M3): `... --job cecl_lab_transition_features_dev --param years=1999-2026 --param export_slice=false`.
+3. **The 9 models, back to back** (M4), shortest first; waits out blocked windows, stops at the first
+   failure: `CECL_ENV=local python -m scripts.run_sequence --plan transitions` (resume: `--from <n>`).
+4. **Projection check, 2017-2019** (M5), after selection:
+   `... --job cecl_lab_projection_check_dev --param 'combinations={"chosen": {...}, "all_logistic": {...}}'`.
+5. The out-of-time test only after Martins approves it (ADR-009 E).
+
 ## Dev Airflow on the PC
 
 ```
