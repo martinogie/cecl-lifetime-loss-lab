@@ -75,9 +75,13 @@ def main() -> int:
         "|---|---|---|",
         f"| Loans | {q1['book']['loans']:,} | {q2['book']['loans']:,} |",
         f"| Balance | {m(q1['book']['balance'])} | {m(q2['book']['balance'])} |",
-        f"| **Booked reserve (weighted 60/30/10, no overlay)** | **{m(q1['weighted_reserve'])}** | **{m(q2['weighted_reserve'])}** |",
-        f"| Reserve ratio (reserve / balance) | {pct(q1['reserve_ratio'], 3)} | {pct(q2['reserve_ratio'], 3)} |",
-        f"| Sensitivity: with the +34% default uplift (Option A) | {m(q1['weighted_reserve_with_uplift'])} | {m(q2['weighted_reserve_with_uplift'])} |",
+        f"| Performing-loan reserve (engine, weighted 60/30/10, no overlay) | {m(q1['weighted_reserve'])} | {m(q2['weighted_reserve'])} |",
+        f"| Performing reserve ratio (reserve / balance) | {pct(q1['reserve_ratio'], 3)} | {pct(q2['reserve_ratio'], 3)} |",
+        f"| Defaulted, unresolved loans (90+ days late or REO): loans / balance | {q1['defaulted_pipeline']['loans']:,} / {m(q1['defaulted_pipeline']['balance'])} | {q2['defaulted_pipeline']['loans']:,} / {m(q2['defaulted_pipeline']['balance'])} |",
+        f"| Defaulted-loan reserve (balance x Phase 3 LGD) | {m(q1['defaulted_pipeline']['reserve'])} | {m(q2['defaulted_pipeline']['reserve'])} |",
+        f"| **Total allowance (booked)** | **{m(q1['total_allowance'])}** | **{m(q2['total_allowance'])}** |",
+        f"| Total allowance ratio | {pct(q1['total_allowance_ratio'], 3)} | {pct(q2['total_allowance_ratio'], 3)} |",
+        f"| Sensitivity: total with the +34% default uplift on the performing reserve (Option A) | {m(q1['total_allowance_with_uplift'])} | {m(q2['total_allowance_with_uplift'])} |",
         f"| Tie-out: book reserve = sum of loan reserves (every scenario) | {'pass' if all(t['passes'] for t in q1['tie_outs'].values()) else 'FAIL'} | {'pass' if all(t['passes'] for t in q2['tie_outs'].values()) else 'FAIL'} |",
         "",
         f"### By scenario, {DATES['202606']}",
@@ -143,9 +147,9 @@ def main() -> int:
         f"**{rf['total']['recoveries']}** | **{rf['total']['end']}** |",
         "",
         f"Reconciles to the cent: **{'yes' if rf['reconciles_to_the_cent'] else 'NO'}** (start + provision - write-offs + "
-        f"recoveries = end; provision is the balancing figure). Write-off events in the quarter on loans in the March book: "
-        f"{rf['write_off_events']}. Write-offs are Freddie's realised losses at disposition (a gain counts as zero); "
-        "recoveries are MI and other recoveries.",
+        f"recoveries = end, on the total allowance; provision is the balancing figure). Loss dispositions in the quarter: "
+        f"{rf['write_off_events']}, of which {rf['estimated_write_off_events']} **estimated**: {rf['note']}. Write-offs are "
+        "Freddie's realised losses at disposition (a gain counts as zero); recoveries are MI and other recoveries.",
         "",
         "## 4. Reserve bridge, 31 March to 30 June 2026 (weighted)",
         "",
@@ -156,7 +160,8 @@ def main() -> int:
         f"Bridge reconciles: **{'yes' if br['reconciles'] else 'NO'}**. Exits: the March reserve of loans that left the "
         "book; new loans: the June reserve of loans not in the March book; credit quality and ageing: continuing loans "
         "under the March economy, June vs March; economic forecast: the June economy vs the March economy for the June "
-        "book; model changes and overlays: none.",
+        "book; defaulted-loan reserve change: the change in the reserve on defaulted, unresolved loans; model changes and "
+        "overlays: none.",
         "",
         "## 5. Benchmarks (M-05, M-06)",
         "",

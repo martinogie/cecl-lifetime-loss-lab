@@ -76,7 +76,10 @@ def price_run(R: str, E: str, name: str, inp: dict[str, Any]) -> Any:
     """Each loan's lifetime expected loss under one scenario, the economy dated E, for the book at R."""
     import pandas as pd
 
-    book = pd.read_parquet(RES / f"book_{R}_{E}_{name}.parquet")
+    src, cache = RES / f"book_{R}_{E}_{name}.parquet", RES / f"priced_{R}_{E}_{name}.parquet"
+    if cache.exists() and cache.stat().st_mtime > src.stat().st_mtime:
+        return pd.read_parquet(cache)  # already priced from this exact projection file
+    book = pd.read_parquet(src)
     p_def = book[[f"pd_{k}" for k in range(1, engine.MONTHLY + 1)]].to_numpy(dtype=float)
     p_pre = book[[f"pp_{k}" for k in range(1, engine.MONTHLY + 1)]].to_numpy(dtype=float)
     E_book = (
@@ -103,7 +106,28 @@ def price_run(R: str, E: str, name: str, inp: dict[str, Any]) -> Any:
     ].copy()
     for k, v in out.items():
         frame[k] = v
+    frame.to_parquet(cache, index=False)
     return frame
+
+
+def defaulted_pipeline(con: Any, R: str, model: Any) -> Any:
+    """Loans already in default at the end of R and not yet resolved: an ADR-002 first default on or before R,
+    still 90+ days late or in REO (status 03 and above, or RA) at R, no zero balance yet. They have left the
+    performing book (the engine), but a bank keeps a reserve on them until the loss is realised: balance at R
+    x the Phase 3 LGD for the loan's inputs at default."""
+    perf = f"read_parquet('{LOCAL}/bronze/freddie_perf/**/*.parquet', hive_partitioning=true)"
+    ev = con.sql(
+        f"select * from read_parquet('{LOCAL}/phase3/lgd_events.parquet') where default_ym <= '{R}'"
+    ).df()
+    rows = con.sql(f"""select loan_id, cast(current_upb as double) as balance, delinquency_status from {perf}
+        where period = '{R}' and zero_balance_code is null
+          and (delinquency_status = 'RA' or (delinquency_status <> 'XX' and try_cast(delinquency_status as int) >= 3))""").df()  # fmt: skip
+    p = ev.merge(rows, on="loan_id", how="inner")
+    p = p.dropna(subset=["ltv_default", "hpi_change_12"])
+    p["lgd"] = model.predict(lgd.matrix(p))
+    p["balance"] = p["balance"].where(p["balance"] > 0, p["default_upb"])
+    p["reserve"] = p["balance"] * p["lgd"]
+    return p
 
 
 def tie_out(frame: Any) -> dict[str, Any]:
@@ -124,21 +148,36 @@ def severe_weights(sev: float) -> dict[str, float]:
     return {"baseline": rest * 2 / 3, "adverse": rest / 3, "severely_adverse": sev}
 
 
-def losses(con: Any, first: str, last: str) -> Any:
+def losses(con: Any, first: str, last: str, model: Any = None) -> Any:
     """Loss events with disposition in [first, last]: net write-off (loss, a gain counts as 0), recoveries
-    (MI and other recoveries; Freddie stores them negative) and gross = net + recoveries."""
+    (MI and other recoveries; Freddie stores them negative) and gross = net + recoveries.
+
+    Freddie reports the loss about three months after the sale. With `model` (the Phase 3 LGD), a disposition
+    whose loss is not reported yet gets an **estimated** write-off: the balance removed x the LGD for its
+    inputs at default (what was reserved for it), no recoveries yet; flagged `estimated`, trued up at the next
+    close. Without `model` such dispositions are left out (history: the benchmarks)."""
     perf = f"read_parquet('{LOCAL}/bronze/freddie_perf/**/*.parquet', hive_partitioning=true)"
     codes = ", ".join(f"'{c}'" for c in LOSS_CODES)
-    return (
-        con.sql(f"""
-        select loan_id, zero_balance_date as disp_ym,
+    d = con.sql(f"""
+        select loan_id, zero_balance_date as disp_ym, actual_loss is null as estimated,
+               cast(zero_balance_removal_upb as double) as removal_upb,
                greatest(coalesce(actual_loss, 0), 0) as net_write_off,
                -(coalesce(mi_recoveries, 0) + coalesce(non_mi_recoveries, 0)) as recoveries
-        from {perf} where zero_balance_code in ({codes}) and zero_balance_date between '{first}' and '{last}'
-          and actual_loss is not null""")
-        .df()
-        .assign(gross_write_off=lambda d: d.net_write_off + d.recoveries)
-    )
+        from {perf} where zero_balance_code in ({codes}) and zero_balance_date between '{first}' and '{last}'""").df()  # fmt: skip
+    if model is None:
+        d = d[~d["estimated"]].copy()
+    elif d["estimated"].any():
+        ev = con.sql(f"select * from read_parquet('{LOCAL}/phase3/lgd_events.parquet')").df()
+        e = d[d["estimated"]].merge(ev, on="loan_id", how="left")
+        ok = e.dropna(subset=["ltv_default", "hpi_change_12"])
+        lgd_est = np.full(len(e), np.nan)
+        lgd_est[ok.index.to_numpy()] = model.predict(lgd.matrix(ok))
+        lgd_est = np.where(
+            np.isnan(lgd_est), np.nanmean(lgd_est) if np.isfinite(lgd_est).any() else 0.0, lgd_est
+        )
+        d.loc[d["estimated"], "net_write_off"] = e["removal_upb"].to_numpy() * lgd_est
+        d.loc[d["estimated"], "recoveries"] = 0.0
+    return d.assign(gross_write_off=lambda x: x.net_write_off + x.recoveries)
 
 
 def rollforward(start: Any, end: Any, wo: Any) -> dict[str, Any]:
@@ -313,6 +352,7 @@ def main(argv: list[str] | None = None) -> int:
                            "model": "PD/prepayment M-01 v2 @challenger (holdout failed, L-038; check bias L-039); LGD M-02; EAD M-03",
                            "overlay_decision": "Option B: no L-038 overlay on the baseline reserve (L-033 netting decision, 19 Nov 2026)",
                            "uplift_sensitivity": UPLIFT, "weights": WEIGHTS, "dates": {}}  # fmt: skip
+    pipelines: dict[str, Any] = {}
     for R in (Q1, Q2):
         d: dict[str, Any] = {"scenarios": {}, "tie_outs": {}}
         for s in scenarios.SCENARIOS:
@@ -334,28 +374,55 @@ def main(argv: list[str] | None = None) -> int:
             "without": tot["severely_adverse"],
             "with": tot["severely_adverse"] * (1 + UPLIFT),
         }
+        pipe = defaulted_pipeline(con, R, inp["lgd"])
+        pipelines[R] = pipe
+        d["defaulted_pipeline"] = {"loans": int(len(pipe)), "balance": float(pipe["balance"].sum()),
+                                   "reserve": float(pipe["reserve"].sum()),
+                                   "lgd": float(pipe["reserve"].sum() / max(pipe["balance"].sum(), 1e-9))}  # fmt: skip
+        d["total_allowance"] = d["weighted_reserve"] + d["defaulted_pipeline"]["reserve"]
+        d["total_allowance_with_uplift"] = (
+            d["weighted_reserve_with_uplift"] + d["defaulted_pipeline"]["reserve"]
+        )
+        d["total_allowance_ratio"] = d["total_allowance"] / (bal + d["defaulted_pipeline"]["balance"])
         res["dates"][R] = d
-    # rollforward Q2 2026 (booked weighted reserve per loan; write-offs on loans in the March book)
+    # rollforward Q2 2026: total allowance (performing, weighted + defaulted pipeline); every loss realised in Q2
     orig_year = con.sql("select loan_id, cast(substr(first_payment_date, 1, 4) as int) as vintage_year from "
                         f"read_parquet('{LOCAL}/bronze/freddie_orig/**/*.parquet', hive_partitioning=true)").df()  # fmt: skip
 
     def booked(R: str) -> Any:
         f = runs[(R, R, "baseline")][["loan_id", "vintage_year"]].copy()
         f["reserve"] = sum(WEIGHTS[s] * runs[(R, R, s)]["total"].to_numpy() for s in WEIGHTS)
-        f["group"] = group_of(f["vintage_year"])
+        pipe = pipelines[R][["loan_id", "reserve"]].merge(orig_year, on="loan_id", how="left")
+        f = pd.concat([f, pipe[["loan_id", "vintage_year", "reserve"]]], ignore_index=True)
+        f["group"] = group_of(f["vintage_year"].fillna(2000))
         return f
 
     start, end = booked(Q1), booked(Q2)
-    wo_q2 = losses(con, "202604", "202606")
-    wo_q2 = wo_q2[wo_q2.loan_id.isin(start.loan_id)].merge(orig_year, on="loan_id", how="left")
+    wo_q2 = losses(con, "202604", "202606", inp["lgd"])
+    wo_q2 = wo_q2.merge(orig_year, on="loan_id", how="left")  # every loss realised in the quarter
     wo_q2["group"] = group_of(wo_q2["vintage_year"].fillna(2000))
     res["rollforward_q2_2026"] = rollforward(start, end, wo_q2)
     res["rollforward_q2_2026"]["write_off_events"] = int(len(wo_q2))
+    res["rollforward_q2_2026"]["estimated_write_off_events"] = int(wo_q2["estimated"].sum())
+    res["rollforward_q2_2026"]["note"] = (
+        "Freddie reports losses about 3 months after the sale; Q2 2026 write-offs not yet "
+        "reported are estimated (balance removed x Phase 3 LGD), trued up at the Q3 close"
+    )
     res["bridge_q1_to_q2_2026"] = bridge(runs)
+    b = res["bridge_q1_to_q2_2026"]["steps"]
+    pipe_change = (
+        res["dates"][Q2]["defaulted_pipeline"]["reserve"] - res["dates"][Q1]["defaulted_pipeline"]["reserve"]
+    )
+    b["start"] += res["dates"][Q1]["defaulted_pipeline"]["reserve"]
+    b["defaulted_loan_reserve_change"] = pipe_change
+    b["end"] += res["dates"][Q2]["defaulted_pipeline"]["reserve"]
+    b["end"] = b.pop("end")  # keep "end" last
+    total = b["start"] + sum(v for k, v in b.items() if k not in ("start", "end"))
+    res["bridge_q1_to_q2_2026"]["reconciles"] = abs(total - b["end"]) < 0.01
     res["benchmarks"] = benchmarks(con, end, pd.read_parquet(RES / f"book_{Q2}_{Q2}_baseline.parquet"))
-    wo_ytd = losses(con, "202601", "202606")
+    wo_ytd = losses(con, "202601", "202606", inp["lgd"])
     res["disclosures"] = disclosures(
-        runs[(Q2, Q2, "baseline")], wo_ytd, losses(con, "202604", "202606"), orig_year
+        runs[(Q2, Q2, "baseline")], wo_ytd, wo_q2.drop(columns=["vintage_year", "group"]), orig_year
     )
     res["disclosures"]["rollforward_by_loan_group"] = res["rollforward_q2_2026"]["by_group"]
     print(
