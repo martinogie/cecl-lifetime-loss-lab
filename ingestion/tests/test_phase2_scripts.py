@@ -189,3 +189,30 @@ def test_v2_holdout_verdict_needs_cells_and_total() -> None:
     )
     assert v2.holdout_verdict(small)["passes"]  # a cell under 200 actual defaults is not judged
     assert (v2.HOLDOUT_START, v2.HOLDOUT_END, v2.HOLDOUT_MONTHS) == ("202407", "202606", 24)
+
+
+def test_build_stress_quarterly_and_weighting() -> None:
+    """Phase 5: the 9-quarter loss rates and the scenario weighting, on made-up aggregates."""
+    pytest.importorskip("pandas")
+    from scripts import build_stress as bs
+
+    agg = {"balance": 1000.0, "reserve": 50.0, "lifetime_pd": 0.03, "q_el": [1.0] * 12,
+           "q_defaults": [2.0] * 12, "q_bal": [2700.0] * 12,
+           "paths": {"quarter_end": [f"q{i}" for i in range(12)], "unemployment": [5.0] * 12,
+                     "hpi_change": [0.0] * 12, "mortgage_rate": [6.0] * 12}}  # fmt: skip
+    q = bs.quarterly(agg)
+    assert q["loss_9q"] == pytest.approx(9.0)
+    assert q["loss_rate_9q_of_start_balance"] == pytest.approx(0.009)
+    assert q["average_balance_9q"] == pytest.approx(
+        (1000.0 + 9 * 900.0) / 10
+    )  # start and 9 quarterly averages
+    assert len(q["quarters"]) == 12 and q["quarters"][0]["loss_rate_of_start_balance"] == pytest.approx(0.001)
+    by_s = {
+        "baseline": {"reserve": 10.0},
+        "adverse": {"reserve": 20.0},
+        "severely_adverse": {"reserve": 100.0},
+    }
+    assert bs.weighted(by_s) == pytest.approx(6.0 + 6.0 + 10.0)
+    assert bs.weighted(by_s, (0.4, 0.4, 0.2)) == pytest.approx(4.0 + 8.0 + 20.0)
+    assert bs.cache_name("", "baseline", 0.05).name == "agg_202606_202606_baseline__floor05.json"
+    assert len(bs.runs()) == 3 + 6 + 10 + 7 * 3

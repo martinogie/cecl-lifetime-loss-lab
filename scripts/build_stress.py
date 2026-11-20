@@ -259,6 +259,9 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--write", action="store_true")
+    parser.add_argument(
+        "--booked-only", action="store_true", help="price only the runs on the Phase 4 books, then stop"
+    )
     args = parser.parse_args(argv)
     environment.current_env()
     import duckdb
@@ -266,12 +269,14 @@ def main(argv: list[str] | None = None) -> int:
     stress.check()
     inp = br.load_inputs(duckdb.connect())
     aggs = {}
-    todo = runs()
+    todo = [r for r in runs() if not args.booked_only or r[0] == ""]
     for i, (v, s, f) in enumerate(todo, 1):
         aggs[(v, s, f)] = price_one(v, s, f, inp)
         print(
             f"[{i}/{len(todo)}] {v or 'booked'} {s} floor={f}: {aggs[(v, s, f)]['reserve']:,.0f}", flush=True
         )
+    if args.booked_only:
+        return 0
     res = build(aggs)
     print(
         json.dumps(

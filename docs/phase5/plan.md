@@ -1,6 +1,6 @@
 # Phase 5 plan: stress testing and sensitivity
 
-**Status (20 November 2026): decisions taken (end of this file); building.**
+**Status (20 November 2026): built.** Results: `docs/phase5/stress_report.md`, `docs/phase5/stress_2026Q2.json`. Decisions at the end of this file; the text below is the original proposal.
 
 Educational model on Freddie Mac conforming mortgages (sample book); not an audited reserve and not
 accounting advice. Model v2 failed its holdout (L-038), and the check that measured it was biased
