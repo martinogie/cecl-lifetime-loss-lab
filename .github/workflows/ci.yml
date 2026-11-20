@@ -98,7 +98,7 @@ jobs:
             requirements-ml.txt
       - run: pip install -r requirements-dev.txt -r requirements-ml.txt
       - name: model tests with coverage (synthetic data only)
-        run: pytest -ra cecl/tests/test_models.py cecl/tests/test_metrics.py cecl/tests/test_transitions.py cecl/tests/test_lgd_ead.py cecl/tests/test_v2.py --cov --cov-report=term
+        run: pytest -ra cecl/tests/test_models.py cecl/tests/test_metrics.py cecl/tests/test_transitions.py cecl/tests/test_lgd_ead.py cecl/tests/test_v2.py cecl/tests/test_sensitivity.py --cov --cov-report=term
       - name: "coverage gate: cecl/models/, lgd and ead >= 80%"
         run: coverage report --include="cecl/models/*,cecl/lgd.py,cecl/ead.py" --fail-under=80
 
