@@ -101,3 +101,8 @@ State paths are built by scaling the Fed’s national changes by each state’s 
 to the national series (estimated from 1991 onward), with limits on extreme values. This keeps the
 national scenario intact while reflecting that some states, such as Nevada, swing much harder than
 others, such as North Dakota. The sensitivities and limits are recorded with each run.
+
+**Note (Martins, 19 November 2026, confirming before `cecl.scenarios` was built):** option B4b is confirmed:
+after mapping the Fed's national changes to states by beta (window 1991 to the latest quarter, year-over-year
+changes, caps 0.25-2.0 for unemployment and 0.25-3.0 for house prices), the state changes are rescaled so
+their book-balance-weighted average equals the Fed's national change.
