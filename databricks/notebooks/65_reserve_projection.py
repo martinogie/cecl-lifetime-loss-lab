@@ -50,7 +50,7 @@ KEEP = ["loan_id", "vintage_year", "property_state", "credit_score", "loan_age",
 
 def reserve_book(R):
     """Loans alive at the end of R: their start row for R, history, and actual state at the end of R."""
-    parts = [spark.sql(fb.v2_projection_starts_sql(v, fb.databricks_relations(environment.databricks_schema, v), "spark", starts=(R,)))
+    parts = [spark.sql(fb.v2_projection_starts_sql(v, fb.databricks_relations(environment.databricks_schema, v), "spark", starts=(R,), keep_censored=True))
              for v in range(1999, int(R[:4]) + 1)]  # fmt: skip
     df = parts[0]
     for p in parts[1:]:
