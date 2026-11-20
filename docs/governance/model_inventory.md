@@ -46,7 +46,7 @@ checker, in writing; there is no separate validation team, which is itself a lim
 
 | Model ID | Name | Purpose | Proposed tier | Status | Registry name | Phase |
 |---|---|---|---|---|---|---|
-| M-01 | Lifetime PD and prepayment (competing-risks hazard) | Monthly chance of default and of prepayment for each loan over its life | 1: the main driver of the reserve; three model families | @challenger (19 Nov 2026): multi-state logistic transition models; **failed the out-of-time test** (L-032); not champion. Version 2 (ADR-009 Amendment 3, code `c160e46`) failed the walk-forward crisis exam (L-035): stopped before its holdout, not registered | `<catalog>.ml.pd_transition_current`, `_30`, `_60` (`@challenger`) | 2 |
+| M-01 | Lifetime PD and prepayment (competing-risks hazard) | Monthly chance of default and of prepayment for each loan over its life | 1: the main driver of the reserve; three model families | **Version 2 `@challenger`** (19 Nov 2026, dev): logistic transition models with rate-lock and memory inputs, path simulation (code `c160e46`). Passed F2-F4; crisis exam failed and made information only (Amendment 4, after the result; L-035); downturn check passed under Amendment 5 (test 7 in points, after the result; L-037); holdout not yet run, rules locked; not champion. Version 1: alias retired; failed the out-of-time test (L-032), records kept | `<catalog>.ml.pd_v2_transition_current`, `_30`, `_60` (`@challenger`); v1 `<catalog>.ml.pd_transition_*` (no alias) | 2 |
 | M-02 | LGD (two-step) | Chance of any loss once defaulted, then the size of the loss; tied to house prices | 1: directly multiplies the reserve | draft (Phase 3, 19 Nov 2026): two-step monotone trees on every ADR-002 default; docs/phase3/model_documentation.md; L-033 | `<catalog>.ml.lgd` (not registered yet) | 3 |
 | M-03 | EAD (balance projection) | Balance owed at each future month, from the payment schedule and prepayment | 2: mostly mechanical for fixed-rate loans | draft (Phase 3, 19 Nov 2026): schedule plus partial prepayment by loan age; within 2% on held-out loans; L-034 | code in `cecl.ead` | 3 |
 | M-04 | CECL engine (aggregation, forecast, reversion, scenario weighting) | Combines M-01 to M-03 into each loan's and the book's lifetime expected loss | 1: produces the reported reserve | not started | code in `cecl.engine` | 4 |
@@ -66,3 +66,5 @@ checker, in writing; there is no separate validation team, which is itself a lim
   crisis exam fails (0.38 vs the v1-style benchmark's 0.39). Stopped for Martins before the holdout (L-035).
   Amendment 4 (written after that result) replaced the crisis exam with a downturn-sensitivity check; the
   check failed on test 7, risk ordering as ratios (L-037). v2 not registered; v1 stays `@challenger`.
+  Amendment 5 (also written after its result) measured test 7 in percentage points: the check passes; v2
+  registered `@challenger` in dev, v1's alias retired. Last rule change: the holdout rules are locked.

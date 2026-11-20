@@ -59,8 +59,14 @@ audited bank reserve and not accounting advice.
   pass, but two risk-ordering comparisons fail as ratios (credit score below 680 vs 740+ under house prices
   -30%: 1.68 vs 1.78; LTV above 80% vs at or below under unemployment +4: 1.33 vs 1.45), although in points the
   riskier group rises more in both (L-037).
-- **Status:** not registered, not used. Under Amendment 3 the work stopped for Martins before the holdout;
-  version 1 stays `@challenger` with its out-of-time failure (L-032). Limitations: L-035 (this result),
-  L-028 (payoffs), L-036 (household-stress inputs).
+- **ADR-009 Amendment 5 (19 November 2026), written after the downturn-check result:** test 7 is measured
+  as the rise in default rate in percentage points; re-evaluated on the saved check (no re-run), all four
+  comparisons pass, so the check passes. **This is the last change to v2's validation rules: the holdout
+  rules are locked and its result stands whatever it shows.**
+- **Status:** `@challenger` in dev since 19 November 2026 (`cecl_lab_dev.ml.pd_v2_transition_current`,
+  `_30`, `_60`); v1's alias retired (v1's runs and its out-of-time failure, L-032, stay on record). Holdout
+  not yet run; not champion. Two of v2's validation rules were changed after their results (Amendments 4
+  and 5); the original failures stay on record (L-035, L-037). Other limitations: L-028 (payoffs), L-036
+  (household-stress inputs).
 - Full results: validation report, "Model v2". Educational model on Freddie Mac conforming mortgages; not
   an audited bank reserve.

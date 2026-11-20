@@ -51,6 +51,11 @@ def main(argv: list[str] | None = None) -> int:
     locked = oot.locked_set(sel.data.params)
     client = mlflow.MlflowClient()
     for step, run_id in locked.items():
+        v2 = environment.registered_model(f"pd_v2_transition_{step}")
+        if challenger_run(client, v2) is not None:  # ADR-009 Amendment 4: v1's alias was retired for v2
+            raise SystemExit(
+                f"{v2}@{environment.CHALLENGER} exists: v1's alias is retired; not re-setting it"
+            )
         name = environment.registered_model(oot.registered_name(step))
         environment.assert_can_set_alias(name, environment.CHALLENGER)
         if challenger_run(client, name) == run_id:

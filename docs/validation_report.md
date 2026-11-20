@@ -574,6 +574,39 @@ groups; 2017 1.45; 2019 1.68; 2020 2.02; 2021 2.63; 2022 2.77), as the newest lo
 unemployment +4 is flatter (1.29-1.67). The 10 largest states: R at -30% 1.63 (NC) to 1.98 (IL); at +4
 points 1.34 (CA, NY) to 1.58 (PA).
 
+### ADR-009 Amendment 5: test 7 in percentage points; the holdout rules locked (19 November 2026)
+
+**Timing, stated plainly: this amendment was written after the downturn-check result was known,
+including the failure of test 7 as approved.** It is the second rule change for v2 made after a result
+(Amendment 4, which replaced the crisis exam, was the first). The test-7 failure stays on record exactly as
+reported above (L-037, MLflow `69232827`).
+
+- **Change (Martins's decision):** the ratio R was the wrong measure for comparing groups with very different
+  starting default rates; test 7 now requires the riskier group's **rise in projected default rate, in
+  percentage points**, to exceed the safer group's.
+- **No re-run:** the scenarios, models, book and projections are those of run `69232827`; test 7 was
+  re-evaluated on its saved results (`scripts/reevaluate_downturn_v2.py`, MLflow run `eec4c05a`); tests 1-6
+  keep their recorded results.
+- **The lock:** this is the last change to v2's validation rules. The holdout rules (Amendment 3, E) are
+  locked; the holdout runs once and its result stands whatever it shows.
+
+**Test 7 re-evaluated (36-month projected default rate, same loans, baseline -> shock):**
+
+| Shock | Comparison | Riskier group | Safer group | Result |
+|---|---|---|---|---|
+| House prices -30% | LTV above 80% vs at or below (after the shock) | 1.51% -> 3.87% (+2.36 points) | 1.01% -> 1.41% (+0.39) | pass |
+| House prices -30% | Credit score below 680 vs 740+ | 3.23% -> 5.44% (+2.21) | 0.59% -> 1.05% (+0.46) | pass |
+| Unemployment +4 | LTV above 80% vs at or below | 2.08% -> 2.78% (+0.70) | 1.11% -> 1.60% (+0.49) | pass |
+| Unemployment +4 | Credit score below 680 vs 740+ | 3.23% -> 4.71% (+1.48) | 0.59% -> 0.84% (+0.25) | pass |
+
+**Verdict under Amendment 5: the downturn-sensitivity check passes** (tests 1-6 as recorded; test 7 in
+points). As Amendment 4 provides, v2 was registered in dev as `@challenger` (19 November 2026):
+`cecl_lab_dev.ml.pd_v2_transition_current`, `_30`, `_60`, version 1 each (runs `d0e07d92`, `995197d8`,
+`aafd64ee`; each version tagged with the check run and the re-evaluation run, "holdout: not yet run"). v1's
+`@challenger` alias was removed from `pd_transition_current`, `_30`, `_60` (version 1 of each, tagged with
+why); v1's model versions, runs and its out-of-time failure (L-032) stay on record. `@champion` is not set.
+The holdout has not run; the holdout expectations file is left blank for Martins.
+
 ### Still to come
 
 - The out-of-time test ran once on 18-19 November 2026 and **failed** (above); the models stay @challenger.
@@ -581,4 +614,7 @@ points 1.34 (CA, NY) to 1.58 (PA).
   holdout. The v2 holdout expectations (`docs/phase2/model_v2_holdout_expectations.md`) stay blank.
 - The v2 downturn-sensitivity check failed on test 7 (risk ordering, as ratios); v2 is not registered and the
   holdout has not run. Next step is Martins's decision (L-037).
+- Under ADR-009 Amendment 5 (written after that result) the check passes with test 7 in points; v2 is
+  `@challenger` in dev and v1's alias is retired. Next: Martins fills in the holdout expectations, then the
+  holdout runs once under the locked rules.
 - Registration of the @challenger, model card and model inventory entries (step M9).
