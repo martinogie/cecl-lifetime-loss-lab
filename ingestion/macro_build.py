@@ -164,12 +164,17 @@ def load_fhfa(
 
 
 def load_fed(
-    root: Path, run_date: date, fetch: http.Fetch | None = None, contract: dict[str, Any] | None = None
+    root: Path,
+    run_date: date,
+    fetch: http.Fetch | None = None,
+    contract: dict[str, Any] | None = None,
+    key: str = "fed",
 ) -> dict[str, Any]:
-    """The Fed's baseline and severely adverse domestic paths -> bronze macro_fed (long format)."""
+    """The Fed's baseline and severely adverse domestic paths -> bronze macro_<key> (long format).
+    `key` "fed" is the current year (scheduled); "fed_2025" the 2025 scenarios (loaded once)."""
     contract = contract or mc.load_contract()
-    rule, get = contract["fed"], fetch or http.fetch
-    folder, downloaded_at = raw_dir(root, "fed", run_date), _now()
+    rule, get = contract[key], fetch or http.fetch
+    folder, downloaded_at = raw_dir(root, key, run_date), _now()
     findings, rows = [], []
     # The history file (scenario "actual") holds the Fed's starting point for the shifted paths.
     sources = [*rule["files"].items(), (HISTORY, rule["history"]["url"])]
@@ -178,9 +183,9 @@ def load_fed(
         name = _save_raw(folder, url.rsplit("/", 1)[-1], body)
         header, data = fed_scenarios.parse_csv(body.decode("utf-8-sig"))
         if scenario == HISTORY:
-            finding = mc.check_fed_history(header, data, contract)
+            finding = mc.check_fed_history(header, data, contract, key)
         else:
-            finding = mc.check_fed(scenario, header, data, contract)
+            finding = mc.check_fed(scenario, header, data, contract, key)
         findings.append(finding)
         if finding.ok:
             for r in fed_scenarios.long_rows(scenario, header, data):
@@ -200,8 +205,8 @@ def load_fed(
             ("downloaded_at", pa.timestamp("s", tz="UTC")),
         ]
     )
-    written = write_table(pa.Table.from_pylist(rows, schema), bronze_path(root, "fed"))
-    return _summary("fed", findings, written)
+    written = write_table(pa.Table.from_pylist(rows, schema), bronze_path(root, key))
+    return _summary(key, findings, written)
 
 
 def replay_fetch(folder: Path) -> http.Fetch:
@@ -393,6 +398,40 @@ def build_silver(
     }
 
 
+def build_fed_paths(
+    root: Path,
+    key: str,
+    reserve_month: date,
+    contract: dict[str, Any] | None = None,
+    timing: str = FED_TIMING,
+) -> dict[str, Any]:
+    """An earlier year's Fed paths for an earlier reserve date -> silver fed_paths_<year> (same columns as
+    fed_paths). Anchored on our real national values in `reserve_month` (silver national_monthly must
+    already exist); Fed quarter 1 lands on the quarter after it, as for the current year (ADR-003)."""
+    contract = contract or mc.load_contract()
+    year = int(contract[key]["year"])
+    national = pq.read_table(silver_path(root, "national_monthly")).to_pylist()
+    anchors = {r["variable"]: r["value"] for r in national if r["month"] == reserve_month}
+    fed = _fed_values(root, key)
+    history = fed.pop(HISTORY)
+    start_quarter = max(history)
+    first_quarter = macro.add_quarters(macro.quarter_of(reserve_month), 1)
+    paths = macro.fed_paths(fed, anchors, history[start_quarter], first_quarter, timing)
+    rows = [
+        {
+            **p.__dict__,
+            "quarter_end": macro.quarter_end_month(p.year, p.quarter),
+            "anchor_month": reserve_month,
+        }
+        for p in paths
+    ]
+    table = f"fed_paths_{year}"
+    n = write_table(_table(rows), silver_path(root, table))
+    return {"table": table, "rows": n, "reserve_month": reserve_month.isoformat(), "fed_timing": timing,
+            "fed_start_quarter": f"{start_quarter[0]} Q{start_quarter[1]}",
+            "severely_adverse_worst": macro.path_extremes(paths, macro.SEVERELY_ADVERSE)}  # fmt: skip
+
+
 def _month_row(variable: str, v: macro.MonthValue, source: str) -> dict[str, Any]:
     return {
         "month": v.month,
@@ -422,10 +461,10 @@ def _fhfa_index(root: Path) -> dict[str, dict[tuple[int, int], float]]:
     return out
 
 
-def _fed_values(root: Path) -> dict[str, dict[tuple[int, int], dict[str, float]]]:
+def _fed_values(root: Path, key: str = "fed") -> dict[str, dict[tuple[int, int], dict[str, float]]]:
     wanted = set(macro.FED_VARIABLES)
     out: dict[str, dict[tuple[int, int], dict[str, float]]] = {}
-    for r in pq.read_table(bronze_path(root, "fed")).to_pylist():
+    for r in pq.read_table(bronze_path(root, key)).to_pylist():
         if r["variable"] in wanted and r["value"] is not None:  # old history rows have gaps
             out.setdefault(r["scenario"], {}).setdefault((r["year"], r["quarter"]), {})[r["variable"]] = r[
                 "value"

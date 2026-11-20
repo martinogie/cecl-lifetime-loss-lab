@@ -35,17 +35,22 @@ GOLD, SILVER = environment.databricks_schema("gold"), environment.databricks_sch
 VOLUME = "/Volumes/" + environment.databricks_schema("bronze").replace(".", "/") + "/raw"
 runs = json.loads(dbutils.widgets.get("runs"))
 paths = int(dbutils.widgets.get("paths"))
-# plan: "book@economy" items, e.g. "202603@202603,202606@202606,202606@202603"
 # ADR-003 settings (defaults 24 and 12); saved with every book so the PC pricing can check it uses the same
 forecast_months = int(dbutils.widgets.get("forecast_months"))
 reversion_months = int(dbutils.widgets.get("reversion_months"))
+# plan: "book@economy" items, e.g. "202603@202603,202606@202606,202606@202603"
 plan = [tuple(x.split("@")) for x in dbutils.widgets.get("plan").split(",") if x.strip()]
 mlflow.set_registry_uri("databricks-uc")
 models = {fx.STATES.index(s): mlflow.pyfunc.load_model(f"runs:/{r}/model").unwrap_python_model().inner.model
           for s, r in runs.items()}  # fmt: skip
 state_m = spark.table(f"{SILVER}.macro_state_monthly").toPandas()
 nat_m = spark.table(f"{SILVER}.macro_national_monthly").toPandas()
-fed = spark.table(f"{SILVER}.macro_fed_paths").toPandas()
+# each economy date uses the Fed scenarios published by then (scenarios.fed_year): 2025 for Dec 2025
+fed_by_year = {
+    y: spark.table(f"{SILVER}.macro_{t}").toPandas()
+    for y, t in scenarios.FED_TABLES.items()
+    if any(scenarios.fed_year(e) == y for _, e in plan)
+}
 long_run = spark.table(f"{SILVER}.macro_long_run_averages").toPandas()
 KEEP = ["loan_id", "vintage_year", "property_state", "credit_score", "loan_age", "upb_start", "rate_start",
         "remaining_start", "orig_upb", "orig_ltv", "hpi_orig", "mi_pct", "occupancy_investor", "current_ltv"]  # fmt: skip
@@ -115,7 +120,7 @@ for R, E in plan:
             E,
             state_m,
             nat_m,
-            fed,
+            fed_by_year[scenarios.fed_year(E)],
             long_run,
             weights,
             horizon=engine.MONTHLY + 3 + 12 * (int(R[:4]) - int(E[:4])) + int(R[4:]) - int(E[4:]),

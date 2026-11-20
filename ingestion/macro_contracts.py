@@ -193,11 +193,16 @@ def check_fhfa(
 
 
 def check_fed(
-    scenario: str, header: Sequence[str], rows: Sequence[Sequence[str]], contract: Mapping[str, Any]
+    scenario: str,
+    header: Sequence[str],
+    rows: Sequence[Sequence[str]],
+    contract: Mapping[str, Any],
+    key: str = "fed",
 ) -> Findings:
-    """One Fed scenario CSV: exact columns, scenario name, 13 consecutive quarters, numbers, ranges."""
-    rule = contract["fed"]
-    f = Findings(f"fed_{scenario}", rows=len(rows))
+    """One Fed scenario CSV: exact columns, scenario name, 13 consecutive quarters, numbers, ranges.
+    `key`: the contract section ("fed" for the current year, "fed_2025" for the 2025 scenarios)."""
+    rule = contract[key]
+    f = Findings(f"{key}_{scenario}", rows=len(rows))
     if list(header) != list(rule["columns"]):
         f.errors.append("columns differ from the contract (a new Fed layout needs a contract update)")
         return f
@@ -232,15 +237,15 @@ def check_fed(
 
 
 def check_fed_history(
-    header: Sequence[str], rows: Sequence[Sequence[str]], contract: Mapping[str, Any]
+    header: Sequence[str], rows: Sequence[Sequence[str]], contract: Mapping[str, Any], key: str = "fed"
 ) -> Findings:
     """The Fed's history file: exact columns, consecutive quarters ending just before the scenarios.
 
     Only the last quarter (the starting point the paths are measured from) is range-checked: older
     rows legitimately have empty columns (series that start later).
     """
-    rule, hist = contract["fed"], contract["fed"]["history"]
-    f = Findings("fed_history", rows=len(rows))
+    rule, hist = contract[key], contract[key]["history"]
+    f = Findings(f"{key}_history", rows=len(rows))
     if list(header) != list(rule["columns"]):
         f.errors.append("columns differ from the contract (a new Fed layout needs a contract update)")
         return f

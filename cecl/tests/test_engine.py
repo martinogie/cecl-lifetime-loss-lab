@@ -131,3 +131,11 @@ def test_first_state_starts_paths_from_the_known_state() -> None:
     assert proj.p_default[2, 1] == pytest.approx(MATRIX[fx.CURRENT][fx.DEFAULTED])
     seen = models[fx.LATE_60].seen[0]
     assert seen["forbearance_prev"][0] == 1.0  # the known pause is in the history
+
+
+def test_fed_scenario_year_is_point_in_time() -> None:
+    assert scenarios.fed_year("202512") == 2025  # the 2026 scenarios were not published until February 2026
+    assert scenarios.fed_year("202603") == 2026
+    assert scenarios.fed_year("202606") == 2026
+    with pytest.raises(ValueError):
+        scenarios.fed_year("202412")

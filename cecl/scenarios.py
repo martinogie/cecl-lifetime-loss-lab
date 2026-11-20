@@ -36,6 +36,18 @@ BETA_START = "1991"  # ADR-008 B1(b): 1991 to the latest quarter
 CAPS = {"unemployment_rate": (0.25, 2.0), "hpi": (0.25, 3.0)}  # ADR-008 B3
 STATE_VARIABLES = ("unemployment_rate", "hpi")
 SCENARIOS = ("baseline", "adverse", "severely_adverse")
+# Point in time (Martins, 20 November 2026): a reserve uses the latest Fed scenarios published by its reserve
+# date. 2025 scenarios: 4 February 2025; 2026 scenarios: February 2026.
+FED_PUBLISHED = {2025: "202502", 2026: "202602"}  # scenario year -> publication month (YYYYMM)
+FED_TABLES = {2025: "fed_paths_2025", 2026: "fed_paths"}  # silver table per scenario year
+
+
+def fed_year(reserve_ym: str) -> int:
+    """The Fed scenario year a reserve dated `reserve_ym` uses: the latest one published by then."""
+    known = [y for y, pub in FED_PUBLISHED.items() if pub <= reserve_ym]
+    if not known:
+        raise ValueError(f"no Fed scenarios were published by {reserve_ym}")
+    return max(known)
 
 
 def ym(d: Any) -> str:

@@ -28,7 +28,7 @@ SILVER = environment.databricks_schema("silver")
 environment.assert_can_write(SILVER)
 FILES = "/Volumes/" + environment.databricks_schema("bronze").replace(".", "/") + "/raw/macro_silver"
 DEFAULT_TABLES = ("state_monthly", "national_monthly", "long_run_averages", "fed_paths")
-KNOWN = DEFAULT_TABLES + ("household_monthly",)  # household_monthly: model v2's stress inputs
+KNOWN = DEFAULT_TABLES + ("household_monthly", "fed_paths_2025")  # v2 stress inputs; 2025 Fed paths
 chosen = [t.strip() for t in dbutils.widgets.get("tables").split(",") if t.strip()]
 TABLES = tuple(chosen) or DEFAULT_TABLES
 if set(TABLES) - set(KNOWN):
@@ -44,7 +44,7 @@ for name in TABLES:
     in_file, in_table = source.count(), spark.table(target).count()
     if in_file != in_table:  # control C02
         raise RuntimeError(f"tie-out failed: {target} has {in_table:,} rows, the file {in_file:,}")
-    value = "path_value" if name == "fed_paths" else "value"
+    value = "path_value" if name.startswith("fed_paths") else "value"
     keys = [c for c in ("scenario", "state", "geo") if c in source.columns][:1] + ["variable"]
     totals = spark.table(target).groupBy(*keys).agg(F.sum(value).alias("s")).collect()
     sums = {"|".join(str(r[k]) for k in keys): float(r["s"]) for r in totals}
