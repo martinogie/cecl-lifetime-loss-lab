@@ -607,6 +607,75 @@ points). As Amendment 4 provides, v2 was registered in dev as `@challenger` (19 
 why); v1's model versions, runs and its out-of-time failure (L-032) stay on record. `@champion` is not set.
 The holdout has not run; the holdout expectations file is left blank for Martins.
 
+### Model v2 holdout, July 2024 - June 2026 (run once, 19 November 2026): failed
+
+**Rules:** ADR-009 Amendment 3 E, locked by Amendment 5: every judged default cell (by year and vintage,
+at least 200 actual defaults) and the total within 0.80-1.25. The result stands whatever it shows.
+Martins's expectations were committed beforehand (`9c1cbae`, `docs/phase2/model_v2_holdout_expectations.md`).
+
+**Run:** Databricks run 1036760341708514 (4.0 minutes), MLflow run `1ffe838e0047416d9e4e3d370375e00e`, code
+`34963dd`, ADR-009 commit `7f6f19a`, v2 `@challenger` runs `d0e07d92` / `995197d8` / `aafd64ee`, downturn
+check runs `69232827` and `eec4c05a`. Every launcher guard passed first. The 1 July 2024 start table, its
+history and the outcomes were built inside the run; start histories matched every start row (0 mismatches)
+and every start loan had an outcome row.
+
+**Verdict: failed.** Total projected defaults 3,082 vs 3,814 actual (**0.81**, inside the bar), but **5 of 8
+judged default cells are outside 0.80-1.25**:
+
+| Cell | Actual | Projected | Ratio | Bar |
+|---|---|---|---|---|
+| Year 2024 (July-December) | 952 | 973 | 1.02 | pass |
+| Year 2025 | 1,927 | 1,560 | 0.81 | pass |
+| Year 2026 (January-June) | 935 | 549 | **0.59** | fail |
+| Vintage 2019 | 221 | 165 | **0.75** | fail |
+| Vintage 2021 | 384 | 351 | 0.91 | pass |
+| Vintage 2022 | 884 | 569 | **0.64** | fail |
+| Vintage 2023 | 885 | 556 | **0.63** | fail |
+| Vintage 2024 | 345 | 243 | **0.71** | fail |
+
+(Year 2025 and the total are inside the bar, by 0.01. Vintages with fewer than 200 actual defaults are reported, not judged.)
+
+**By starting state:** current 313,666 loans, 2,805 actual vs 2,368 projected (0.84); 30 days late 2,995
+loans, 679 vs 495 (0.73); 60 days late 487 loans, 330 vs 219 (0.66).
+
+**Payoffs (reported; failures recorded under L-028):** 55,961 projected vs 52,990 actual (1.06); by year 2024
+1.33, 2025 1.04, 2026 0.82; 8 judged payoff cells outside the bar: years 2024 (1.33), and seasoned vintages
+2004-2005 (0.46-0.47), 2009-2012 (0.54-0.75) and 2016 (0.78). The 2020-2023 vintages are 1.08-1.22.
+
+**Each transition on the holdout months (v2; v1's retired models for information):**
+
+| Step | v2 log loss | v1 log loss | v2 AUC by move | v2 calibration (predicted / actual) |
+|---|---|---|---|---|
+| Current | 0.06969 | 0.07164 | to 30: 0.828; to default: 0.816; to paid off: 0.638 | to 30: 1.06; to paid off: 1.25; to 60 / default (small): 0.57 / 1.57 |
+| 30 days | 0.95512 | 0.96771 | to 60: 0.606; to default: 0.768; to current: 0.726 | to current 1.07; 60 0.93; default 0.89; paid off 1.16 |
+| 60 days | 1.29884 | 1.47226 | to default: 0.647; to current: 0.648 | to current 1.10; 30 1.13; default 0.97; paid off 0.46 |
+
+v2's log loss is better than v1's at every step. One month at a time the models are close to calibrated
+(the current-loan model's roll to 30 days late is 1.06, against v1's 0.75 on 2022-2026); the projection
+nevertheless falls behind over time (defaults 1.02 in late 2024, 0.81 in 2025, 0.59 in 2026), as v1's did
+(1.07 to 0.36), but less steeply, and the newest vintages are under-projected.
+
+**Against Martins's written expectations:**
+
+| Expectation (written before the run) | Result |
+|---|---|
+| Total defaults 0.90-1.10 | 0.81: lower than expected, inside the bar |
+| Current loans 0.90-1.10 | 0.84 |
+| 30 days late 0.80-0.95 | 0.73 |
+| 60 days late 0.85-1.05 | 0.66 |
+| At least one recent vintage above 1.25 (over-predicted) | The opposite: 2022-2024 vintages under-predicted (0.63-0.71) |
+| Overall pass about a coin flip | Failed |
+| AUC above 0.80 for current to 30 days late | 0.828 |
+| AUC about 0.65-0.75 for 30 to 60 and 60 to default | 0.606 and 0.647 (just below the range) |
+| Log loss better than v1 | Yes, at all three steps |
+| Payoffs under-predicted after the first year (0.75-0.90), seasoned loans worst | Total 1.06 (2024 over, 1.33); 2026 0.82; seasoned vintages under (0.46-0.78), as expected |
+| 2020-2021 vintages' payoffs better than v1 (v1 1.48-1.79), some cells outside | 1.21 and 1.08: better than v1; inside the bar |
+
+**What follows (ADR-009 Amendment 3 E, Amendment 5, Martins's expectations file):** the result stands; nothing
+was tuned, swapped or re-chosen on it. v2 stays `@challenger` with the failure recorded (limitations log
+L-038; registry versions tagged "holdout: failed"); it is not champion. Phase 4 uses a documented overlay
+under ADR-006 for the default shortfall.
+
 ### Still to come
 
 - The out-of-time test ran once on 18-19 November 2026 and **failed** (above); the models stay @challenger.
@@ -617,4 +686,6 @@ The holdout has not run; the holdout expectations file is left blank for Martins
 - Under ADR-009 Amendment 5 (written after that result) the check passes with test 7 in points; v2 is
   `@challenger` in dev and v1's alias is retired. Next: Martins fills in the holdout expectations, then the
   holdout runs once under the locked rules.
+- The v2 holdout ran once on 19 November 2026 and **failed** (total 0.81, 5 default cells outside the bar);
+  v2 stays `@challenger`; Phase 4 uses a documented ADR-006 overlay (L-038).
 - Registration of the @challenger, model card and model inventory entries (step M9).

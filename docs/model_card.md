@@ -63,9 +63,14 @@ audited bank reserve and not accounting advice.
   as the rise in default rate in percentage points; re-evaluated on the saved check (no re-run), all four
   comparisons pass, so the check passes. **This is the last change to v2's validation rules: the holdout
   rules are locked and its result stands whatever it shows.**
-- **Status:** `@challenger` in dev since 19 November 2026 (`cecl_lab_dev.ml.pd_v2_transition_current`,
-  `_30`, `_60`); v1's alias retired (v1's runs and its out-of-time failure, L-032, stay on record). Holdout
-  not yet run; not champion. Two of v2's validation rules were changed after their results (Amendments 4
+- **Holdout (July 2024 - June 2026, run once 19 November 2026, MLflow `1ffe838e`): failed.** Total defaults
+  0.81 (inside the bar) but 5 of 8 judged default cells outside 0.80-1.25: year 2026 0.59; vintages 2019 0.75,
+  2022 0.64, 2023 0.63, 2024 0.71. By starting state: current 0.84, 30 days 0.73, 60 days 0.66. Payoffs 1.06
+  (8 cells outside, L-028). Log loss better than v1 at every step; the current-loan roll to 30 days late is
+  1.06 at one month, but the projection falls behind each year (1.02, 0.81, 0.59).
+- **Status:** `@challenger` in dev (19 November 2026), **holdout failed**; not champion. v1's alias retired
+  (v1's runs and its out-of-time failure, L-032, stay on record). Phase 4 uses a documented ADR-006 overlay for
+  the default shortfall (L-038). Two of v2's validation rules were changed after their results (Amendments 4
   and 5); the original failures stay on record (L-035, L-037). Other limitations: L-028 (payoffs), L-036
   (household-stress inputs).
 - Full results: validation report, "Model v2". Educational model on Freddie Mac conforming mortgages; not
