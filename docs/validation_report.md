@@ -682,6 +682,47 @@ was tuned, swapped or re-chosen on it. v2 stays `@challenger` with the failure r
 L-038; registry versions tagged "holdout: failed"); it is not champion. Phase 4 uses a documented overlay
 under ADR-006 for the default shortfall.
 
+### L-039 re-measurement: the corrected count next to the recorded results (19 November 2026, for the record only)
+
+**Scope (confirmed in writing):** the bias is in `cecl.models.multistate.check` only, the comparison of a
+projection with what actually happened. It cut each loan's projected chances at its actual exit (payoff or
+default as well as an unknown outcome), which counts survival twice. **The reserve engine is not affected:**
+it sums each loan's projected chances over its whole remaining life, and there are no actual exits in a
+reserve. Also not affected: the downturn-sensitivity check (it compares projections with projections), the
+one-month transition calibration, the selection log losses, LGD and EAD.
+
+**Re-measurement:** Databricks run 302169065821249 (20.7 minutes), MLflow `cbe8779c`, code tagged
+`run/l039-remeasure`. Every recorded projection was replayed exactly (same models, seeds and data) and scored
+both ways. The recorded rule reproduced every recorded total. **No verdict, selection or model is changed; the
+corrected numbers are disclosed next to the original ones.**
+
+| Test | Recorded total | Corrected total | Recorded by year | Corrected by year | Default cells outside 0.80-1.25 (recorded -> corrected) |
+|---|---|---|---|---|---|
+| v2 F1 crisis 2008-2010 | 0.376 | 0.495 | 0.59 / 0.33 / 0.30 | 0.67 / 0.43 / 0.46 | 10 -> 8 |
+| v1-style benchmark on F1 | 0.391 | 0.517 | 0.56 / 0.34 / 0.35 | 0.64 / 0.44 / 0.53 | 10 -> 8 |
+| v2 F2 2011-2013 | 0.92 | **1.27** | 0.92 / 0.95 / 0.86 | 1.06 / 1.32 / 1.66 | 2 -> 7 |
+| v2 F3 2014-2016 | 1.09 | **1.37** | 1.07 / 1.11 / 1.09 | 1.20 / 1.43 / 1.61 | 3 -> 11 |
+| v2 F4 2017-2019 | 1.09 | **1.35** | 1.12 / 1.06 / 1.08 | 1.25 / 1.32 / 1.52 | 2 -> 7 |
+| v2 F5 Jul 2022-Jun 2024 (information) | 0.72 | 0.80 | 1.00 / 0.69 / 0.58 | 1.06 / 0.77 / 0.67 | 6 -> 6 |
+| v2 holdout Jul 2024-Jun 2026 | 0.81 | 0.92 | 1.02 / 0.81 / 0.59 | 1.09 / 0.92 / 0.74 | 5 -> 3 |
+| v1 out-of-time Jul 2022-Jun 2026 | 0.54 | 0.63 | 1.07 / 0.57 / 0.46 / 0.46 / 0.36 | 1.13 / 0.63 / 0.54 / 0.58 / 0.52 | 11 -> 11 |
+
+Payoffs, recorded -> corrected (L-028): F2 0.65 -> 0.90, F3 0.97 -> 1.20, F4 0.78 -> 0.93, holdout 1.06 ->
+1.18, v1 out-of-time 0.79 -> 0.90. Much of the "payoffs under-projected after the first year" pattern
+(L-028) was this bias.
+
+**What the corrected numbers say (disclosure, not a re-decision):**
+- In the normal periods (2011-2019) v2 **over-projects** defaults by about 27-37%, most in the second and third
+  year. The recorded rule's downward bias had hidden this. Under the corrected count, v2 would not have passed
+  the F2-F4 requirement (total and each year within 0.80-1.25), and on F1 it is still slightly further from
+  actual than the v1-style benchmark (0.495 vs 0.517).
+- From 2022 on, v2 still **under-projects** (holdout 0.92 overall, 0.74 in 2026; vintages 2022-2023 at 0.74-0.76).
+  So the model runs high in benign periods and low in the rate-lock period. v1's out-of-time shortfall is
+  smaller than recorded (0.63, not 0.54) but still fails.
+- For the reserve: v2's projection is unbiased by construction in the engine, but on this evidence it is
+  likely **conservative in benign conditions** and short in a 2024-2026-like period; together with the LGD
+  conservatism (L-033), the baseline reserve is likely above the real loss. The allowance memo states this.
+
 ### Still to come
 
 - The out-of-time test ran once on 18-19 November 2026 and **failed** (above); the models stay @challenger.
