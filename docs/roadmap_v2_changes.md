@@ -143,3 +143,28 @@ real weighted rates.)
 - **Recalibrate LGD to recent experience and fix the cure-rate and 60-day lingering issues** (Martins,
   19 November 2026), so that the default shortfall (L-038) and the LGD conservatism (L-033) no longer need
   to offset each other in the reserve. Also fix the projection check's count (L-039: cut only at censoring).
+
+### LGD challenger for v3 (Martins, 20 November 2026; planned, not built)
+
+A simple LGD benchmark built as a proper challenger to the booked two-step gradient-boosting LGD (M-02):
+- **Step 1:** logistic regression for the chance of any loss.
+- **Step 2:** linear regression on loss severity.
+- Same inputs, same monotonic directions where applicable, same data split as M-02.
+
+**Rules for v3** (to be written and committed, with Martins's approval, **before** the comparison runs):
+- The challenger replaces the booked LGD only if it is closer to actual balance-weighted losses on resolved
+  defaults (out-of-time), still rises with house-price falls (10/20/30%), and passes the same checks.
+- Because the Option B overlay decision depends on the booked LGD's conservatism (L-033, 1.64x), **any LGD
+  change triggers a re-decision of the L-038 overlay in the same release.**
+
+### Planned v3 items (summary)
+
+| Item | Why | Source |
+|---|---|---|
+| Cure-rate and 60-day lingering fix | The holdout shortfall comes from too many simulated cures from 30 days late and too few loans lingering at 60 days | L-038; diagnosis above |
+| LGD recalibration to recent experience | The booked LGD predicts 1.64x the real loss per default on resolved 2017-2021 defaults | L-033 |
+| LGD challenger (logistic + linear two-step) | A simple, explainable benchmark against the booked gradient-boosting LGD | This section |
+| PD fixes | Time-at-current-delinquency input, a period-level cure signal, loss-mitigation flags (candidates above); projection check counts cut only at censoring | L-038, L-039 |
+| L-038 overlay re-decision | Option B rests on the booked LGD's conservatism; any LGD or PD change re-opens it | L-033, L-038 |
+
+None of these is built yet. Each needs written rules committed before its test, and Martins's approval.
