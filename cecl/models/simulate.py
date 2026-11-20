@@ -111,9 +111,14 @@ def stress_inputs(hh: Household | None, start_ym: str, k: int, n: int, features:
 
 
 def project(models: dict[int, Any], start: Any, history: Any, macro: multistate.Macro, start_ym: str,
-            months: int, household: Household | None = None, paths: int = 8, seed: int = 7) -> multistate.Projection:  # fmt: skip
+            months: int, household: Household | None = None, paths: int = 8, seed: int = 7,
+            observer: Any = None) -> multistate.Projection:  # fmt: skip
     """Play every loan in `start` forward `months` months along `paths` random paths each, with one
-    transition model per live state (`models[state].predict_proba(inputs)` -> n x 5)."""
+    transition model per live state (`models[state].predict_proba(inputs)` -> n x 5).
+
+    `observer` (diagnostics only; it changes nothing): called each month with
+    `(k, state, alive, hist, loan, probs)`, where `probs[s]` is the n_rows x 5 matrix scored for the live
+    paths in state `s` and `hist` holds every path's history inputs that month."""
     rng = np.random.default_rng(seed)
     n = len(start)
     loan = np.repeat(np.arange(n), paths)
@@ -133,6 +138,7 @@ def project(models: dict[int, Any], start: Any, history: Any, macro: multistate.
             X_loan |= stress_inputs(household, start_ym, k, n, every)
         hist = path_inputs(states, pauses, first)
         new_state = state.copy()
+        probs: dict[int, np.ndarray] = {}
         for s in LIVE:
             rows = np.flatnonzero(alive & (state == s))
             if not len(rows):
@@ -145,10 +151,13 @@ def project(models: dict[int, Any], start: Any, history: Any, macro: multistate.
             X |= {f: hist[f][first_row] for f in PATH_INPUTS}
             X = fx.with_derived(X, feature_sets[s])
             P = models[s].predict_proba({f: X[f] for f in feature_sets[s]})[back.ravel()]
+            probs[s] = P
             p_def[:, k] += np.bincount(loan[rows], P[:, fx.DEFAULTED], minlength=n) / paths
             p_pre[:, k] += np.bincount(loan[rows], P[:, fx.PREPAID], minlength=n) / paths
             u = rng.random(len(rows))
             new_state[rows] = np.minimum((u[:, None] > np.cumsum(P, axis=1)).sum(axis=1), 4)
+        if observer is not None:
+            observer(k, state, alive, hist, loan, probs)
         # history moves one month on: this month's state becomes "last month"; no future pauses
         missed_now = alive & (new_state >= 1) & (new_state <= 2) & (first == 0)
         first = np.where(first > 0, np.minimum(first + 1, 60), np.where(missed_now, 1, 0))
