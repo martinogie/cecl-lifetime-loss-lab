@@ -58,9 +58,12 @@ def tail_hazards(p_def: np.ndarray, p_pre: np.ndarray) -> tuple[np.ndarray, np.n
 
 
 def price(book: Any, p_def: np.ndarray, p_pre: np.ndarray, macro: multistate.Macro, reserve_ym: str,
-          lgd_model: Any, curtail: dict[int, float], long_run_growth: dict[str, float]) -> dict[str, np.ndarray]:  # fmt: skip
+          lgd_model: Any, curtail: dict[int, float], long_run_growth: dict[str, float],
+          forecast_months: int = 24) -> dict[str, np.ndarray]:  # fmt: skip
     """Each loan's lifetime expected loss under one scenario. `p_def`, `p_pre`: loans x MONTHLY (months 1..36
-    after the reserve month). `long_run_growth`: each state's annual log house-price growth (and "US")."""
+    after the reserve month). `long_run_growth`: each state's annual log house-price growth (and "US").
+    `forecast_months` only splits the reported loss into forecast and the rest (ADR-003 default 24); the
+    economy itself, including the reversion, is already in `macro`."""
     n, K = p_def.shape
     states = book["property_state"].astype(str).to_numpy()
     args = (book["upb_start"], book["rate_start"], book["remaining_start"], book["loan_age"])
@@ -97,6 +100,6 @@ def price(book: Any, p_def: np.ndarray, p_pre: np.ndarray, macro: multistate.Mac
         tail_pd += d_year
         ead_sum += d_year * bal
         s_start = np.where(live, s_start * (1.0 - p_year_exit), s_start)
-    return {"forecast": el[:, :24].sum(axis=1), "reversion": el[:, 24:].sum(axis=1), "tail": tail_el,
+    return {"forecast": el[:, :forecast_months].sum(axis=1), "reversion": el[:, forecast_months:].sum(axis=1), "tail": tail_el,
             "total": el.sum(axis=1) + tail_el, "lifetime_pd": p_def.sum(axis=1) + tail_pd,
             "pd_36": p_def.sum(axis=1), "ead_at_default": ead_sum}  # fmt: skip

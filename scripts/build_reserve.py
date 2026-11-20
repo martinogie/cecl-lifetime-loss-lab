@@ -45,6 +45,8 @@ WEIGHTS = {"baseline": 0.60, "adverse": 0.30, "severely_adverse": 0.10}  # ADR-0
 SEVERE_RANGE = (0.05, 0.10, 0.15, 0.20, 0.25)  # floor 5%, cap 25%
 UPLIFT = 0.3434541551805488  # L-038 sizing (docs/phase4/overlay_sizing_L038.json): Option A sensitivity
 LOSS_CODES = lgd.LOSS_CODES
+FORECAST_MONTHS = scenarios.FORECAST_MONTHS  # ADR-003 settings; must match the projection job's parameters
+REVERSION_MONTHS = scenarios.REVERSION_MONTHS
 
 
 def cents(x: float) -> Decimal:
@@ -58,6 +60,19 @@ def group_of(vintage: Any) -> Any:
         "2025-2026",
         np.where(v >= 2022, "2022-2024", np.where(v >= 2019, "2019-2021", "2018 and older")),
     )
+
+
+def check_settings(book: Any, src: Path) -> None:
+    """The projection job and this pricing must use the same forecast and reversion lengths: the default and
+    payoff chances were simulated under the job's economy. Books written before the settings existed carry no
+    columns and were built with ADR-003's 24 and 12."""
+    job = tuple(
+        int(book[c].iloc[0]) if c in book.columns else d
+        for c, d in (("forecast_months", 24), ("reversion_months", 12))
+    )
+    if job != (FORECAST_MONTHS, REVERSION_MONTHS):
+        raise SystemExit(f"{src}: projected with forecast/reversion {job}, priced with "
+                         f"{(FORECAST_MONTHS, REVERSION_MONTHS)}; re-run the projection or change the settings")  # fmt: skip
 
 
 def load_inputs(con: Any) -> dict[str, Any]:
@@ -80,6 +95,7 @@ def price_run(R: str, E: str, name: str, inp: dict[str, Any]) -> Any:
     if cache.exists() and cache.stat().st_mtime > src.stat().st_mtime:
         return pd.read_parquet(cache)  # already priced from this exact projection file
     book = pd.read_parquet(src)
+    check_settings(book, src)
     p_def = book[[f"pd_{k}" for k in range(1, engine.MONTHLY + 1)]].to_numpy(dtype=float)
     p_pre = book[[f"pp_{k}" for k in range(1, engine.MONTHLY + 1)]].to_numpy(dtype=float)
     E_book = (
@@ -90,9 +106,10 @@ def price_run(R: str, E: str, name: str, inp: dict[str, Any]) -> Any:
     weights = E_book.groupby("property_state")["upb_start"].sum().to_dict()
     gap = multistate.months_between(E, R) - 1
     sc = scenarios.build(name, E, inp["state"], inp["national"], inp["fed"], inp["long_run"], weights,
-                         horizon=engine.MONTHLY + 3 + gap)  # fmt: skip
+                         horizon=engine.MONTHLY + 3 + gap, forecast_months=FORECAST_MONTHS,
+                         reversion_months=REVERSION_MONTHS)  # fmt: skip
     growth = sc.long_run["hpi_growth"]
-    out = engine.price(book, p_def, p_pre, sc.macro, R, inp["lgd"], inp["curtail"], growth)
+    out = engine.price(book, p_def, p_pre, sc.macro, R, inp["lgd"], inp["curtail"], growth, FORECAST_MONTHS)
     frame = book[
         [
             "loan_id",
@@ -351,7 +368,8 @@ def main(argv: list[str] | None = None) -> int:
                                    "audited bank reserve and not accounting advice.",
                            "model": "PD/prepayment M-01 v2 @challenger (holdout failed, L-038; check bias L-039); LGD M-02; EAD M-03",
                            "overlay_decision": "Option B: no L-038 overlay on the baseline reserve (L-033 netting decision, 19 Nov 2026)",
-                           "uplift_sensitivity": UPLIFT, "weights": WEIGHTS, "dates": {}}  # fmt: skip
+                           "uplift_sensitivity": UPLIFT, "weights": WEIGHTS,
+                           "forecast_months": FORECAST_MONTHS, "reversion_months": REVERSION_MONTHS, "dates": {}}  # fmt: skip
     pipelines: dict[str, Any] = {}
     for R in (Q1, Q2):
         d: dict[str, Any] = {"scenarios": {}, "tie_outs": {}}

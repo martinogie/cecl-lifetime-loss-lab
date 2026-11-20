@@ -17,7 +17,7 @@ import os
 import time
 
 for name, default in (("env", ""), ("layout", "catalogs"), ("runs", "{}"), ("plan", ""), ("paths", "8"),
-                      ("code_version", "unknown")):  # fmt: skip
+                      ("forecast_months", "24"), ("reversion_months", "12"), ("code_version", "unknown")):  # fmt: skip
     dbutils.widgets.text(name, default)
 os.environ["CECL_ENV"] = dbutils.widgets.get("env")
 os.environ["CECL_DATABRICKS_LAYOUT"] = dbutils.widgets.get("layout")
@@ -36,6 +36,9 @@ VOLUME = "/Volumes/" + environment.databricks_schema("bronze").replace(".", "/")
 runs = json.loads(dbutils.widgets.get("runs"))
 paths = int(dbutils.widgets.get("paths"))
 # plan: "book@economy" items, e.g. "202603@202603,202606@202606,202606@202603"
+# ADR-003 settings (defaults 24 and 12); saved with every book so the PC pricing can check it uses the same
+forecast_months = int(dbutils.widgets.get("forecast_months"))
+reversion_months = int(dbutils.widgets.get("reversion_months"))
 plan = [tuple(x.split("@")) for x in dbutils.widgets.get("plan").split(",") if x.strip()]
 mlflow.set_registry_uri("databricks-uc")
 models = {fx.STATES.index(s): mlflow.pyfunc.load_model(f"runs:/{r}/model").unwrap_python_model().inner.model
@@ -116,11 +119,14 @@ for R, E in plan:
             long_run,
             weights,
             horizon=engine.MONTHLY + 3 + 12 * (int(R[:4]) - int(E[:4])) + int(R[4:]) - int(E[4:]),
+            forecast_months=forecast_months,
+            reversion_months=reversion_months,
         )
         proj = simulate.project(models, start, history, sc.macro, R, engine.MONTHLY + 1, None, paths=paths,
                                 first_state=start["first_state"].to_numpy(), first_pause=start["first_pause"].to_numpy())  # fmt: skip
         out = start[[c for c in KEEP if c in start.columns]].copy()
         out["first_state"] = start["first_state"].to_numpy()
+        out["forecast_months"], out["reversion_months"] = forecast_months, reversion_months
         pdm = pd.DataFrame(proj.p_default[:, 1:], columns=[f"pd_{k}" for k in range(1, engine.MONTHLY + 1)])
         ppm = pd.DataFrame(proj.p_prepay[:, 1:], columns=[f"pp_{k}" for k in range(1, engine.MONTHLY + 1)])
         out = pd.concat([out.reset_index(drop=True), pdm, ppm], axis=1)

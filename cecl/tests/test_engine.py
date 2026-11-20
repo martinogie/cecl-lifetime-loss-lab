@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -59,7 +61,7 @@ def test_tail_uses_month_36_hazards_until_maturity() -> None:
     assert hd[0] == pytest.approx(h) and hp[0] == 0.0 and surv[0] == pytest.approx(s36)
 
 
-def test_scenario_b4b_reproduces_the_national_change() -> None:
+def toy_economy() -> tuple[Any, Any, Any, Any, dict[str, float]]:
     months = pd.date_range("1990-01-01", "2026-06-01", freq="MS").date
     rng = np.random.default_rng(1)
     nat_u = 5 + np.cumsum(rng.normal(0, 0.1, len(months)))
@@ -77,8 +79,12 @@ def test_scenario_b4b_reproduces_the_national_change() -> None:
                                                          ("mortgage_rate_30y", 0.0))])  # fmt: skip
     lr = pd.DataFrame([{"geo": g, "variable": v, "measure": "x", "value": val} for g in ("US", "AA", "BB")
                        for v, val in (("unemployment_rate", 5.0), ("hpi", 0.03), ("mortgage_rate_30y", 6.0))])  # fmt: skip
-    w = {"AA": 3.0, "BB": 1.0}
-    sc = scenarios.build("baseline", "202606", pd.DataFrame(rows), pd.DataFrame(nrows), fed, lr, w, 48)
+    return pd.DataFrame(rows), pd.DataFrame(nrows), fed, lr, {"AA": 3.0, "BB": 1.0}
+
+
+def test_scenario_b4b_reproduces_the_national_change() -> None:
+    state, national, fed, lr, w = toy_economy()
+    sc = scenarios.build("baseline", "202606", state, national, fed, lr, w, 48)
     assert sc.betas["hpi"]["BB"] > sc.betas["hpi"]["AA"]
     nat = scenarios.national_changes(fed, "baseline", "unemployment_rate")
     assert scenarios.weighted_change(sc, w, "unemployment_rate", 24) == pytest.approx(nat[24])
@@ -89,6 +95,24 @@ def test_scenario_b4b_reproduces_the_national_change() -> None:
         5.0
     )  # reverted to its long-run level
     assert sc.macro.mortgage_rate[sc.months[40]] == pytest.approx(6.0)
+
+
+def test_forecast_and_reversion_lengths_are_settings() -> None:
+    state, national, fed, lr, w = toy_economy()
+    default = scenarios.build("baseline", "202606", state, national, fed, lr, w, 48)
+    explicit = scenarios.build("baseline", "202606", state, national, fed, lr, w, 48, 24, 12)
+    pd.testing.assert_frame_equal(default.macro.unemployment, explicit.macro.unemployment)  # ADR-003 defaults
+    short = scenarios.build("baseline", "202606", state, national, fed, lr, w, 48, forecast_months=12,
+                            reversion_months=6)  # fmt: skip
+    u = short.macro.unemployment["AA"]
+    nat = scenarios.national_changes(fed, "baseline", "unemployment_rate")
+    assert scenarios.weighted_change(short, w, "unemployment_rate", 12) == pytest.approx(nat[12])
+    assert u[short.months[16]] != pytest.approx(5.0)  # still reverting in month 17
+    assert u[short.months[17]] == pytest.approx(5.0)  # long-run level reached at month 18 = 12 + 6
+    with pytest.raises(ValueError):
+        scenarios.build("baseline", "202606", state, national, fed, lr, w, 48, forecast_months=40)
+    with pytest.raises(ValueError):
+        scenarios.build("baseline", "202606", state, national, fed, lr, w, 48, reversion_months=0)
 
 
 def test_first_state_starts_paths_from_the_known_state() -> None:

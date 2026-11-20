@@ -846,6 +846,10 @@ resources:
           default: "202603@202603,202606@202606,202606@202603"
         - name: paths
           default: "8"
+        - name: forecast_months
+          default: "24"
+        - name: reversion_months
+          default: "12"
         - name: code_version
           default: unknown
       tasks:

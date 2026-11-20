@@ -142,20 +142,31 @@ def long_run_values(long_run: Any) -> dict[str, dict[str, float]]:
 
 
 def build(scenario: str, reserve_ym: str, state_monthly: Any, national_monthly: Any, fed_paths: Any, long_run: Any,
-          weights: dict[str, float], horizon: int) -> Scenario:  # fmt: skip
-    """The scenario's economy for a reserve month: history up to `reserve_ym`, then `horizon` months."""
+          weights: dict[str, float], horizon: int, forecast_months: int = FORECAST_MONTHS,
+          reversion_months: int = REVERSION_MONTHS) -> Scenario:  # fmt: skip
+    """The scenario's economy for a reserve month: history up to `reserve_ym`, then `horizon` months.
+
+    `forecast_months` (reasonable-and-supportable period) and `reversion_months` (straight-line reversion to the
+    long-run values) are settings; the defaults are ADR-003's 24 and 12. The forecast cannot run past the end of
+    the Fed's paths (no made-up quarters), and reversion must be at least one month.
+    """
     import pandas as pd
 
+    f, rv = int(forecast_months), int(reversion_months)
+    fed_months = 3 * int(fed_paths["horizon"].max()) - 1  # the last Fed quarter's middle month
+    if not 1 <= f <= fed_months:
+        raise ValueError(f"forecast_months must be 1-{fed_months} (the Fed's paths end there), got {f}")
+    if rv < 1:
+        raise ValueError(f"reversion_months must be at least 1, got {rv}")
     lr = long_run_values(long_run)
     months = [multistate.add_months(reserve_ym, k) for k in range(1, horizon + 1)]
-    f = FORECAST_MONTHS
     tables, rescaled = {}, {}
     for var in STATE_VARIABLES:
         hist = wide(state_monthly, var)
         hist = hist[hist.index <= reserve_ym]
         b = rescale(betas(hist, national(national_monthly, var), var, reserve_ym), weights)
         rescaled[var] = b
-        nat = national_changes(fed_paths, scenario, var)  # index 0..27
+        nat = national_changes(fed_paths, scenario, var, f + 3)  # index 0..f+3
         anchor = hist.loc[reserve_ym]
         fut = np.zeros((horizon, len(hist.columns)))
         for j, st in enumerate(hist.columns):
@@ -163,25 +174,25 @@ def build(scenario: str, reserve_ym: str, state_monthly: Any, national_monthly: 
             if var == "unemployment_rate":
                 path = a + beta * nat[1 : f + 1]
                 target = lr["unemployment_rate"].get(st, lr["unemployment_rate"]["US"])
-                rev = path[-1] + (target - path[-1]) * np.arange(1, REVERSION_MONTHS + 1) / REVERSION_MONTHS
-                tail = np.full(max(horizon - f - REVERSION_MONTHS, 0), target)
+                rev = path[-1] + (target - path[-1]) * np.arange(1, rv + 1) / rv
+                tail = np.full(max(horizon - f - rv, 0), target)
                 series = np.concatenate([path, rev, tail])
             else:
                 logp = np.log(a) + beta * nat[: f + 1]  # index 0 = R
                 g_end = logp[-1] - logp[-2]
                 g_lr = lr["hpi_growth"].get(st, lr["hpi_growth"]["US"]) / 12.0
-                g = g_end + (g_lr - g_end) * np.arange(1, REVERSION_MONTHS + 1) / REVERSION_MONTHS
-                g = np.concatenate([g, np.full(max(horizon - f - REVERSION_MONTHS, 0), g_lr)])
+                g = g_end + (g_lr - g_end) * np.arange(1, rv + 1) / rv
+                g = np.concatenate([g, np.full(max(horizon - f - rv, 0), g_lr)])
                 series = np.exp(np.concatenate([logp[1:], logp[-1] + np.cumsum(g)]))
             fut[:, j] = np.maximum(series[:horizon], 0.1 if var == "unemployment_rate" else 1e-6)
         tables[var] = pd.concat([hist, pd.DataFrame(fut, index=months, columns=hist.columns)])
     rate_hist = national(national_monthly, "mortgage_rate_30y")
     rate_hist = rate_hist[rate_hist.index <= reserve_ym]
     a = float(rate_hist.loc[reserve_ym])
-    path = a + national_changes(fed_paths, scenario, "mortgage_rate_30y")[1 : f + 1]
+    path = a + national_changes(fed_paths, scenario, "mortgage_rate_30y", f + 3)[1 : f + 1]
     target = lr["mortgage_rate_30y"]["US"]
-    rev = path[-1] + (target - path[-1]) * np.arange(1, REVERSION_MONTHS + 1) / REVERSION_MONTHS
-    rate = np.concatenate([path, rev, np.full(max(horizon - f - REVERSION_MONTHS, 0), target)])[:horizon]
+    rev = path[-1] + (target - path[-1]) * np.arange(1, rv + 1) / rv
+    rate = np.concatenate([path, rev, np.full(max(horizon - f - rv, 0), target)])[:horizon]
     macro = multistate.Macro(tables["hpi"], tables["unemployment_rate"],
                              pd.concat([rate_hist, pd.Series(rate, index=months)]))  # fmt: skip
     return Scenario(scenario, reserve_ym, macro, rescaled, lr, months)
