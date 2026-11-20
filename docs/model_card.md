@@ -54,6 +54,11 @@ audited bank reserve and not accounting advice.
   downturn-sensitivity check (house prices -10/-20/-30%, unemployment +2/+4 points, the two together, and
   risk ordering; thresholds approved 19 November 2026 before any shock code was written). If it passes, v2 becomes `@challenger` in dev and v1's alias is
   retired; the holdout then runs once.
+- **Downturn-sensitivity check (run 19 November 2026, MLflow `69232827`): failed on test 7.** Defaults rise
+  monotonically and materially (house prices -30%: 1.78x; unemployment +4: 1.44x; both: 2.36x) and tests 1-6
+  pass, but two risk-ordering comparisons fail as ratios (credit score below 680 vs 740+ under house prices
+  -30%: 1.68 vs 1.78; LTV above 80% vs at or below under unemployment +4: 1.33 vs 1.45), although in points the
+  riskier group rises more in both (L-037).
 - **Status:** not registered, not used. Under Amendment 3 the work stopped for Martins before the holdout;
   version 1 stays `@challenger` with its out-of-time failure (L-032). Limitations: L-035 (this result),
   L-028 (payoffs), L-036 (household-stress inputs).

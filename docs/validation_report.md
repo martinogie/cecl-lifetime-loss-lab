@@ -526,12 +526,59 @@ was not. The crisis-exam failure stays on record exactly as reported above (L-03
   rule E. **If it fails:** v2 is not registered, the holdout is not run, and the work stops for Martins.
 - Every other Amendment 3 rule is unchanged, including the champion criteria.
 
+### Model v2 downturn-sensitivity check (ADR-009 Amendment 4): failed on test 7 (19 November 2026)
+
+Run once at code `9818c5f` on the thresholds approved and committed beforehand (`f0ded8c`): Databricks run
+982744500972255 (6.8 minutes), MLflow run `69232827`. Final v2 fits (logistic; runs `d0e07d92`, `995197d8`,
+`aafd64ee`), every loan alive on 1 July 2022 (258,228), 36 months, 8 paths, the same seed in every scenario,
+the economy held at June 2022 levels as the baseline.
+
+| Scenario | Projected defaults | R (vs baseline) |
+|---|---|---|
+| Baseline | 2,959 | 1.00 |
+| House prices -10% / -20% / -30% | 3,411 / 4,155 / 5,273 | 1.15 / 1.40 / 1.78 |
+| Unemployment +2 / +4 points | 3,676 / 4,251 | 1.24 / 1.44 |
+| Combined (-30% and +4) | 6,970 | 2.36 |
+
+| Test | Result |
+|---|---|
+| 1 Monotonic (each step at least +2%) | pass: steps +15%, +22%, +27% (house prices); +24%, +16% (unemployment) |
+| 2 Material, house prices (1.10 at -20%, 1.25 at -30%) | pass: 1.40, 1.78 |
+| 3 Material, unemployment (1.10 at +2, 1.25 at +4) | pass: 1.24, 1.44 |
+| 4 Plausible (no R above 10) | pass: largest 2.36 |
+| 5 Mechanics | pass: start histories 0 mismatches; shocked inputs differ from the baseline by exactly the shock (largest error 9e-16) |
+| 6 Combined (at least 1.50 and above both single shocks) | pass: 2.36 vs 1.78 and 1.44 |
+| 7 Risk ordering (R higher for the riskier group) | **fail** on 2 of 4 comparisons (below) |
+
+| Test 7 comparison | Riskier group R | Safer group R | Result |
+|---|---|---|---|
+| House prices -30%: LTV above 80% vs at or below, after the shock | 2.56 (66,161 loans) | 1.39 (191,592) | pass |
+| House prices -30%: credit score below 680 vs 740+ | 1.68 (24,817) | 1.78 (161,928) | **fail** |
+| Unemployment +4: LTV above 80% vs at or below (no house-price change, so the 9,190 loans already above 80%) | 1.33 (9,190) | 1.45 (248,563) | **fail** |
+| Unemployment +4: credit score below 680 vs 740+ | 1.46 | 1.43 | pass |
+
+**Verdict under Amendment 4: failed.** v2 is not registered, v1's `@challenger` alias is not retired, the
+holdout is not run, and the work stops for Martins (limitations log L-037).
+
+**For the record, not a re-reading of the test:** test 7 compares *ratios* (R), as approved. In absolute
+terms the riskier group's default rate rises more in every comparison, including the two that fail:
+score below 680 under house prices -30%, 3.23% to 5.44% (+2.21 points) vs 740+ 0.59% to 1.05% (+0.46);
+LTV above 80% under unemployment +4, 2.08% to 2.78% (+0.70) vs 0.80% or below 1.11% to 1.60% (+0.49). A
+group that starts with a much higher default rate can rise more in points but less as a ratio. Whether
+test 7 should have been written in points is Martins's decision; the result above stands as run.
+
+Information only: by starting state, current loans R 1.88 (house prices -30%) and 1.47 (unemployment +4),
+loans 30 days late 1.32 / 1.36, 60 days late 1.06 / 1.08 (most already default either way). By vintage,
+house-price sensitivity rises with how recent the loan is (R at -30%: 2002-2014 about 0.9-1.2 on small
+groups; 2017 1.45; 2019 1.68; 2020 2.02; 2021 2.63; 2022 2.77), as the newest loans have the least equity;
+unemployment +4 is flatter (1.29-1.67). The 10 largest states: R at -30% 1.63 (NC) to 1.98 (IL); at +4
+points 1.34 (CA, NY) to 1.58 (PA).
+
 ### Still to come
 
 - The out-of-time test ran once on 18-19 November 2026 and **failed** (above); the models stay @challenger.
 - Model v2 failed the walk-forward crisis exam (above); the work stopped for Martins's decision before the
   holdout. The v2 holdout expectations (`docs/phase2/model_v2_holdout_expectations.md`) stay blank.
-- ADR-009 Amendment 4 (written after the crisis-exam result): approve the downturn-sensitivity thresholds,
-  run the check on the final v2 fit, then (if it passes) register v2 `@challenger`, fill in the holdout
-  expectations and run the holdout once.
+- The v2 downturn-sensitivity check failed on test 7 (risk ordering, as ratios); v2 is not registered and the
+  holdout has not run. Next step is Martins's decision (L-037).
 - Registration of the @challenger, model card and model inventory entries (step M9).

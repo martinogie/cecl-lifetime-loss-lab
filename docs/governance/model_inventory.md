@@ -64,3 +64,5 @@ checker, in writing; there is no separate validation team, which is itself a lim
 - **M-01 version 2 (19 November 2026):** logistic at all three steps (LightGBM 3.05% better at the current
   step but failing calibration cells). Walk-forward: 2011-2013, 2014-2016 and 2017-2019 pass; the 2008-2010
   crisis exam fails (0.38 vs the v1-style benchmark's 0.39). Stopped for Martins before the holdout (L-035).
+  Amendment 4 (written after that result) replaced the crisis exam with a downturn-sensitivity check; the
+  check failed on test 7, risk ordering as ratios (L-037). v2 not registered; v1 stays `@challenger`.
