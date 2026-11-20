@@ -11,7 +11,8 @@
       "decision": "No overlay (Option B): the L-038 default shortfall is assessed at the expected-loss level; the LGD model's documented conservatism (L-033, 1.64x) more than offsets it. Both errors disclosed with every reserve figure; +34% shown as a sensitivity. Baseline only; reviewed each quarter.",
       "decided_by": "Martins Ogiekpolor",
       "decided": "2026-11-19",
-      "review": "each quarter"
+      "review": "each quarter",
+      "confirmed": "Martins Ogiekpolor, 2026-11-20: Option B applies to all three dates (31 December 2025, 31 March 2026, 30 June 2026), kept consistent"
     },
     {
       "id": "A-2026Q1-1",
@@ -22,7 +23,8 @@
       "decision": "No overlay (Option B), same decision and disclosures as A-2026Q2-1.",
       "decided_by": "Martins Ogiekpolor",
       "decided": "2026-11-19",
-      "review": "each quarter"
+      "review": "each quarter",
+      "confirmed": "Martins Ogiekpolor, 2026-11-20: Option B applies to all three dates (31 December 2025, 31 March 2026, 30 June 2026), kept consistent"
     },
     {
       "id": "A-2025Q4-1",
@@ -33,7 +35,8 @@
       "decision": "No overlay (Option B), same decision and disclosures as A-2026Q2-1.",
       "decided_by": "Martins Ogiekpolor",
       "decided": "2026-11-19",
-      "review": "each quarter"
+      "review": "each quarter",
+      "confirmed": "Martins Ogiekpolor, 2026-11-20: Option B applies to all three dates (31 December 2025, 31 March 2026, 30 June 2026), kept consistent"
     }
   ]
 }
