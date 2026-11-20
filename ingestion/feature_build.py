@@ -95,12 +95,18 @@ def horizon_condition(dialect: str, seed: str = fx.SAMPLE_SEED, every: int = HOR
     return f"({DIALECTS[dialect]['hex8'].format(s=key)} % {every}) = 0"
 
 
-def _rows_ctes(vintage: int, rel: dict[str, str], dialect: str, v2: bool = False) -> str:
+def _rows_ctes(
+    vintage: int, rel: dict[str, str], dialect: str, v2: bool = False, keep_censored: bool = False
+) -> str:
     """Every non-censored loan-month of the vintage with its features (shared by both tables).
+    `keep_censored=True` (the reserve engine only) also keeps censored rows: in the data's last month every
+    open loan is censored (its outcome is not yet known), but its inputs at the start of that month are, and
+    the reserve starts from them. Training, exam and holdout tables never use it.
     `v2=True` (model v2, ADR-009 Amendment 3) adds the longer-memory and household-stress inputs and
     labels rows with the v2 split; with `v2=False` the query is exactly v1's."""
     d = DIALECTS[dialect]
     v = int(vintage)
+    where_status = "" if keep_censored else f"where l.status <> '{fx.EXCLUDED_STATUS}'"
     prev_month = d["add_months"].format(d="l.month", n=-1)
     # model v2: longer memory over the loan's own rows (only rows before t, as every other input)
     v2_window = (
@@ -231,7 +237,7 @@ rows as (
     left join ur u13 on u13.state = o.property_state and u13.month = {prev("l.month", -13)}
     left join mkt mk on mk.month = {prev("l.month")}
     left join mkt mo on mo.month = o.orig_month{v2_joins}
-    where l.status <> '{fx.EXCLUDED_STATUS}'
+    {where_status}
 )"""
 
 
@@ -612,14 +618,14 @@ V2_START_MONTHS: tuple[str, ...] = tuple(start for start, _ in V2_PROJECTION_STA
 
 
 def v2_projection_starts_sql(vintage: int, rel: dict[str, str], dialect: str,
-                             starts: Sequence[str] = V2_START_MONTHS) -> str:  # fmt: skip
+                             starts: Sequence[str] = V2_START_MONTHS, keep_censored: bool = False) -> str:  # fmt: skip
     """Every loan alive in any of the start months, with its v2 inputs, in one pass over the vintage
     (column `start_ym`). Weight 1, no sampling."""
     ex = DIALECTS[dialect]["star_except"]
     drop = "status, obs_year, outcome, months_late_prev, eltv_prev, split"
     in_list = ", ".join(f"'{s}'" for s in starts)
     return (
-        _rows_ctes(vintage, rel, dialect, v2=True)
+        _rows_ctes(vintage, rel, dialect, v2=True, keep_censored=keep_censored)
         + f"\nselect r.* {ex} ({drop}), r.period_ym as start_ym from rows r where r.period_ym in ({in_list})\n"
     )
 

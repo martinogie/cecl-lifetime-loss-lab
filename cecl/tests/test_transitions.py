@@ -338,6 +338,12 @@ def test_projection_check_counts_only_observed_months() -> None:
     good = multistate.Check(cells=[multistate._cell("default", "year", "2019", 300, 310)])
     assert not bad.passes and multistate.newly_failing(bad, good) == bad.cells
     assert multistate.newly_failing(bad, bad) == []
+    # L-039 corrected count: payoffs and defaults count every projected month; censored loans stop
+    fixed = multistate.check(proj, start, actuals, "201901", cut_at_exit=False)
+    want = proj.p_default[0].sum() + proj.p_default[1, :2].sum() + proj.p_default[2].sum()
+    assert fixed.totals["default_projected"] == pytest.approx(want)
+    assert want > result.totals["default_projected"]
+    assert fixed.totals["default_actual"] == result.totals["default_actual"]  # actual events unchanged
 
 
 def test_late_bands_and_the_band_bar() -> None:

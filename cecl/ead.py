@@ -39,12 +39,22 @@ def project(
     """Balance after k months for a loan still alive: the schedule, less partial prepayment at the
     monthly rate of each month's age band (compounded)."""
     sched = scheduled_balance(np.asarray(upb), np.asarray(rate_pct), np.asarray(remaining), k)
+    return sched * keep_factor(age, k, curtail)
+
+
+def keep_factor(age: Any, k: int, curtail: dict[int, float]) -> np.ndarray:
+    """The share of the balance not paid off early over months age .. age + k - 1: the product of
+    (1 - monthly rate of the month's age band). Computed per band from the months spent in it (closed
+    form), the same as multiplying month by month but fast enough for a whole book over 30 years."""
     age = np.asarray(age, dtype=float)
-    keep = np.ones(len(age))
-    for j in range(k):
-        rate = np.array([curtail.get(int(b), 0.0) for b in age_band(age + j)])
-        keep *= 1.0 - rate
-    return sched * keep
+    log_keep = np.zeros(len(age))
+    for j, (lo, hi) in enumerate(AGE_BANDS):
+        rate = curtail.get(j, 0.0)
+        if rate <= 0.0:
+            continue
+        months = np.clip(np.minimum(age + k, hi) - np.maximum(age, lo), 0.0, None)  # months in this band
+        log_keep += months * np.log1p(-rate)
+    return np.exp(log_keep)
 
 
 def curtailment_sql(perf: str, first: str, last: str) -> str:

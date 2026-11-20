@@ -140,3 +140,6 @@ real weighted rates.)
 - a time-to-resolution or loss-mitigation flag if Freddie's fields allow it (the modification and
   deferral fields), known at the reserve date;
 - keep the path simulation (its history is not the problem) and the fixed-seed noise check.
+- **Recalibrate LGD to recent experience and fix the cure-rate and 60-day lingering issues** (Martins,
+  19 November 2026), so that the default shortfall (L-038) and the LGD conservatism (L-033) no longer need
+  to offset each other in the reserve. Also fix the projection check's count (L-039: cut only at censoring).

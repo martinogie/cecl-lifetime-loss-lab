@@ -1,0 +1,105 @@
+{
+  "note": "Aggregates only. Reading only: from the priced files of the 30 June 2026 reserve (no re-pricing). Educational model on Freddie Mac conforming mortgages (sample book); not an audited bank reserve.",
+  "reserve_date": "2026-06-30",
+  "loans": 350495,
+  "scenarios": {
+    "baseline": {
+      "balance": 84623562939.01,
+      "reserve": 95511970.15034826,
+      "balance_weighted": {
+        "lifetime_pd": 0.0229008419860292,
+        "lgd": 0.03724444501168116,
+        "ead_ratio": 0.7949213017659779
+      },
+      "simple_product_x_balance": 57375753.09914566,
+      "gap_reserve_minus_simple_product": 38136217.0512026,
+      "gap_from_ead_weighting": 8797350.183228515,
+      "gap_from_lgd_weighting": 29338866.867974073,
+      "reconciling_chain": {
+        "lifetime_pd": 0.0229008419860292,
+        "ead_ratio": 0.9168055591744841,
+        "lgd": 0.05375734465772735
+      },
+      "chain_product_x_balance": 95511970.15034825,
+      "chain_difference": -1.4901161193847656e-08,
+      "lifetime_pd_within_36_months": 0.017901935394953626,
+      "lifetime_pd_tail_after_36_months": 0.004998906591075575,
+      "tail_share_of_reserve": 0.08530722621495333
+    },
+    "adverse": {
+      "balance": 84623562939.01,
+      "reserve": 383909992.18864125,
+      "balance_weighted": {
+        "lifetime_pd": 0.03615892463621967,
+        "lgd": 0.07694470376202582,
+        "ead_ratio": 0.7734872563680033
+      },
+      "simple_product_x_balance": 182112060.22985741,
+      "gap_reserve_minus_simple_product": 201797931.95878384,
+      "gap_from_ead_weighting": 37112366.11132184,
+      "gap_from_lgd_weighting": 164685565.847462,
+      "reconciling_chain": {
+        "lifetime_pd": 0.03615892463621967,
+        "ead_ratio": 0.931115159783841,
+        "lgd": 0.1347470312193394
+      },
+      "chain_product_x_balance": 383909992.18864125,
+      "chain_difference": 0.0,
+      "lifetime_pd_within_36_months": 0.030963173147843453,
+      "lifetime_pd_tail_after_36_months": 0.0051957514883762095,
+      "tail_share_of_reserve": 0.036326303338160844
+    },
+    "severely_adverse": {
+      "balance": 84623562939.01,
+      "reserve": 958421106.0517962,
+      "balance_weighted": {
+        "lifetime_pd": 0.05440539068506559,
+        "lgd": 0.12152430623970564,
+        "ead_ratio": 0.7616935114944636
+      },
+      "simple_product_x_balance": 426163888.49038255,
+      "gap_reserve_minus_simple_product": 532257217.56141365,
+      "gap_from_ead_weighting": 94988621.09206557,
+      "gap_from_lgd_weighting": 437268596.4693481,
+      "reconciling_chain": {
+        "lifetime_pd": 0.05440539068506559,
+        "ead_ratio": 0.9314690797809476,
+        "lgd": 0.22348824548835775
+      },
+      "chain_product_x_balance": 958421106.0517962,
+      "chain_difference": 0.0,
+      "lifetime_pd_within_36_months": 0.047599699317585044,
+      "lifetime_pd_tail_after_36_months": 0.006805691367480553,
+      "tail_share_of_reserve": 0.030831469130269334
+    },
+    "weighted": {
+      "balance": 84623562939.01,
+      "reserve": 268322290.35198095,
+      "balance_weighted": {
+        "lifetime_pd": 0.030028721650989982,
+        "lgd": 0.09123562959120439,
+        "ead_ratio": 0.8159331818977411
+      },
+      "simple_product_x_balance": 189167802.7584569,
+      "gap_reserve_minus_simple_product": 79154487.59352407,
+      "gap_from_ead_weighting": 25200868.043978304,
+      "gap_from_lgd_weighting": 53953619.549545825,
+      "reconciling_chain": {
+        "lifetime_pd": 0.030028721650989982,
+        "ead_ratio": 0.924631512955504,
+        "lgd": 0.11419837144103259
+      },
+      "chain_product_x_balance": 268322290.351981,
+      "chain_difference": 5.960464477539063e-08,
+      "lifetime_pd_within_36_months": 0.024790083113083717,
+      "lifetime_pd_tail_after_36_months": 0.005238638537906262,
+      "tail_share_of_reserve": 0.044824748082895535
+    }
+  },
+  "ties_to_reserve_file": {
+    "baseline": true,
+    "adverse": true,
+    "severely_adverse": true,
+    "weighted": true
+  }
+}

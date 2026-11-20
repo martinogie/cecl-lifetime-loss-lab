@@ -112,13 +112,18 @@ def stress_inputs(hh: Household | None, start_ym: str, k: int, n: int, features:
 
 def project(models: dict[int, Any], start: Any, history: Any, macro: multistate.Macro, start_ym: str,
             months: int, household: Household | None = None, paths: int = 8, seed: int = 7,
-            observer: Any = None) -> multistate.Projection:  # fmt: skip
+            observer: Any = None, first_state: Any = None, first_pause: Any = None) -> multistate.Projection:  # fmt: skip
     """Play every loan in `start` forward `months` months along `paths` random paths each, with one
     transition model per live state (`models[state].predict_proba(inputs)` -> n x 5).
 
     `observer` (diagnostics only; it changes nothing): called each month with
     `(k, state, alive, hist, loan, probs)`, where `probs[s]` is the n_rows x 5 matrix scored for the live
-    paths in state `s` and `hist` holds every path's history inputs that month."""
+    paths in state `s` and `hist` holds every path's history inputs that month.
+
+    `first_state` (the reserve engine): each loan's **actual** state at the end of month 0 (0, 1 or 2; the
+    loan is alive). Month 0 is then not projected (its chances stay 0): every path starts month 1 from the
+    known state, with month 0's actual payment-pause flag `first_pause` (0 if not given) in its history.
+    So a reserve at the end of month 0 projects only the months after it, from what is known on that date."""
     rng = np.random.default_rng(seed)
     n = len(start)
     loan = np.repeat(np.arange(n), paths)
@@ -139,7 +144,10 @@ def project(models: dict[int, Any], start: Any, history: Any, macro: multistate.
         hist = path_inputs(states, pauses, first)
         new_state = state.copy()
         probs: dict[int, np.ndarray] = {}
-        for s in LIVE:
+        known = first_state is not None and k == 0
+        if known:
+            new_state = np.repeat(np.asarray(first_state, dtype=np.int8), paths)
+        for s in LIVE if not known else ():
             rows = np.flatnonzero(alive & (state == s))
             if not len(rows):
                 continue
@@ -164,7 +172,10 @@ def project(models: dict[int, Any], start: Any, history: Any, macro: multistate.
         alive &= new_state <= 2
         state = new_state
         states = np.column_stack([np.minimum(state, 2), states[:, :-1]]).astype(np.int8)
-        pauses = np.column_stack([np.zeros(len(pauses), dtype=np.int8), pauses[:, :-1]])
+        newest = np.zeros(len(pauses), dtype=np.int8)
+        if known and first_pause is not None:
+            newest = np.repeat(np.asarray(first_pause, dtype=np.int8), paths)
+        pauses = np.column_stack([newest, pauses[:, :-1]])
     return multistate.Projection(p_def, p_pre, [multistate.add_months(start_ym, k) for k in range(months)])
 
 

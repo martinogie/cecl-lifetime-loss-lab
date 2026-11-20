@@ -313,14 +313,23 @@ def observed_months(start_ym: str, actuals: Any) -> tuple[np.ndarray, np.ndarray
     return observed, event
 
 
-def check(projection: Projection, start: Any, actuals: Any, start_ym: str) -> Check:
+def check(projection: Projection, start: Any, actuals: Any, start_ym: str, cut_at_exit: bool = True) -> Check:
     """Projected vs actual defaults and prepayments by year and by vintage, against the ADR-009 bar
-    (0.80-1.25 where a cell has at least 200 actual events)."""
+    (0.80-1.25 where a cell has at least 200 actual events).
+
+    `cut_at_exit=True` is the rule every recorded check used: projected chances count only up to the month
+    the loan actually left (paid off, defaulted or censored). That under-counts the projection (L-039): its
+    chances already include the loan's own chance of leaving, so cutting at an actual payoff or default
+    counts survival twice. `cut_at_exit=False` (the corrected count, for the record) cuts only where the
+    outcome is unknown (censored), and counts every projected month for loans that paid off or defaulted."""
     a = actuals.set_index("loan_id").reindex(start["loan_id"]).reset_index()
     observed, event = observed_months(start_ym, a)
     months = len(projection.months)
     k = np.arange(months)[None, :]
-    seen = k < observed[:, None]
+    counted = (
+        observed if cut_at_exit else np.where(np.isin(event, [fx.DEFAULTED, fx.PREPAID]), months, observed)
+    )
+    seen = k < counted[:, None]
     years = np.array([ym[:4] for ym in projection.months])
     vintage = start["vintage_year"].astype(str).to_numpy()
     last_index = observed - 1
