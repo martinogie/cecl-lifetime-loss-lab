@@ -743,6 +743,43 @@ resources:
           timeout_seconds: 0
           max_retries: 0
 
+    overlay_inputs_v2:
+      name: cecl_lab_overlay_inputs_v2_${var.env}
+      description: "Phase 4 overlay sizing inputs: v2 monthly default chances for the 1 July 2024 book (reproduces the holdout projection; nothing judged)"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: runs
+          default: "{}"
+        - name: expected_total
+          default: ""
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: overlay_inputs
+          notebook_task:
+            notebook_path: ./notebooks/63_overlay_inputs_v2.py
+          environment_key: ml
+          timeout_seconds: 0
+          max_retries: 0
+
 targets:
   dev:
     # Not "mode: development": that mode prefixes every name with dev_<user>_ (schemas, volume,
