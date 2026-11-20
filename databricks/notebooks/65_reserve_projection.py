@@ -63,7 +63,29 @@ def reserve_book(R):
     alive = end["status"].isin(["current", "delinquent"]) | (
         (end["status"] == "censored") & (R == last_month)
     )
+    print(
+        R,
+        "start rows",
+        len(start),
+        "| panel statuses",
+        end["status"].value_counts().to_dict(),
+        "| alive",
+        int(alive.sum()),
+    )
     start = start.merge(end[alive][["loan_id", "first_state", "first_pause"]], on="loan_id", how="inner")
+    if start.empty:
+        raise ValueError(f"reserve book for {R} is empty: stopping")
+    print(
+        R,
+        "book",
+        len(start),
+        "balance",
+        float(start["upb_start"].sum()),
+        "states",
+        start["property_state"].nunique(),
+        "upb_start nulls",
+        int(start["upb_start"].isna().sum()),
+    )
     start = start.sort_values("loan_id").reset_index(drop=True)
     history = spark.sql(fb.v2_projection_history_sql(f"{GOLD}.loan_panel", starts=(R,))).toPandas()
     return start, history
@@ -78,6 +100,11 @@ for R, E in plan:
     # B4b weights: the book's balance by state at the reserve date of the economy's book
     w_book = books[E][0] if E in books else start
     weights = w_book.groupby("property_state")["upb_start"].sum().to_dict()
+    overlap = set(weights) & set(state_m["state"].unique())
+    if not overlap or sum(weights[s] for s in overlap) <= 0:
+        raise ValueError(
+            f"no book balance in the macro states: weights {list(weights)[:5]}, macro {sorted(state_m['state'].unique())[:5]}"
+        )
     for name in scenarios.SCENARIOS:
         t = time.monotonic()
         sc = scenarios.build(
