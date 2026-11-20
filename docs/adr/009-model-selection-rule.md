@@ -461,3 +461,32 @@ Also reported, information only: R by vintage and by the 10 largest states (most
 every shock.
 
 The check passes only if tests 1-7 all hold.
+
+## Amendment 5: test 7 measured in percentage points; the holdout rules locked
+
+- **Status:** accepted, 19 November 2026. **Written after the downturn-sensitivity check result was known**,
+  including the failure of test 7 as approved (L-037, MLflow `69232827`). This is the second rule change made
+  after a result (Amendment 4 was the first); both are disclosed wherever v2 is reported.
+- **What does not change:** L-037 and the test-7 failure stay on record exactly as written. The check is
+  **not re-run**: the scenarios, models, book and projections are unchanged, and test 7 is re-evaluated on
+  the saved results of that run (`downturn_check.json`). Tests 1-6 keep their results.
+
+**The change.** Test 7 (risk ordering) compares groups by the **rise in their projected default rate, in
+percentage points**, instead of by the ratio R. For each comparison (house prices -30%: LTV above 80% vs at
+or below after the shock, and credit score below 680 vs 740+; unemployment +4: the same two), with a
+group's default rate = its 36-month projected defaults / its loans:
+
+> rise = default rate under the shock - default rate under the baseline (same loans);
+> the riskier group's rise must be larger than the safer group's.
+
+All four comparisons must hold. Everything else in Amendment 4 is unchanged: if the check now passes, v2 is
+registered as `@challenger` in dev and v1's alias is retired (v1's runs and L-032 stay on record); then the
+holdout runs once.
+
+**The lock.** This is the last change to v2's validation rules. The holdout rules (Amendment 3, E) are
+locked: the holdout runs once, nothing is chosen, swapped or tuned on it, and its result stands whatever it
+shows. No further amendment to v2's validation rules will be made.
+
+**Decision on this amendment:**
+
+"Decision (Martins Ogiekpolor, 19 November 2026, written after the downturn-check result): Test 7 as approved failed on 2 of 4 comparisons. On review, the ratio R was the wrong measure for comparing groups with very different starting default rates: higher-risk groups added more defaults in absolute terms but less as a ratio, which is the expected pattern. Test 7 is therefore measured as the rise in default rate in percentage points (riskier group's rise must exceed the safer group's). The original result stays on record as L-037. This is the last rule change: the holdout rules are locked, and the holdout result will stand whatever it shows, with no further amendments to v2's validation rules."
