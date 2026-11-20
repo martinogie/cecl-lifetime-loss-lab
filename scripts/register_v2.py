@@ -2,7 +2,9 @@
 
     CECL_ENV=dev python -m scripts.register_v2 [--yes]
 
-Refuses unless the newest `v2-downturn-check` run passed (all of tests 1-7). Then, per step:
+Refuses unless the newest `v2-downturn-check` run passed (all of tests 1-7), or, under ADR-009 Amendment 5,
+the newest `v2-downturn-check-amendment5` re-evaluation of that same run passed (test 7 in percentage
+points; `scripts/reevaluate_downturn_v2.py`). Then, per step:
 1. registers the final v2 fit, `runs:/<run>/model` (the runs the check used), as
    `<catalog>.ml.pd_v2_transition_<step>` with the alias @challenger, tagged with the check run;
 2. removes @challenger from v1's `<catalog>.ml.pd_transition_<step>`. v1's model versions, runs and its
@@ -36,6 +38,12 @@ def newest_check(mlflow: Any) -> Any:
     return runs[0]
 
 
+def newest_amendment5(mlflow: Any) -> Any | None:
+    runs = mlflow.search_runs(filter_string="tags.stage = 'downturn_check_amendment5' and tags.model_version = 'v2'",
+                              order_by=["start_time DESC"], search_all_experiments=True, output_format="list")  # fmt: skip
+    return runs[0] if runs else None
+
+
 def alias_run(client: Any, name: str, alias: str) -> tuple[str, str] | None:
     try:
         v = client.get_model_version_by_alias(name, alias)
@@ -54,10 +62,17 @@ def main(argv: list[str] | None = None) -> int:
 
     tracking.configure(mlflow)
     check = newest_check(mlflow)
+    evidence = check
     if check.data.metrics.get("passes") != 1.0:
-        raise SystemExit(
-            f"downturn check {check.info.run_id[:8]} did not pass: v2 is not registered (Amendment 4)"
-        )
+        again = newest_amendment5(mlflow)
+        if (
+            again is None
+            or again.data.tags.get("source_run") != check.info.run_id
+            or again.data.metrics.get("passes") != 1.0
+        ):
+            raise SystemExit(f"downturn check {check.info.run_id[:8]} did not pass (nor its Amendment 5 "
+                             "re-evaluation): v2 is not registered")  # fmt: skip
+        evidence = again
     runs = json.loads(check.data.params["runs"])
     client = mlflow.MlflowClient()
     for step in oot.STEPS:
@@ -76,8 +91,8 @@ def main(argv: list[str] | None = None) -> int:
         if not (current and current[1] == runs[step]):
             version = mlflow.register_model(f"runs:/{runs[step]}/model", new)
             client.set_registered_model_alias(new, environment.CHALLENGER, version.version)
-            tags = {"model_version": "v2", "step": step, "downturn_check_run": check.info.run_id,
-                    "rules": "ADR-009 Amendment 4", "holdout": "not yet run"}  # fmt: skip
+            tags = {"model_version": "v2", "step": step, "downturn_check_run": check.info.run_id, "verdict_run": evidence.info.run_id,
+                    "rules": evidence.data.tags.get("rules", ""), "holdout": "not yet run"}  # fmt: skip
             for k, v in tags.items():
                 client.set_model_version_tag(new, version.version, k, v)
         if v1:

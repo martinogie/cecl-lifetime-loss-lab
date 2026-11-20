@@ -143,3 +143,25 @@ def test_evaluate_passes_and_each_test_can_fail() -> None:
     assert not out["tests"]["7_risk_ordering"]["passes"]
     # the combined shock must beat both single shocks, not only the floor
     assert not sv.evaluate(_ratios(GOOD | {"ur_+4": 1.9}), MECH)["tests"]["6_combined"]["passes"]
+
+
+def _cell(loans: int, base: float, R: float) -> dict:
+    return {"loans": loans, "baseline_defaults": base, "R": {s: R for s in ("hpi_-30", "ur_+4")}}
+
+
+def test_amendment5_points_can_pass_where_ratios_fail() -> None:
+    # riskier: 10% -> 15% (R 1.5, +5 points); safer: 1% -> 2% (R 2.0, +1 point)
+    risky, safe = _cell(1000, 100.0, 1.5), _cell(1000, 10.0, 2.0)
+    groups = {"credit_score": {"below_680": risky, "740_plus": safe}}
+    for s in sv.ORDERING_SHOCKS:
+        groups[f"ltv_after_{s}"] = {"above_80": risky, "80_or_below": safe}
+    out = sv.risk_ordering_points(groups)
+    assert out["passes"]
+    assert out["shocks"]["hpi_-30"]["score"]["riskier"]["rise_points"] == pytest.approx(5.0)
+    assert out["shocks"]["ur_+4"]["ltv"]["safer"]["rise_points"] == pytest.approx(1.0)
+    groups["credit_score"]["below_680"] = _cell(1000, 100.0, 1.05)  # +0.5 points: below the safer group's +1
+    assert not sv.risk_ordering_points(groups)["passes"]
+    saved = {"verdict": sv.evaluate(_ratios(GOOD, hi=1.2, lo=1.4), MECH), "ratios": {"groups": groups}}
+    again = sv.reevaluate(saved)
+    assert "7_risk_ordering" not in again["tests"] and not again["passes"]
+    assert again["original_verdict"]["tests"]["7_risk_ordering"]["passes"] is False

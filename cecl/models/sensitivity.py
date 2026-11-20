@@ -186,3 +186,37 @@ def evaluate(r: dict[str, Any], mechanics: dict[str, Any]) -> dict[str, Any]:
     tests["7_risk_ordering"] = {"shocks": order,
                                 "passes": all(o["ltv_passes"] and o["score_passes"] for o in order.values())}  # fmt: skip
     return {"tests": tests, "passes": all(t["passes"] for t in tests.values())}
+
+
+# ---------------------------------------------------------------------------- Amendment 5: test 7 in points
+def risk_ordering_points(groups_: dict[str, Any]) -> dict[str, Any]:
+    """Test 7 as amended (ADR-009 Amendment 5, written after the first result): the riskier group's rise in
+    projected 36-month default rate (percentage points: shocked rate - baseline rate, same loans) must be
+    larger than the safer group's, in all four comparisons. Uses the saved output of `ratios` (no re-run)."""
+
+    def rise(cell: dict[str, Any], shock: str) -> tuple[float, float, float]:
+        base = 100.0 * cell["baseline_defaults"] / cell["loans"]
+        shocked = base * cell["R"][shock]
+        return base, shocked, shocked - base
+
+    order: dict[str, Any] = {}
+    for s in ORDERING_SHOCKS:
+        pairs = {"ltv": (groups_[f"ltv_after_{s}"]["above_80"], groups_[f"ltv_after_{s}"]["80_or_below"]),
+                 "score": (groups_["credit_score"]["below_680"], groups_["credit_score"]["740_plus"])}  # fmt: skip
+        order[s] = {}
+        for name, (hi, lo) in pairs.items():
+            (hb, hs, hr), (lb, ls, lr) = rise(hi, s), rise(lo, s)
+            order[s][name] = {"riskier": {"baseline_pct": hb, "shocked_pct": hs, "rise_points": hr},
+                              "safer": {"baseline_pct": lb, "shocked_pct": ls, "rise_points": lr},
+                              "passes": bool(hr > lr)}  # fmt: skip
+    return {"measure": "rise in default rate, percentage points (Amendment 5)", "shocks": order,
+            "passes": all(c["passes"] for o in order.values() for c in o.values())}  # fmt: skip
+
+
+def reevaluate(saved: dict[str, Any]) -> dict[str, Any]:
+    """The verdict under Amendment 5 from a saved check (`downturn_check.json`): tests 1-6 as recorded,
+    test 7 replaced by `risk_ordering_points`. The original verdict is kept alongside, unchanged."""
+    tests = {k: v for k, v in saved["verdict"]["tests"].items() if k != "7_risk_ordering"}
+    tests["7_risk_ordering_points"] = risk_ordering_points(saved["ratios"]["groups"])
+    return {"rules": "ADR-009 Amendment 5", "tests": tests, "passes": all(t["passes"] for t in tests.values()),
+            "original_verdict": saved["verdict"]}  # fmt: skip
