@@ -671,6 +671,12 @@ nevertheless falls behind over time (defaults 1.02 in late 2024, 0.81 in 2025, 0
 | Payoffs under-predicted after the first year (0.75-0.90), seasoned loans worst | Total 1.06 (2024 over, 1.33); 2026 0.82; seasoned vintages under (0.46-0.78), as expected |
 | 2020-2021 vintages' payoffs better than v1 (v1 1.48-1.79), some cells outside | 1.21 and 1.08: better than v1; inside the bar |
 
+**Measurement note, found after the run (L-039; the verdict stands):** the check counts projected chances only
+up to each loan's actual exit, including a payoff or default. That counts survival twice and biases the projection
+low. Counting up to censoring only, the holdout total is 0.92 (not 0.81) and the cells are years 1.09 / 0.92 /
+0.74 and vintages 2019 / 2021 / 2022 / 2023 / 2024 at 0.84 / 1.02 / 0.74 / 0.76 / 0.80. v2 would still fail
+(2026, 2022, 2023). The locked result is unchanged; the Phase 4 overlay is sized on the unbiased measure.
+
 **What follows (ADR-009 Amendment 3 E, Amendment 5, Martins's expectations file):** the result stands; nothing
 was tuned, swapped or re-chosen on it. v2 stays `@challenger` with the failure recorded (limitations log
 L-038; registry versions tagged "holdout: failed"); it is not champion. Phase 4 uses a documented overlay

@@ -1,0 +1,277 @@
+{
+ "note": "Aggregates only. 24 months from 1 July 2024, the economy as it happened. Educational model on Freddie Mac conforming mortgages; not an audited reserve.",
+ "book": {
+  "loans": 317148,
+  "balance": 70789826407.74
+ },
+ "defaults": {
+  "projected": 3517.4441468356226,
+  "actual_in_window": 3814,
+  "count_ratio": 0.9222454501404359,
+  "projected_recorded_rule": 3081.7764705849186,
+  "count_ratio_recorded_rule": 0.8080169036667327,
+  "projected_all_months": 3616.756692173034,
+  "measure": "projected months counted up to censoring only (L-039); the recorded holdout rule alongside"
+ },
+ "expected_loss": {
+  "projected_v2": 33798676.05205895,
+  "actual_defaults_at_model_lgd": 45406971.781739905,
+  "pd_gap_ratio": 0.7443499252608352,
+  "decomposition": {
+   "defaults_ratio": 0.9222454501404359,
+   "average_balance_at_default_ratio": 0.9543237457045317,
+   "lgd_ratio": 0.8457361562200572,
+   "projected_avg_balance": 227839.8689580501,
+   "actual_avg_balance": 238744.8389328789,
+   "projected_lgd": 0.04217380215900843,
+   "actual_defaults_model_lgd": 0.04986638190745031
+  },
+  "gross_uplift_needed": 0.3434541551805488,
+  "recorded_rule": {
+   "projected_v2": 29019246.896143332,
+   "pd_gap_ratio": 0.6390923190304714,
+   "gross_uplift_needed": 0.5647191653265995
+  }
+ },
+ "lgd_offset_L033": {
+  "check": {
+   "predicted": 0.072,
+   "actual": 0.044,
+   "defaults": 4238,
+   "period": "defaults 2017-2021, resolved"
+  },
+  "model_over_actual": 1.6363636363636362,
+  "estimated_real_loss_on_actual_defaults": 27748704.977729943,
+  "projected_over_estimated_real_loss": 1.2180271504268212,
+  "net_uplift_needed": -0.17900023850077573,
+  "holdout_resolved_defaults_information_only": {
+   "defaults": 3814,
+   "resolved": 1830,
+   "resolved_actual_lgd": 0.004460206697416565,
+   "resolved_model_lgd": 0.046538692702098414,
+   "outcomes": {
+    "unresolved: still delinquent": 1911,
+    "current again": 1289,
+    "paid off": 461,
+    "loss event": 80,
+    "unresolved: loss not yet reported": 40,
+    "unresolved: sold reperforming or defect": 33
+   },
+   "why_not_used": "most holdout defaults are unresolved; the resolved ones are the quick cures and payoffs, so their LGD is biased low"
+  }
+ },
+ "cap_check_ADR006": {
+  "cap_each": 0.05,
+  "cap_total": 0.1,
+  "gross_uplift": 0.3434541551805488,
+  "gross_within_cap": false,
+  "net_uplift": -0.17900023850077573,
+  "net_within_cap": true
+ },
+ "by_vintage_group": [
+  {
+   "group": "2018 and older",
+   "projected_el": 1790606.1260496099,
+   "actual_defaults_at_model_lgd": 2257419.880248189,
+   "ratio": 0.7932091595883102
+  },
+  {
+   "group": "2019-2021",
+   "projected_el": 4302629.224253819,
+   "actual_defaults_at_model_lgd": 4944552.3657678375,
+   "ratio": 0.8701756814311068
+  },
+  {
+   "group": "2022-2024",
+   "projected_el": 27705440.70175552,
+   "actual_defaults_at_model_lgd": 38204999.53572388,
+   "ratio": 0.725178406973918
+  }
+ ],
+ "by_starting_state": [
+  {
+   "group": "0",
+   "projected_el": 25064222.78525672,
+   "actual_defaults_at_model_lgd": 34707010.59387058,
+   "ratio": 0.7221659934515703
+  },
+  {
+   "group": "1",
+   "projected_el": 5694476.224839429,
+   "actual_defaults_at_model_lgd": 7116915.986261499,
+   "ratio": 0.800132562451496
+  },
+  {
+   "group": "2",
+   "projected_el": 3039977.041962798,
+   "actual_defaults_at_model_lgd": 3583045.201607828,
+   "ratio": 0.8484339077270536
+  }
+ ],
+ "by_year_of_default": [
+  {
+   "year": "2024",
+   "projected_el": 9713982.731803838,
+   "actual_defaults_at_model_lgd": 9852826.233500626,
+   "ratio": 0.9859082563310915
+  },
+  {
+   "year": "2025",
+   "projected_el": 17400996.64467992,
+   "actual_defaults_at_model_lgd": 24432365.16358024,
+   "ratio": 0.7122108943680356
+  },
+  {
+   "year": "2026",
+   "projected_el": 6683696.675575195,
+   "actual_defaults_at_model_lgd": 11121780.384659046,
+   "ratio": 0.6009556423892731
+  }
+ ],
+ "by_month": [
+  {
+   "month": "202407",
+   "pd": 146.7444867098368,
+   "ead_weighted_lgd": 0.04664939833001531,
+   "expected_loss": 1654223.7475370069
+  },
+  {
+   "month": "202408",
+   "pd": 181.89300003668876,
+   "ead_weighted_lgd": 0.043395899751672753,
+   "expected_loss": 1820232.9532939992
+  },
+  {
+   "month": "202409",
+   "pd": 170.57617822709688,
+   "ead_weighted_lgd": 0.038790016923561904,
+   "expected_loss": 1527891.3802557494
+  },
+  {
+   "month": "202410",
+   "pd": 178.80221438740472,
+   "ead_weighted_lgd": 0.038984669504942414,
+   "expected_loss": 1599121.2738616471
+  },
+  {
+   "month": "202411",
+   "pd": 179.25170217398394,
+   "ead_weighted_lgd": 0.03599049900756768,
+   "expected_loss": 1525149.6903650435
+  },
+  {
+   "month": "202412",
+   "pd": 182.59485060440034,
+   "ead_weighted_lgd": 0.03796999561528541,
+   "expected_loss": 1587363.6864903904
+  },
+  {
+   "month": "202501",
+   "pd": 175.98218196305135,
+   "ead_weighted_lgd": 0.038845475935805986,
+   "expected_loss": 1568197.574478616
+  },
+  {
+   "month": "202502",
+   "pd": 167.45630939577669,
+   "ead_weighted_lgd": 0.03907705414366915,
+   "expected_loss": 1489419.308971398
+  },
+  {
+   "month": "202503",
+   "pd": 142.97223933891377,
+   "ead_weighted_lgd": 0.04222490576520593,
+   "expected_loss": 1370795.3753751118
+  },
+  {
+   "month": "202504",
+   "pd": 125.48781409791542,
+   "ead_weighted_lgd": 0.043243745868185475,
+   "expected_loss": 1249048.8511385408
+  },
+  {
+   "month": "202505",
+   "pd": 132.15514822231364,
+   "ead_weighted_lgd": 0.04372596997101371,
+   "expected_loss": 1310674.5251167465
+  },
+  {
+   "month": "202506",
+   "pd": 131.57328276461925,
+   "ead_weighted_lgd": 0.04566214064234979,
+   "expected_loss": 1368753.0022047365
+  },
+  {
+   "month": "202507",
+   "pd": 136.48505009370004,
+   "ead_weighted_lgd": 0.04519749895752696,
+   "expected_loss": 1407202.5044054543
+  },
+  {
+   "month": "202508",
+   "pd": 144.04240725078978,
+   "ead_weighted_lgd": 0.04488411064919337,
+   "expected_loss": 1483351.054758062
+  },
+  {
+   "month": "202509",
+   "pd": 147.4637018460835,
+   "ead_weighted_lgd": 0.04455188506047839,
+   "expected_loss": 1520433.6145959126
+  },
+  {
+   "month": "202510",
+   "pd": 154.87188229209607,
+   "ead_weighted_lgd": 0.044828554251842366,
+   "expected_loss": 1533870.9168435521
+  },
+  {
+   "month": "202511",
+   "pd": 158.246219607512,
+   "ead_weighted_lgd": 0.04220352552603883,
+   "expected_loss": 1488309.5916122363
+  },
+  {
+   "month": "202512",
+   "pd": 165.59926497844057,
+   "ead_weighted_lgd": 0.04351617181271091,
+   "expected_loss": 1610940.3251795517
+  },
+  {
+   "month": "202601",
+   "pd": 158.99922471418327,
+   "ead_weighted_lgd": 0.04126465527923463,
+   "expected_loss": 1453157.972996581
+  },
+  {
+   "month": "202602",
+   "pd": 149.53732054893004,
+   "ead_weighted_lgd": 0.042058196686507794,
+   "expected_loss": 1370911.9988544718
+  },
+  {
+   "month": "202603",
+   "pd": 127.5122298865205,
+   "ead_weighted_lgd": 0.04333342527225615,
+   "expected_loss": 1231279.7084396475
+  },
+  {
+   "month": "202604",
+   "pd": 117.50344054343003,
+   "ead_weighted_lgd": 0.04433781575178711,
+   "expected_loss": 1176919.586415703
+  },
+  {
+   "month": "202605",
+   "pd": 116.51736717918432,
+   "ead_weighted_lgd": 0.04449371185015799,
+   "expected_loss": 1165885.4908233467
+  },
+  {
+   "month": "202606",
+   "pd": 25.1766299727513,
+   "ead_weighted_lgd": 0.0488051318597807,
+   "expected_loss": 285541.9180454448
+  }
+ ]
+}

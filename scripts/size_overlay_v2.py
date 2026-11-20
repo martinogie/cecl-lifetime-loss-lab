@@ -36,6 +36,7 @@ from typing import Any
 import numpy as np
 
 from cecl import ead, environment, lgd
+from cecl import features as fx
 from cecl.models import multistate
 
 LOCAL = Path("data/local")
@@ -44,7 +45,12 @@ OUT = Path("docs/phase4/overlay_sizing_L038.json")
 START, MONTHS = "202407", 24
 CAP_EACH, CAP_TOTAL = 0.05, 0.10  # ADR-006
 # L-033 (docs/phase3/results.json, "2017-2021 (resolved, fair check)"): balance-weighted LGD per default
-LGD_CHECK: dict[str, Any] = {"predicted": 0.072, "actual": 0.044, "defaults": 4238, "period": "defaults 2017-2021, resolved"}
+LGD_CHECK: dict[str, Any] = {
+    "predicted": 0.072,
+    "actual": 0.044,
+    "defaults": 4238,
+    "period": "defaults 2017-2021, resolved",
+}
 
 
 def hpi_table(con: Any) -> Any:
@@ -102,8 +108,19 @@ def main(argv: list[str] | None = None) -> int:
 
     # 1. projected expected loss, loan by month
     months = [multistate.add_months(START, k) for k in range(MONTHS)]
-    pd_m = book[[f"pd_{m}" for m in months]].to_numpy(dtype=float)
+    pd_raw = book[[f"pd_{m}" for m in months]].to_numpy(dtype=float)
+    # Count projected months only where the loan's outcome is known: up to censoring (an unknown outcome),
+    # but NOT cut at an actual payoff or default, because the projected chances already include the loan's
+    # own chance of leaving (cutting there counts survival twice and biases the projection low; L-039).
+    # The recorded holdout rule (cut at any actual exit) is kept alongside for comparison.
+    obs = book["observed_months"].to_numpy()
+    exited = np.isin(book["actual_event"].to_numpy(), [fx.DEFAULTED, fx.PREPAID])
+    k_idx = np.arange(MONTHS)[None, :]
+    pd_m = np.where(k_idx < np.where(exited, MONTHS, obs)[:, None], pd_raw, 0.0)
+    pd_recorded_rule = np.where(k_idx < obs[:, None], pd_raw, 0.0)
     proj_el = np.zeros(len(book))
+    proj_el_recorded_rule = np.zeros(len(book))
+    proj_ead = 0.0  # projected defaulted balance
     proj_by_month: list[dict[str, Any]] = []
     for k, ym in enumerate(months):
         bal = ead.project(
@@ -112,6 +129,8 @@ def main(argv: list[str] | None = None) -> int:
         lgd_k = model.predict(np.nan_to_num(lgd_inputs(book, hpi, ym, bal), nan=0.0))
         el_k = pd_m[:, k] * bal * lgd_k
         proj_el += el_k
+        proj_el_recorded_rule += pd_recorded_rule[:, k] * bal * lgd_k
+        proj_ead += float((pd_m[:, k] * bal).sum())
         proj_by_month.append({"month": ym, "pd": float(pd_m[:, k].sum()), "ead_weighted_lgd": float((pd_m[:, k] * bal * lgd_k).sum() / max((pd_m[:, k] * bal).sum(), 1e-9)),
                               "expected_loss": float(el_k.sum())})  # fmt: skip
 
@@ -144,12 +163,31 @@ def main(argv: list[str] | None = None) -> int:
             "projected": float(pd_m.sum()),
             "actual_in_window": int(len(ev)),
             "count_ratio": float(pd_m.sum() / len(ev)),
+            "projected_recorded_rule": float(pd_recorded_rule.sum()),
+            "count_ratio_recorded_rule": float(pd_recorded_rule.sum() / len(ev)),
+            "projected_all_months": float(pd_raw.sum()),
+            "measure": "projected months counted up to censoring only (L-039); the recorded holdout rule alongside",
         },
         "expected_loss": {
             "projected_v2": P,
             "actual_defaults_at_model_lgd": A,
             "pd_gap_ratio": P / A,
+            "decomposition": {
+                "defaults_ratio": float(pd_m.sum() / len(ev)),
+                "average_balance_at_default_ratio": (proj_ead / float(pd_m.sum()))
+                / float(ev["default_upb"].mean()),
+                "lgd_ratio": (P / proj_ead) / (A / float(ev["default_upb"].sum())),
+                "projected_avg_balance": proj_ead / float(pd_m.sum()),
+                "actual_avg_balance": float(ev["default_upb"].mean()),
+                "projected_lgd": P / proj_ead,
+                "actual_defaults_model_lgd": A / float(ev["default_upb"].sum()),
+            },
             "gross_uplift_needed": gross_uplift,
+            "recorded_rule": {
+                "projected_v2": float(proj_el_recorded_rule.sum()),
+                "pd_gap_ratio": float(proj_el_recorded_rule.sum()) / A,
+                "gross_uplift_needed": A / float(proj_el_recorded_rule.sum()) - 1.0,
+            },
         },
         "lgd_offset_L033": {
             "check": LGD_CHECK,
