@@ -41,6 +41,28 @@
 | Severely adverse | $927.1m | $741.3m / $158.0m / $27.8m | 5.53% | $1,245.5m |
 | **Weighted 60/30/10 (booked)** | **$262.7m** | | | $353.0m |
 
+### PD x LGD x EAD by scenario, 30 June 2026 (performing loans)
+
+Balance-weighted averages over the 350,495 loans. Lifetime PD: each loan's chance of default over its whole remaining life. LGD: loss per $ defaulted. EAD: balance at default / current balance. Each loan's figures already include the timing of defaults (36 monthly steps, then yearly to maturity), so for every loan PD x LGD x EAD x balance equals its reserve exactly.
+
+| Scenario | Lifetime PD | LGD | EAD ratio | PD x LGD x EAD x balance | Reserve | Gap |
+|---|---|---|---|---|---|---|
+| Baseline | 2.290% | 3.724% | 0.7949 | $57.4m | $95.5m | $38.1m |
+| Adverse (halfway path) | 3.616% | 7.694% | 0.7735 | $182.1m | $383.9m | $201.8m |
+| Severely adverse | 5.441% | 12.152% | 0.7617 | $426.2m | $958.4m | $532.3m |
+| **Weighted 60/30/10** | 3.003% | 9.124% | 0.8159 | $189.2m | $268.3m | $79.2m |
+
+The simple averages multiply to less than the reserve because the risk sits in the same loans: loans more likely to default also default earlier (more balance left) and have higher LGD (higher LTV). Weighting EAD by each loan's expected defaults, and LGD by each loan's expected exposure, closes the gap exactly:
+
+| Scenario | Lifetime PD (by balance) | EAD ratio (by expected defaults) | LGD (by expected exposure) | Product x balance | Reserve | Gap closed by EAD weighting / by LGD weighting |
+|---|---|---|---|---|---|---|
+| Baseline | 2.290% | 0.9168 | 5.376% | $95.5m | $95.5m | $8.8m / $29.3m |
+| Adverse (halfway path) | 3.616% | 0.9311 | 13.475% | $383.9m | $383.9m | $37.1m / $164.7m |
+| Severely adverse | 5.441% | 0.9315 | 22.349% | $958.4m | $958.4m | $95.0m / $437.3m |
+| **Weighted 60/30/10** | 3.003% | 0.9246 | 11.420% | $268.3m | $268.3m | $25.2m / $54.0m |
+
+Timing and the tail sit inside each loan's figures, not in the gap. Of the baseline lifetime PD 2.290%, 1.790% falls in the first 36 months and 0.500% after (the tail supplies 8.5% of the baseline reserve; 3.1% under severely adverse). Losses are not discounted. Weighted column: each loan's PD, expected exposure and loss are the 60/30/10 sums across scenarios. Source: `docs/phase4/reserve_components_2026Q2.json` (`scripts/decompose_reserve.py`, reading the priced loan files only; nothing re-run). Every scenario ties to the reserve file.
+
 ### Severely adverse, with and without the uplift (Martins's requirement)
 
 The LGD conservatism (L-033) was measured on resolved 2017-2021 defaults, good years; it may not hold in a downturn, so the severely adverse reserve is shown both ways:

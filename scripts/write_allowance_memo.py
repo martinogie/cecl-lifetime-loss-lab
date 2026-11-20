@@ -53,6 +53,57 @@ def scenario_table(d: dict[str, Any], uplift: float) -> list[str]:
     return rows
 
 
+COMPONENTS = Path("docs/phase4/reserve_components_2026Q2.json")  # from scripts/decompose_reserve.py
+
+
+def components_section() -> list[str]:
+    """PD x LGD x EAD by scenario, 30 June 2026 (performing loans; the defaulted-loan reserve is separate)."""
+    c = json.loads(COMPONENTS.read_text(encoding="utf-8"))["scenarios"]
+    names = NAMES | {"weighted": "**Weighted 60/30/10**"}
+    L = [
+        "### PD x LGD x EAD by scenario, 30 June 2026 (performing loans)",
+        "",
+        "Balance-weighted averages over the 350,495 loans. Lifetime PD: each loan's chance of default over its whole "
+        "remaining life. LGD: loss per $ defaulted. EAD: balance at default / current balance. Each loan's figures "
+        "already include the timing of defaults (36 monthly steps, then yearly to maturity), so for every loan "
+        "PD x LGD x EAD x balance equals its reserve exactly.",
+        "",
+        "| Scenario | Lifetime PD | LGD | EAD ratio | PD x LGD x EAD x balance | Reserve | Gap |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for s, v in c.items():
+        b = v["balance_weighted"]
+        L.append(f"| {names[s]} | {pct(b['lifetime_pd'], 3)} | {pct(b['lgd'], 3)} | {b['ead_ratio']:.4f} | "
+                 f"{m(v['simple_product_x_balance'])} | {m(v['reserve'])} | {m(v['gap_reserve_minus_simple_product'])} |")  # fmt: skip
+    L += [
+        "",
+        "The simple averages multiply to less than the reserve because the risk sits in the same loans: loans more "
+        "likely to default also default earlier (more balance left) and have higher LGD (higher LTV). Weighting EAD by "
+        "each loan's expected defaults, and LGD by each loan's expected exposure, closes the gap exactly:",
+        "",
+        "| Scenario | Lifetime PD (by balance) | EAD ratio (by expected defaults) | LGD (by expected exposure) | "
+        "Product x balance | Reserve | Gap closed by EAD weighting / by LGD weighting |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for s, v in c.items():
+        ch = v["reconciling_chain"]
+        L.append(f"| {names[s]} | {pct(ch['lifetime_pd'], 3)} | {ch['ead_ratio']:.4f} | {pct(ch['lgd'], 3)} | "
+                 f"{m(v['chain_product_x_balance'])} | {m(v['reserve'])} | {m(v['gap_from_ead_weighting'])} / "
+                 f"{m(v['gap_from_lgd_weighting'])} |")  # fmt: skip
+    b, sev = c["baseline"], c["severely_adverse"]
+    L += [
+        "",
+        f"Timing and the tail sit inside each loan's figures, not in the gap. Of the baseline lifetime PD "
+        f"{pct(b['balance_weighted']['lifetime_pd'], 3)}, {pct(b['lifetime_pd_within_36_months'], 3)} falls in the first "
+        f"36 months and {pct(b['lifetime_pd_tail_after_36_months'], 3)} after (the tail supplies {pct(b['tail_share_of_reserve'], 1)} "
+        f"of the baseline reserve; {pct(sev['tail_share_of_reserve'], 1)} under severely adverse). Losses are not "
+        "discounted. Weighted column: each loan's PD, expected exposure and loss are the 60/30/10 sums across scenarios. "
+        "Source: `docs/phase4/reserve_components_2026Q2.json` (`scripts/decompose_reserve.py`, reading the priced loan "
+        "files only; nothing re-run). Every scenario ties to the reserve file.",
+    ]
+    return L
+
+
 # Published external figure (the only number in the memo not taken from the reserve JSON); typed once, with source.
 FREDDIE_RATIO = 0.0019
 FREDDIE_SOURCE = (
@@ -136,6 +187,8 @@ def main() -> int:
         f"### By scenario, {DATES['202603']}",
         "",
         *scenario_table(q1, u),
+        "",
+        *components_section(),
         "",
         "### Severely adverse, with and without the uplift (Martins's requirement)",
         "",
