@@ -28,6 +28,7 @@ def _household(root: Path) -> None:
 
 
 def test_v2_columns_follow_the_loans_own_history(tmp_path: Path) -> None:
+    pytest.importorskip("pandas")  # DuckDB .df(); runs in the ml job
     con, _ = build_book(tmp_path)
     _household(tmp_path)
     rel = fb.local_relations(tmp_path, 2015)
@@ -99,6 +100,7 @@ def test_quarter_carried_only_after_it_ends() -> None:
 
 
 def test_v2_projection_tables(tmp_path: Path) -> None:
+    pytest.importorskip("pandas")  # DuckDB .df(); runs in the ml job
     con, rows = build_book(tmp_path)
     _household(tmp_path)
     rel = fb.local_relations(tmp_path, 2015)
