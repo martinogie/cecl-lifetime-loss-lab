@@ -110,3 +110,11 @@ quarters land on 2026 Q3 to 2029 Q3. The severely adverse path now peaks at 9.7%
 (2028 Q1) with house prices 29.7% below June 2026 at the worst (2028 Q2), against 7.0% and −19.7%
 under the timing as first written. The first-written timing stays available in code (`calendar`)
 only for the Phase 5 sensitivity table.
+
+**Settings and point-in-time scenarios (20 November 2026, Phase 4 completion).** The forecast and reversion
+lengths are now settings (`forecast_months`, `reversion_months`; defaults 24 and 12 as decided above),
+passed to the projection job and to the pricing, which refuses to price a projection made with different
+settings. Each reserve date uses only the Fed scenarios published by that date (`cecl.scenarios.fed_year`;
+Martins, 20 November 2026): the 31 December 2025 reserve uses the Fed's 2025 scenarios (published
+4 February 2025), measured from their own starting point (2024 Q4) with Fed quarter 1 landing on 2026 Q1;
+the March and June 2026 reserves use the 2026 scenarios.

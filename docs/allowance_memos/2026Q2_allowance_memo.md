@@ -1,25 +1,28 @@
 # Allowance memo: Q2 2026 (reserve date 30 June 2026)
 
 - **Prepared by:** Martins Ogiekpolor (maker). **Checker review:** _pending (a different day, ADR-006)._
-- **Book:** Freddie Mac Single-Family sample loans alive at the reserve date. **Scenarios:** Federal Reserve 2026 baseline and severely adverse, plus the halfway adverse path (ADR-005), from July 2026.
+- **Book:** Freddie Mac Single-Family sample loans alive at the reserve date. **Scenarios:** Federal Reserve baseline and severely adverse, plus the halfway adverse path (ADR-005), from the quarter after each reserve date. Each reserve uses only the Fed scenarios published by its date: 2025 scenarios for 31 December 2025, 2026 scenarios for 31 March and 30 June 2026 (point in time, Martins, 20 November 2026).
+- **Forecast and reversion (ADR-003):** 24 months, then 12 months straight-line reversion (settings of the projection job and the pricing; checked to match).
 - **Source:** `docs/phase4/reserve_2026Q2.json` (`scripts/build_reserve.py`); loan-level data never leaves the PC or Databricks.
 
 > **Model status, stated with every figure.** PD and prepayment: model v2 `@challenger` (logistic transition models, path simulation). **v2 failed its holdout** (July 2024 - June 2026, run once 19 November 2026; L-038): total defaults 0.81 of actual under the recorded check, 5 of 8 judged default cells outside 0.80-1.25. **L-039:** that check under-counted projected defaults; counted correctly the holdout total is 0.92 (3 cells outside), and in 2011-2019 v2 over-projects defaults by 27-37%. The reserve engine is not affected by L-039. **Overlay (Option B, Martins, 19 November 2026):** no L-038 overlay on the baseline reserve, because the LGD model's documented conservatism (L-033, 1.64x the real loss per default) more than offsets the default shortfall (0.74 in loss terms over 24 months); both errors are disclosed and the decision is reviewed each quarter. Every reserve is also shown with the +34% default uplift (Option A) as a sensitivity. Educational model on Freddie Mac conforming mortgages (sample book); not an audited bank reserve and not accounting advice.
 
 ## 1. The reserve
 
-| | 31 March 2026 | 30 June 2026 |
-|---|---|---|
-| Loans | 341,291 | 350,495 |
-| Balance | $81,024.4m | $84,623.6m |
-| Performing-loan reserve (engine, weighted 60/30/10, no overlay) | $262.7m | $268.3m |
-| Performing reserve ratio (reserve / balance) | 0.324% | 0.317% |
-| Defaulted, unresolved loans (90+ days late or REO): loans / balance | 1,953 / $467.3m | 2,059 / $507.9m |
-| Defaulted-loan reserve (balance x Phase 3 LGD) | $27.4m | $29.2m |
-| **Total allowance (booked)** | **$290.1m** | **$297.5m** |
-| Total allowance ratio | 0.356% | 0.349% |
-| Sensitivity: total with the +34% default uplift on the performing reserve (Option A) | $380.3m | $389.7m |
-| Tie-out: book reserve = sum of loan reserves (every scenario) | pass | pass |
+| | 31 December 2025 | 31 March 2026 | 30 June 2026 |
+|---|---|---|---|
+| Fed scenarios used (published by the reserve date) | 2025 | 2026 | 2026 |
+| Loans | 340,358 | 341,291 | 350,495 |
+| Balance | $80,546.0m | $81,024.4m | $84,623.6m |
+| Performing-loan reserve (engine, weighted 60/30/10) | $302.0m | $262.7m | $268.3m |
+| Performing reserve ratio (reserve / balance) | 0.375% | 0.324% | 0.317% |
+| Overlays booked (ADR-006 register) | $0.0m | $0.0m | $0.0m |
+| Defaulted, unresolved loans (90+ days late or REO): loans / balance | 1,857 / $440.6m | 1,953 / $467.3m | 2,059 / $507.9m |
+| Defaulted-loan reserve (balance x Phase 3 LGD) | $26.2m | $27.4m | $29.2m |
+| **Total allowance (booked)** | **$328.2m** | **$290.1m** | **$297.5m** |
+| Total allowance ratio | 0.405% | 0.356% | 0.349% |
+| Sensitivity: total with the +34% default uplift on the performing reserve (Option A) | $431.9m | $380.3m | $389.7m |
+| Tie-out: book reserve = sum of loan reserves (every scenario) | pass | pass | pass |
 
 ### By scenario, 30 June 2026
 
@@ -40,6 +43,15 @@
 | Adverse (halfway path) | $377.1m | $300.4m / $65.5m / $11.2m | 3.63% | $506.7m |
 | Severely adverse | $927.1m | $741.3m / $158.0m / $27.8m | 5.53% | $1,245.5m |
 | **Weighted 60/30/10 (booked)** | **$262.7m** | | | $353.0m |
+
+### By scenario, 31 December 2025 (Fed 2025 scenarios)
+
+| Scenario | Reserve | Of which: forecast (yr 1-2) / reversion (yr 3) / tail | Balance-weighted lifetime PD | With +34% uplift |
+|---|---|---|---|---|
+| Baseline | $78.9m | $57.7m / $16.3m / $4.9m | 2.21% | $106.0m |
+| Adverse (halfway path) | $448.8m | $408.7m / $33.4m / $6.7m | 3.82% | $602.9m |
+| Severely adverse | $1,200.1m | $1,105.1m / $78.4m / $16.7m | 5.79% | $1,612.3m |
+| **Weighted 60/30/10 (booked)** | **$302.0m** | | | $405.7m |
 
 ### PD x LGD x EAD by scenario, 30 June 2026 (performing loans)
 
@@ -69,6 +81,7 @@ The LGD conservatism (L-033) was measured on resolved 2017-2021 defaults, good y
 
 | Date | Severely adverse, no uplift | Severely adverse, +34% uplift |
 |---|---|---|
+| 31 December 2025 | $1,200.1m | $1,612.3m |
 | 31 March 2026 | $927.1m | $1,245.5m |
 | 30 June 2026 | $958.4m | $1,287.6m |
 
@@ -89,11 +102,43 @@ The LGD conservatism (L-033) was measured on resolved 2017-2021 defaults, good y
 - **Decision (Option B):** "The L-038 default shortfall is assessed at the expected-loss level. Because the LGD model's documented conservatism (L-033, 1.64x) more than offsets the default shortfall (0.74 in loss terms), the baseline reserve carries no L-038 overlay. Both errors are disclosed with every reserve figure. This applies to the baseline only and is reviewed each quarter." (Martins Ogiekpolor, 19 November 2026)
 - **The 24-month gap may understate the lifetime gap:** 2026 was the weakest year of the holdout (0.74 of actual defaults counted correctly; 0.60 in loss terms), and the reserve runs to each loan's maturity.
 - **Other context (L-039 re-measurement):** in 2011-2019 v2 over-projected defaults by 27-37%; so in benign conditions the default side is likely conservative too, and in a 2024-2026-like period it is short.
-- Overlays booked: **none**. Cap check (5% each, 10% total): not applicable.
+- Overlays booked: **none** at any of the three dates (register below).
 
-## 3. Rollforward, Q2 2026 (to the cent)
+### Overlay register (ADR-006; `cecl/overlays.py`, log `docs/governance/overlay_log.json`)
+
+Every proposed overlay is checked each run: a standard factor (Q1-Q9; Q4 and Q6 not applicable), the numbers method (or a written justification for a percentage), caps of 5% each and 10% in total of the modelled reserve (or a written exception flagged here), the numbers method and the checker's sign-off for a decrease, expiry at quarter-end, at most two renewals before the model must be fixed, and maker/checker on different days. Only approved overlays that pass every rule are booked.
+
+| Reserve date | Modelled reserve | Overlays proposed | Booked | Booked total | Share of modelled |
+|---|---|---|---|---|---|
+| 31 December 2025 | $302.0m | 0 | 0 | $0.0m | 0.0% |
+| 31 March 2026 | $262.7m | 0 | 0 | $0.0m | 0.0% |
+| 30 June 2026 | $268.3m | 0 | 0 | $0.0m | 0.0% |
+
+Considered and not proposed:
+
+- **31 December 2025, A-2025Q4-1 (Q5):** L-038, as for 30 June 2026 (built later, 20 November 2026, for the Q1 2026 rollforward). Decision: No overlay (Option B), same decision and disclosures as A-2026Q2-1. (Martins Ogiekpolor, 2026-11-19; review each quarter).
+- **31 March 2026, A-2026Q1-1 (Q5):** L-038, as for 30 June 2026 (the first reserve build covers both dates). Decision: No overlay (Option B), same decision and disclosures as A-2026Q2-1. (Martins Ogiekpolor, 2026-11-19; review each quarter).
+- **30 June 2026, A-2026Q2-1 (Q5):** L-038: model v2 under-projected holdout defaults (0.74 of actual in expected-loss terms over July 2024 - June 2026; +34% would close it). Decision: No overlay (Option B): the L-038 default shortfall is assessed at the expected-loss level; the LGD model's documented conservatism (L-033, 1.64x) more than offsets it. Both errors disclosed with every reserve figure; +34% shown as a sensitivity. Baseline only; reviewed each quarter. (Martins Ogiekpolor, 2026-11-19; review each quarter).
+
+## 3. Rollforward, Q1 and Q2 2026 (to the cent)
 
 > **Model status, stated with every figure.** PD and prepayment: model v2 `@challenger` (logistic transition models, path simulation). **v2 failed its holdout** (July 2024 - June 2026, run once 19 November 2026; L-038): total defaults 0.81 of actual under the recorded check, 5 of 8 judged default cells outside 0.80-1.25. **L-039:** that check under-counted projected defaults; counted correctly the holdout total is 0.92 (3 cells outside), and in 2011-2019 v2 over-projects defaults by 27-37%. The reserve engine is not affected by L-039. **Overlay (Option B, Martins, 19 November 2026):** no L-038 overlay on the baseline reserve, because the LGD model's documented conservatism (L-033, 1.64x the real loss per default) more than offsets the default shortfall (0.74 in loss terms over 24 months); both errors are disclosed and the decision is reviewed each quarter. Every reserve is also shown with the +34% default uplift (Option A) as a sensitivity. Educational model on Freddie Mac conforming mortgages (sample book); not an audited bank reserve and not accounting advice.
+
+Start + provision - gross write-offs + recoveries = end, on the total allowance (performing reserve, booked overlays and the defaulted-loan reserve); provision is the balancing figure. Write-offs are Freddie's realised losses at disposition (a gain counts as zero); recoveries are MI and other recoveries.
+
+### Q1 2026
+
+| Loan group (origination year) | 31 December 2025 | Provision | Gross write-offs | Recoveries | 31 March 2026 |
+|---|---|---|---|---|---|
+| 2018 and older | 11918246.92 | -1234630.90 | -538503.42 | 39468.95 | 10184581.55 |
+| 2019-2021 | 24511201.86 | -4022244.33 | -656368.76 | 44027.32 | 19876616.09 |
+| 2022-2024 | 212062549.50 | -37164014.10 | -2245454.95 | 1043599.39 | 173696679.84 |
+| 2025-2026 | 79707081.40 | 6622665.08 | 0 | 0 | 86329746.48 |
+| **Total** | **328199079.68** | **-35798224.25** | **-3440327.13** | **1127095.66** | **290087623.96** |
+
+Reconciles to the cent: **yes**. Loss dispositions in the quarter: 39, of which 1 **estimated** (Freddie reports losses about 3 months after the sale; write-offs not yet reported are estimated (balance removed x Phase 3 LGD) and trued up when reported).
+
+### Q2 2026
 
 | Loan group (origination year) | 31 March 2026 | Provision | Gross write-offs | Recoveries | 30 June 2026 |
 |---|---|---|---|---|---|
@@ -103,9 +148,29 @@ The LGD conservatism (L-033) was measured on resolved 2017-2021 defaults, good y
 | 2025-2026 | 86329746.48 | 20506392.98 | 0 | 0 | 106836139.46 |
 | **Total** | **290087623.96** | **8275455.08** | **-865575.00** | **0.00** | **297497504.04** |
 
-Reconciles to the cent: **yes** (start + provision - write-offs + recoveries = end, on the total allowance; provision is the balancing figure). Loss dispositions in the quarter: 57, of which 57 **estimated**: Freddie reports losses about 3 months after the sale; Q2 2026 write-offs not yet reported are estimated (balance removed x Phase 3 LGD), trued up at the Q3 close. Write-offs are Freddie's realised losses at disposition (a gain counts as zero); recoveries are MI and other recoveries.
+Reconciles to the cent: **yes**. Loss dispositions in the quarter: 57, of which 57 **estimated** (Freddie reports losses about 3 months after the sale; write-offs not yet reported are estimated (balance removed x Phase 3 LGD) and trued up when reported).
 
-## 4. Reserve bridge, 31 March to 30 June 2026 (weighted)
+## 4. Reserve bridges (weighted, total allowance)
+
+Exits: the start reserve of loans that left the book; new loans: the end reserve of loans not in the start book; credit quality and ageing: continuing loans under the start economy, end vs start; economic forecast: the end economy vs the start economy for the end book; overlays: change in booked overlays; defaulted-loan reserve change: the change in the reserve on defaulted, unresolved loans; model changes: none (same models).
+
+### 31 December 2025 to 31 March 2026
+
+| Step | Amount |
+|---|---|
+| Start | $328.2m |
+| Exits | $-20.0m |
+| New loans | $17.5m |
+| Credit quality and ageing | $11.7m |
+| Economic forecast | $-48.4m |
+| Model changes | $0.0m |
+| Overlays | $0.0m |
+| Defaulted loan reserve change | $1.1m |
+| End | $290.1m |
+
+Bridge reconciles: **yes**; start and end equal the booked total allowance: **yes**. The economic forecast step includes the move from the Fed's 2025 scenarios to its 2026 scenarios (published in between).
+
+### 31 March 2026 to 30 June 2026
 
 | Step | Amount |
 |---|---|
@@ -119,7 +184,7 @@ Reconciles to the cent: **yes** (start + provision - write-offs + recoveries = e
 | Defaulted loan reserve change | $1.8m |
 | End | $297.5m |
 
-Bridge reconciles: **yes**. Exits: the March reserve of loans that left the book; new loans: the June reserve of loans not in the March book; credit quality and ageing: continuing loans under the March economy, June vs March; economic forecast: the June economy vs the March economy for the June book; defaulted-loan reserve change: the change in the reserve on defaulted, unresolved loans; model changes and overlays: none.
+Bridge reconciles: **yes**; start and end equal the booked total allowance: **yes**.
 
 ## 5. Benchmarks (M-05, M-06)
 
@@ -161,7 +226,7 @@ Rollforward by loan group: section 3. Credit quality by origination year (FICO a
 
 ## 8. Limitations that apply (limitations log)
 
-L-028 payoffs (largely the L-039 count, see the validation report), L-031 turnover drift, L-033 LGD conservative, L-034 EAD, L-035 crisis exam, L-036 household stress not used, L-037 downturn check test 7, L-038 holdout failed, L-039 check bias; conforming loans only; Freddie's underwriting and MI shape losses; recent vintages have incomplete losses.
+L-028 payoffs (largely the L-039 count, see the validation report), L-031 turnover drift, L-033 LGD conservative, L-034 EAD, L-035 crisis exam, L-036 household stress not used, L-037 downturn check test 7, L-038 holdout failed, L-039 check bias, L-040 tail, L-041 allowance components outside the engine, L-042 December 2025 reserve built after the fact; conforming loans only; Freddie's underwriting and MI shape losses; recent vintages have incomplete losses.
 
 ## 9. Sign-off
 
