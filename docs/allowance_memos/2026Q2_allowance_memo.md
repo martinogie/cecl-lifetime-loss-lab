@@ -109,6 +109,22 @@ Bridge reconciles: **yes**. Exits: the March reserve of loans that left the book
 
 The benchmarks are through-the-cycle: both include the 2008 crisis losses at full weight, while the engine uses the current book's own credit quality and the Fed's scenarios. Differences are expected; they are a range check, not a target.
 
+### Freddie Mac's own allowance ratio (information only, not a target)
+
+| | Ratio | On our 30 June 2026 book |
+|---|---|---|
+| Our total allowance (booked) | 0.35% | $297.5m |
+| Freddie Mac's published Single-Family ratio, 30 June 2026 | 0.19% | $160.8m |
+| Gap | 0.16% | $136.7m |
+
+Why ours is higher (illustrations, each on its own; they overlap and do not add up):
+
+- **LGD conservatism (L-033, 1.64x).** Priced at the real loss per default, the total allowance would be about $181.4m (0.21%).
+- **Scenario weights (ADR-005, 60/30/10).** The adverse and severely adverse paths supply $211.0m, 79% of the performing reserve (71% of the total allowance). On the baseline alone the allowance would be $124.7m (0.15%).
+- **Different book, models and mortgage insurance.** Ours is a sample of loans alive at 30 June 2026 priced by an educational model; Freddie's covers its whole single-family guarantee book with its own models, scenarios and weights (its Q2 2026 benefit for credit losses reflected a change in how it generates house-price scenarios). Mortgage insurance and other credit enhancements enter our LGD only through Freddie's reported recoveries on past defaults; Freddie values them loan by loan.
+
+Source: Freddie Mac, Second Quarter 2026 Financial Results (Q2 2026 earnings release), Single-Family allowance for credit losses as a percentage of total single-family loans: 0.19% at 30 June 2026, https://www.freddiemac.com/investors/financials/pdf/2026er-2q26_release.pdf. Freddie's ratio is a sanity reference for the same kind of loans, not a target; the bank peer comparison (FDIC call reports) is in Phase 6.
+
 ## 6. Disclosure tables (aggregates only)
 
 Rollforward by loan group: section 3. Credit quality by origination year (FICO and current-LTV bands, balance), and gross write-offs by origination year (Q2 2026 and year to date): `docs/phase4/reserve_2026Q2.json` (`disclosures`), rendered in `docs/phase4/disclosures_2026Q2.md`.

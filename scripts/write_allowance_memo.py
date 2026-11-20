@@ -53,6 +53,49 @@ def scenario_table(d: dict[str, Any], uplift: float) -> list[str]:
     return rows
 
 
+# Published external figure (the only number in the memo not taken from the reserve JSON); typed once, with source.
+FREDDIE_RATIO = 0.0019
+FREDDIE_SOURCE = (
+    "Freddie Mac, Second Quarter 2026 Financial Results (Q2 2026 earnings release), Single-Family allowance for "
+    "credit losses as a percentage of total single-family loans: 0.19% at 30 June 2026, "
+    "https://www.freddiemac.com/investors/financials/pdf/2026er-2q26_release.pdf"
+)
+
+
+def freddie_benchmark(q: dict[str, Any]) -> list[str]:
+    """Information-only comparison with Freddie Mac's own published allowance ratio."""
+    bal, sc, pipe = q["book"]["balance"], q["scenarios"], q["defaulted_pipeline"]["reserve"]
+    stressed = 0.3 * sc["adverse"]["reserve"] + 0.1 * sc["severely_adverse"]["reserve"]
+    baseline_only = sc["baseline"]["reserve"] + pipe
+    lgd_real = q["total_allowance"] / 1.64  # L-033: model LGD is 1.64x the real loss per default
+    return [
+        "### Freddie Mac's own allowance ratio (information only, not a target)",
+        "",
+        "| | Ratio | On our 30 June 2026 book |",
+        "|---|---|---|",
+        f"| Our total allowance (booked) | {pct(q['total_allowance_ratio'])} | {m(q['total_allowance'])} |",
+        f"| Freddie Mac's published Single-Family ratio, 30 June 2026 | {pct(FREDDIE_RATIO)} | {m(FREDDIE_RATIO * bal)} |",
+        f"| Gap | {pct(q['total_allowance_ratio'] - FREDDIE_RATIO)} | {m(q['total_allowance'] - FREDDIE_RATIO * bal)} |",
+        "",
+        "Why ours is higher (illustrations, each on its own; they overlap and do not add up):",
+        "",
+        f"- **LGD conservatism (L-033, 1.64x).** Priced at the real loss per default, the total allowance would be about "
+        f"{m(lgd_real)} ({pct(lgd_real / bal)}).",
+        f"- **Scenario weights (ADR-005, 60/30/10).** The adverse and severely adverse paths supply {m(stressed)}, "
+        f"{pct(stressed / q['weighted_reserve'], 0)} of the performing reserve ({pct(stressed / q['total_allowance'], 0)} "
+        f"of the total allowance). On the baseline alone the allowance would be {m(baseline_only)} "
+        f"({pct(baseline_only / bal)}).",
+        "- **Different book, models and mortgage insurance.** Ours is a sample of loans alive at 30 June 2026 priced by "
+        "an educational model; Freddie's covers its whole single-family guarantee book with its own models, scenarios "
+        "and weights (its Q2 2026 benefit for credit losses reflected a change in how it generates house-price "
+        "scenarios). Mortgage insurance and other credit enhancements enter our LGD only through Freddie's reported "
+        "recoveries on past defaults; Freddie values them loan by loan.",
+        "",
+        f"Source: {FREDDIE_SOURCE}. Freddie's ratio is a sanity reference for the same kind of loans, not a target; "
+        "the bank peer comparison (FDIC call reports) is in Phase 6.",
+    ]
+
+
 def main() -> int:
     r = json.loads(SRC.read_text(encoding="utf-8"))
     q1, q2 = r["dates"]["202603"], r["dates"]["202606"]
@@ -177,6 +220,8 @@ def main() -> int:
         "The benchmarks are through-the-cycle: both include the 2008 crisis losses at full weight, while the engine "
         "uses the current book's own credit quality and the Fed's scenarios. Differences are expected; they are a "
         "range check, not a target.",
+        "",
+        *freddie_benchmark(q2),
         "",
         "## 6. Disclosure tables (aggregates only)",
         "",
