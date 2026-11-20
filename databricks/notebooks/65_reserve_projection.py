@@ -23,7 +23,6 @@ os.environ["CECL_ENV"] = dbutils.widgets.get("env")
 os.environ["CECL_DATABRICKS_LAYOUT"] = dbutils.widgets.get("layout")
 
 import mlflow
-import numpy as np
 import pandas as pd
 
 from cecl import engine, environment, scenarios
