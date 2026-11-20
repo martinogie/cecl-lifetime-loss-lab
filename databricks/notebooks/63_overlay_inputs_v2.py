@@ -49,20 +49,38 @@ household = simulate.Household.from_table(spark.table(f"{SILVER}.macro_household
 models = {fx.STATES.index(s): mlflow.pyfunc.load_model(f"runs:/{r}/model").unwrap_python_model().inner.model
           for s, r in runs.items()}  # fmt: skip
 proj = simulate.project(models, start, history, macro, S, MONTHS, household, paths=8)
-total = float(proj.p_default.sum())
+actuals = spark.sql(
+    fb.v2_projection_actuals_sql(f"{GOLD}.loan_panel", windows=((S, v2.HOLDOUT_END),))
+).toPandas()
+check = multistate.check(
+    proj, start, actuals, S
+)  # the recorded rule (counts projected months up to the actual exit)
+total = check.totals["default_projected"]
 if abs(total - expected) > 1e-6 * expected:
     raise ValueError(
         f"projected total {total:.4f} differs from the recorded holdout run {expected:.4f}: stopping"
     )
-
+a = actuals.set_index("loan_id").reindex(start["loan_id"]).reset_index()
+observed, event = multistate.observed_months(S, a)
+plain = float(proj.p_default.sum())
+print(f"reproduced the holdout run: {total:,.4f} (recorded rule); plain sum over all months {plain:,.2f}")
 keep = ["loan_id", "vintage_year", "state_prev", "property_state", "credit_score", "loan_age", "upb_start",
         "rate_start", "remaining_start", "orig_upb", "orig_ltv", "hpi_orig"]  # fmt: skip
 out = start[[c for c in keep if c in start.columns]].copy()
 pd_cols = pd.DataFrame(proj.p_default, columns=[f"pd_{m}" for m in proj.months])
 out = pd.concat([out.reset_index(drop=True), pd_cols], axis=1)
+out["observed_months"], out["actual_event"] = observed, event  # for the censoring-only comparison on the PC
+out["last_status"] = a["last_status"].astype(str).to_numpy()
 os.makedirs(f"{VOLUME}/results/v2", exist_ok=True)
 out.to_parquet(f"{VOLUME}/results/v2/holdout_202407_p_default.parquet", index=False)
-print(f"{len(out):,} loans; projected defaults {total:,.2f} (matches the holdout run)")
+print(f"{len(out):,} loans saved")
 dbutils.notebook.exit(
-    json.dumps({"loans": len(out), "total": total, "path": "results/v2/holdout_202407_p_default.parquet"})
+    json.dumps(
+        {
+            "loans": len(out),
+            "recorded_rule_total": total,
+            "plain_sum": plain,
+            "path": "results/v2/holdout_202407_p_default.parquet",
+        }
+    )
 )
