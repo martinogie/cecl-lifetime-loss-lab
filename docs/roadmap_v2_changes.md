@@ -89,3 +89,54 @@ transition feature build 13.9, the 2017-2019 projection 3.8-4.3, a logistic eval
 | Weekly score-stability check | about 2-4 when a new economic month is scored; 0 when skipped (freshness runs in Airflow) | about 3-8 (one new economic month a month) |
 | Quarterly performance monitoring (on top of the quarterly data refresh) | about 10-20 (score the new quarters per transition, calibration, AUC/ROC, trend) | about 3-7 |
 | Quarterly data refresh it depends on (already part of the quarterly close) | about 70-90 (Freddie reload about 55, transition features about 14, projection about 5) | about 25-30 |
+
+## Model v3 notes (for the next model version; recorded 19 November 2026, nothing built)
+
+Background: model v2 failed its holdout (L-038). Martins accepted the result and paused rebuilds. These
+notes come from a scoring-only diagnosis (MLflow run `f6b96b23`, Databricks 4.8 minutes, code `690c0d2`;
+`cecl/models/drift.py`, notebook 62). It compares, month by month, the v2 path simulation's live paths with
+the same loans' real rows.
+
+**What was tested: "simulated-history drift".** The idea was that the memory inputs carried along the simulated
+paths drift away from reality and starve the one-month models. **The idea is ruled out.** On both the
+holdout start (July 2024, v2 final models) and the 2017-2019 exam (F4 models), the simulated paths carry
+slightly *more* missed-payment history than the real loans, not less:
+
+| Simulated / actual, average by projection year | Holdout yr 1 | Holdout yr 2 | F4 yr 1 | F4 yr 2 | F4 yr 3 |
+|---|---|---|---|---|---|
+| Loans with a late month in the past 12 | 1.04 | 1.12 | 1.09 | 1.10 | 1.06 |
+| Current loans with a late month in the past 12 | 1.06 | 1.19 | 1.11 | 1.14 | 1.08 |
+| Worst state in 6 months late | 1.05 | 1.09 | 1.09 | 1.07 | 1.01 |
+| Ever missed a payment | 1.01 | 1.06 | 1.02 | 1.07 | 1.10 |
+| State last month late | 0.99 | 0.91 | 1.08 | 0.97 | 0.98 |
+| **Loans 60 days late (share of the live book)** | 0.92 | **0.79** | 1.06 | 1.02 | 1.02 |
+| Current to 30 days late, one month | 1.08 | 1.08 | 1.10 | 1.11 | 1.07 |
+| **30 days late to current (cure)** | 1.11 | **1.18** | 1.05 | 1.07 | 1.02 |
+| 30 to 60 days late | 0.99 | 0.91 | 1.10 | 1.15 | 1.20 |
+| 60 days late to default | 1.09 | 1.16 | 1.18 | 1.29 | 1.46 |
+
+(The last holdout month, June 2026, is left out because the feature table holds only about 2,300 rows for
+the data's final month. The rates are the chances the models gave the live simulated paths, against the
+real weighted rates.)
+
+**What explains the holdout shortfall instead:**
+1. **Cures from 30 days late fell in reality.** The model's cure chance stays at about 0.47 every month; the
+   real cure rate fell from about 0.42 in the first year to about 0.39 in the second (0.48 at the start).
+   Too many simulated loans recover, too few reach 60 days.
+2. **The stock of loans 60 days late grew in reality** (0.18% of live loans rising to 0.20-0.23%) while the
+   simulated stock stayed at about 0.16%. Real loans linger at 60 days, perhaps in loss mitigation, and the model does not
+   hold them there. The simulated 60-day group is mostly fresh arrivals that default quickly (default
+   chance 1.16x the real rate); the real group is larger and slower, so the projection runs out of defaults
+   in its second year.
+3. In 2017-2019 the same parts of the model err the other way (more rolls and faster defaults than
+   actual), which is why F4 passed at 1.09. So the cure and lingering behaviour changes with the period,
+   and the v2 inputs do not capture it.
+
+**Candidates for v3 (to be validated on a new period, with Martins's approval; none chosen here):**
+- an input for how long the loan has been at its current delinquency level, so lingering loans are
+  separated from fresh arrivals (the 60-day and 30-day steps);
+- a period-level cure signal (for example the recent book-wide cure rate, known at the reserve date),
+  checked for leakage;
+- a time-to-resolution or loss-mitigation flag if Freddie's fields allow it (the modification and
+  deferral fields), known at the reserve date;
+- keep the path simulation (its history is not the problem) and the fixed-seed noise check.
