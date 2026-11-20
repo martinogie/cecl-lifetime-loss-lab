@@ -1,0 +1,113 @@
+# Databricks notebook source
+# MAGIC %md
+# MAGIC ### 65 reserve projection (Phase 4): v2 default and payoff chances for each reserve date and scenario
+# MAGIC For each reserve month R (31 March and 30 June 2026), each scenario (baseline, adverse halfway path,
+# MAGIC severely adverse; `cecl.scenarios`, ADR-003/005/008 with B4b) and each economy date (its own, plus the
+# MAGIC 30 June book under the 31 March economy for the reserve bridge), the v2 `@challenger` models play every
+# MAGIC loan alive at the end of R forward 36 months with the path simulation, starting from its **actual** state
+# MAGIC at the end of R (`first_state`). The loan-level chances go to the bronze volume (never git); the PC prices
+# MAGIC them with LGD and EAD (`scripts/build_reserve.py`). The scenario paths (aggregates) are saved alongside.
+# MAGIC
+# MAGIC Educational model on Freddie Mac conforming mortgages; not an audited reserve.
+
+# COMMAND ----------
+
+import json
+import os
+import time
+
+for name, default in (("env", ""), ("layout", "catalogs"), ("runs", "{}"), ("plan", ""), ("paths", "8"),
+                      ("code_version", "unknown")):  # fmt: skip
+    dbutils.widgets.text(name, default)
+os.environ["CECL_ENV"] = dbutils.widgets.get("env")
+os.environ["CECL_DATABRICKS_LAYOUT"] = dbutils.widgets.get("layout")
+
+import mlflow
+import numpy as np
+import pandas as pd
+
+from cecl import engine, environment, scenarios
+from cecl import features as fx
+from cecl.models import simulate
+from ingestion import feature_build as fb
+
+environment.require_airflow_env()
+GOLD, SILVER = environment.databricks_schema("gold"), environment.databricks_schema("silver")
+VOLUME = "/Volumes/" + environment.databricks_schema("bronze").replace(".", "/") + "/raw"
+runs = json.loads(dbutils.widgets.get("runs"))
+paths = int(dbutils.widgets.get("paths"))
+# plan: "book@economy" items, e.g. "202603@202603,202606@202606,202606@202603"
+plan = [tuple(x.split("@")) for x in dbutils.widgets.get("plan").split(",") if x.strip()]
+mlflow.set_registry_uri("databricks-uc")
+models = {fx.STATES.index(s): mlflow.pyfunc.load_model(f"runs:/{r}/model").unwrap_python_model().inner.model
+          for s, r in runs.items()}  # fmt: skip
+state_m = spark.table(f"{SILVER}.macro_state_monthly").toPandas()
+nat_m = spark.table(f"{SILVER}.macro_national_monthly").toPandas()
+fed = spark.table(f"{SILVER}.macro_fed_paths").toPandas()
+long_run = spark.table(f"{SILVER}.macro_long_run_averages").toPandas()
+KEEP = ["loan_id", "vintage_year", "property_state", "credit_score", "loan_age", "upb_start", "rate_start",
+        "remaining_start", "orig_upb", "orig_ltv", "hpi_orig", "mi_pct", "occupancy_investor", "current_ltv"]  # fmt: skip
+
+
+def reserve_book(R):
+    """Loans alive at the end of R: their start row for R, history, and actual state at the end of R."""
+    parts = [spark.sql(fb.v2_projection_starts_sql(v, fb.databricks_relations(environment.databricks_schema, v), "spark", starts=(R,)))
+             for v in range(1999, int(R[:4]) + 1)]  # fmt: skip
+    df = parts[0]
+    for p in parts[1:]:
+        df = df.unionByName(p, allowMissingColumns=True)
+    start = df.toPandas()
+    end = spark.sql(f"select loan_id, status, least(effective_months_late, 2) as first_state, "
+                    f"case when flagged_pause then 1 else 0 end as first_pause from {GOLD}.loan_panel "
+                    f"where period_ym = '{R}'").toPandas()  # fmt: skip
+    last_month = spark.sql(f"select max(period_ym) from {GOLD}.loan_panel").collect()[0][0]
+    alive = end["status"].isin(["current", "delinquent"]) | (
+        (end["status"] == "censored") & (R == last_month)
+    )
+    start = start.merge(end[alive][["loan_id", "first_state", "first_pause"]], on="loan_id", how="inner")
+    start = start.sort_values("loan_id").reset_index(drop=True)
+    history = spark.sql(fb.v2_projection_history_sql(f"{GOLD}.loan_panel", starts=(R,))).toPandas()
+    return start, history
+
+
+results, books = {}, {}
+started = time.monotonic()
+for R, E in plan:
+    if R not in books:
+        books[R] = reserve_book(R)
+    start, history = books[R]
+    # B4b weights: the book's balance by state at the reserve date of the economy's book
+    w_book = books[E][0] if E in books else start
+    weights = w_book.groupby("property_state")["upb_start"].sum().to_dict()
+    for name in scenarios.SCENARIOS:
+        t = time.monotonic()
+        sc = scenarios.build(
+            name,
+            E,
+            state_m,
+            nat_m,
+            fed,
+            long_run,
+            weights,
+            horizon=engine.MONTHLY + 3 + 12 * (int(R[:4]) - int(E[:4])) + int(R[4:]) - int(E[4:]),
+        )
+        proj = simulate.project(models, start, history, sc.macro, R, engine.MONTHLY + 1, None, paths=paths,
+                                first_state=start["first_state"].to_numpy(), first_pause=start["first_pause"].to_numpy())  # fmt: skip
+        out = start[[c for c in KEEP if c in start.columns]].copy()
+        out["first_state"] = start["first_state"].to_numpy()
+        pdm = pd.DataFrame(proj.p_default[:, 1:], columns=[f"pd_{k}" for k in range(1, engine.MONTHLY + 1)])
+        ppm = pd.DataFrame(proj.p_prepay[:, 1:], columns=[f"pp_{k}" for k in range(1, engine.MONTHLY + 1)])
+        out = pd.concat([out.reset_index(drop=True), pdm, ppm], axis=1)
+        tag = f"{R}_{E}_{name}"
+        os.makedirs(f"{VOLUME}/results/reserve", exist_ok=True)
+        out.to_parquet(f"{VOLUME}/results/reserve/book_{tag}.parquet", index=False)
+        sc.table().to_parquet(f"{VOLUME}/results/reserve/paths_{tag}.parquet", index=False)
+        checks = {
+            v: round(scenarios.weighted_change(sc, weights, v, 24), 6) for v in scenarios.STATE_VARIABLES
+        }
+        results[tag] = {"loans": len(out), "pd_36": float(proj.p_default[:, 1:].sum()),
+                        "b4b_weighted_change_24": checks, "minutes": round((time.monotonic() - t) / 60, 2),
+                        "betas_hpi_range": [min(sc.betas["hpi"].values()), max(sc.betas["hpi"].values())]}  # fmt: skip
+        print(tag, results[tag])
+results["minutes"] = round((time.monotonic() - started) / 60, 1)
+dbutils.notebook.exit(json.dumps(results, default=float))

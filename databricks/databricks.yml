@@ -817,6 +817,45 @@ resources:
           timeout_seconds: 0
           max_retries: 0
 
+    reserve_projection:
+      name: cecl_lab_reserve_projection_${var.env}
+      description: "Phase 4: v2 default and payoff chances for each reserve date and scenario (priced on the PC)"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - lightgbm==4.7.0
+              - scikit-learn==1.9.1
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: runs
+          default: "{}"
+        - name: plan
+          default: "202603@202603,202606@202606,202606@202603"
+        - name: paths
+          default: "8"
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: reserve_projection
+          notebook_task:
+            notebook_path: ./notebooks/65_reserve_projection.py
+          environment_key: ml
+          timeout_seconds: 0
+          max_retries: 0
+
 targets:
   dev:
     # Not "mode: development": that mode prefixes every name with dev_<user>_ (schemas, volume,
