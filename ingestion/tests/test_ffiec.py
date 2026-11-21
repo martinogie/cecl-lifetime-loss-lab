@@ -266,6 +266,9 @@ def test_periods_and_filers() -> None:
     assert ffiec.latest_quarter_end(date(2026, 11, 10)) == date(2026, 6, 30)
     assert ffiec.prior_june(date(2025, 12, 31)) == date(2024, 6, 30)
     assert ffiec.ric_filers(PANEL, ASSETS, 1_000_000) == [111, 222]
+    small_form = [{**PANEL[0], "FilingType": "051"}, {**PANEL[1], "FilingType": 41}]
+    assert ffiec.ric_filers(small_form, ASSETS, 1_000_000, ["051"]) == [222]  # 051 skipped in Mar/Sep
+    assert ffiec.ric_filers(small_form, ASSETS, 1_000_000) == [111, 222]
     assert date(2026, 6, 30) in ffiec.periods_from(CONTRACT)
 
 

@@ -17,6 +17,13 @@ ric_asset_threshold_thousands: 1000000
 # PPP loans and deposit inflows had pushed many banks over thresholds. Checked on the live 2021 data
 # (20 November 2026): 111 of the 112 banks above $1bn in June 2020 that filed no RI-C were under $1bn at
 # 31 December 2019. This corrects who must file; the filer-share checks below are unchanged.
+# The small-bank form (FFIEC 051) collects Schedule RI-C only in June and December. Checked on the live data
+# (21 November 2026): at 30 September 2026 all 424 RI-C candidates without an RI-C block filed the 051, and
+# the same banks reported RI-C at 30 June 2026. So in March and September only 031 and 041 filers count, and
+# those periods' bank ranges cover mid-size and large banks only (stated with the results).
+semiannual_ric:
+  forms: ["051"]
+  months: [6, 12]
 asset_relief:
   years: [2021]
   lesser_of_date: "2019-12-31"

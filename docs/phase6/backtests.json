@@ -130,5 +130,1024 @@
    "closer_than_benchmark": true,
    "passes": false
   }
+ },
+ "rolling": {
+  "dates": {
+   "201212": {
+    "lgd_refit": {
+     "resolved_defaults": 15091,
+     "with_loss": 9809,
+     "loss_per_dollar": 0.32103368989755054
+    },
+    "actual": {
+     "as_of": "201212",
+     "months": 36,
+     "loans": 228274,
+     "balance": 35609167356.35,
+     "projected_defaults": 7429.608525405397,
+     "actual_defaults": 5216,
+     "projected_loss": 152771612.8116262,
+     "actual_loss": 136814416.1485427,
+     "defaults_ratio": 1.4243881375393783,
+     "loss_ratio": 1.1166338834188232,
+     "lifetime_reserve": 168619734.18488327,
+     "share_of_actual_loss_from_unresolved": 0.2024233666171127,
+     "actual_defaults_matched_to_loss_events": 5216,
+     "by_year": {
+      "2013": {
+       "projected_defaults": 3086.0018216403314,
+       "actual_defaults": 2432.0,
+       "projected_loss": 83874829.98706341,
+       "actual_loss": 73403407.08763883
+      },
+      "2014": {
+       "projected_defaults": 2414.554651007332,
+       "actual_defaults": 1630.0,
+       "projected_loss": 43845169.59597694,
+       "actual_loss": 39439150.19880829
+      },
+      "2015": {
+       "projected_defaults": 1929.0520527577346,
+       "actual_defaults": 1154.0,
+       "projected_loss": 25051613.228586055,
+       "actual_loss": 23971858.862095557
+      }
+     }
+    },
+    "flat": {
+     "as_of": "201212",
+     "months": 36,
+     "loans": 228274,
+     "balance": 35609167356.35,
+     "projected_defaults": 8260.237212123106,
+     "actual_defaults": 5216,
+     "projected_loss": 268188986.45744997,
+     "actual_loss": 136814416.1485427,
+     "defaults_ratio": 1.5836344348395524,
+     "loss_ratio": 1.9602392350691373,
+     "lifetime_reserve": 287638081.33659387,
+     "share_of_actual_loss_from_unresolved": 0.2024233666171127,
+     "actual_defaults_matched_to_loss_events": 5216,
+     "by_year": {
+      "2013": {
+       "projected_defaults": 3227.9286916950487,
+       "actual_defaults": 2432.0,
+       "projected_loss": 109134481.97648124,
+       "actual_loss": 73403407.08763883
+      },
+      "2014": {
+       "projected_defaults": 2943.679531171011,
+       "actual_defaults": 1630.0,
+       "projected_loss": 98687047.77437243,
+       "actual_loss": 39439150.19880829
+      },
+      "2015": {
+       "projected_defaults": 2088.628989257045,
+       "actual_defaults": 1154.0,
+       "projected_loss": 60367456.70659611,
+       "actual_loss": 23971858.862095557
+      }
+     }
+    }
+   },
+   "201312": {
+    "lgd_refit": {
+     "resolved_defaults": 18176,
+     "with_loss": 11889,
+     "loss_per_dollar": 0.31959165453437
+    },
+    "actual": {
+     "as_of": "201312",
+     "months": 36,
+     "loans": 228049,
+     "balance": 36137287476.6,
+     "projected_defaults": 5494.8672231303635,
+     "actual_defaults": 4029,
+     "projected_loss": 94925244.72495745,
+     "actual_loss": 88436560.53841291,
+     "defaults_ratio": 1.3638290452048556,
+     "loss_ratio": 1.0733710599670612,
+     "lifetime_reserve": 109166352.14738172,
+     "share_of_actual_loss_from_unresolved": 0.2002959602970874,
+     "actual_defaults_matched_to_loss_events": 4029,
+     "by_year": {
+      "2014": {
+       "projected_defaults": 2085.723314866894,
+       "actual_defaults": 1751.0,
+       "projected_loss": 44835808.325591475,
+       "actual_loss": 43389389.19665463
+      },
+      "2015": {
+       "projected_defaults": 1835.7148096722494,
+       "actual_defaults": 1295.0,
+       "projected_loss": 29717969.644053582,
+       "actual_loss": 28014292.840252243
+      },
+      "2016": {
+       "projected_defaults": 1573.4290985912342,
+       "actual_defaults": 983.0,
+       "projected_loss": 20371466.755312126,
+       "actual_loss": 17032878.50150604
+      }
+     }
+    },
+    "flat": {
+     "as_of": "201312",
+     "months": 36,
+     "loans": 228049,
+     "balance": 36137287476.6,
+     "projected_defaults": 5244.532021457671,
+     "actual_defaults": 4029,
+     "projected_loss": 117111293.40697435,
+     "actual_loss": 88436560.53841291,
+     "defaults_ratio": 1.3016957114563592,
+     "loss_ratio": 1.324240706490461,
+     "lifetime_reserve": 129538880.18079536,
+     "share_of_actual_loss_from_unresolved": 0.2002959602970874,
+     "actual_defaults_matched_to_loss_events": 4029,
+     "by_year": {
+      "2014": {
+       "projected_defaults": 2099.0238425562247,
+       "actual_defaults": 1751.0,
+       "projected_loss": 52195026.84123254,
+       "actual_loss": 43389389.19665463
+      },
+      "2015": {
+       "projected_defaults": 1837.6970491227953,
+       "actual_defaults": 1295.0,
+       "projected_loss": 40610533.118096285,
+       "actual_loss": 28014292.840252243
+      },
+      "2016": {
+       "projected_defaults": 1307.811129778653,
+       "actual_defaults": 983.0,
+       "projected_loss": 24305733.447645213,
+       "actual_loss": 17032878.50150604
+      }
+     }
+    }
+   },
+   "201412": {
+    "lgd_refit": {
+     "resolved_defaults": 20794,
+     "with_loss": 13608,
+     "loss_per_dollar": 0.3217374316567909
+    },
+    "actual": {
+     "as_of": "201412",
+     "months": 36,
+     "loans": 250049,
+     "balance": 40793624730.619995,
+     "projected_defaults": 5207.8739781461745,
+     "actual_defaults": 3562,
+     "projected_loss": 73375639.28826198,
+     "actual_loss": 61663813.03172785,
+     "defaults_ratio": 1.4620645643307622,
+     "loss_ratio": 1.1899302959177702,
+     "lifetime_reserve": 83509696.57912888,
+     "share_of_actual_loss_from_unresolved": 0.22854561060757927,
+     "actual_defaults_matched_to_loss_events": 3562,
+     "by_year": {
+      "2015": {
+       "projected_defaults": 1887.834068991159,
+       "actual_defaults": 1432.0,
+       "projected_loss": 32238469.5403813,
+       "actual_loss": 30405145.506230716
+      },
+      "2016": {
+       "projected_defaults": 1854.4902247060468,
+       "actual_defaults": 1133.0,
+       "projected_loss": 25387605.994650543,
+       "actual_loss": 19635846.92204776
+      },
+      "2017": {
+       "projected_defaults": 1465.5496844489494,
+       "actual_defaults": 997.0,
+       "projected_loss": 15749563.753230182,
+       "actual_loss": 11622820.603449358
+      }
+     }
+    },
+    "flat": {
+     "as_of": "201412",
+     "months": 36,
+     "loans": 250049,
+     "balance": 40793624730.619995,
+     "projected_defaults": 4895.468477811132,
+     "actual_defaults": 3562,
+     "projected_loss": 68417153.98014428,
+     "actual_loss": 61663813.03172785,
+     "defaults_ratio": 1.3743594828217665,
+     "loss_ratio": 1.1095187049970723,
+     "lifetime_reserve": 76519457.35250331,
+     "share_of_actual_loss_from_unresolved": 0.22854561060757927,
+     "actual_defaults_matched_to_loss_events": 3562,
+     "by_year": {
+      "2015": {
+       "projected_defaults": 1880.0362124464011,
+       "actual_defaults": 1432.0,
+       "projected_loss": 31605157.68044128,
+       "actual_loss": 30405145.506230716
+      },
+      "2016": {
+       "projected_defaults": 1754.9594443181145,
+       "actual_defaults": 1133.0,
+       "projected_loss": 23425136.051235914,
+       "actual_loss": 19635846.92204776
+      },
+      "2017": {
+       "projected_defaults": 1260.4728210466076,
+       "actual_defaults": 997.0,
+       "projected_loss": 13386860.248466887,
+       "actual_loss": 11622820.603449358
+      }
+     }
+    }
+   },
+   "201512": {
+    "lgd_refit": {
+     "resolved_defaults": 23215,
+     "with_loss": 15032,
+     "loss_per_dollar": 0.31968402150446557
+    },
+    "actual": {
+     "as_of": "201512",
+     "months": 36,
+     "loans": 265597,
+     "balance": 44337532090.84,
+     "projected_defaults": 4641.7316841120755,
+     "actual_defaults": 3273,
+     "projected_loss": 60307478.12375477,
+     "actual_loss": 43219340.37244959,
+     "defaults_ratio": 1.418188721085266,
+     "loss_ratio": 1.3953817342894503,
+     "lifetime_reserve": 69051795.03063667,
+     "share_of_actual_loss_from_unresolved": 0.23866018415738652,
+     "actual_defaults_matched_to_loss_events": 3273,
+     "by_year": {
+      "2016": {
+       "projected_defaults": 1794.1370711606028,
+       "actual_defaults": 1233.0,
+       "projected_loss": 28451287.138700373,
+       "actual_loss": 20888070.185336333
+      },
+      "2017": {
+       "projected_defaults": 1595.8234647925847,
+       "actual_defaults": 1152.0,
+       "projected_loss": 19919486.975742847,
+       "actual_loss": 13325110.741749547
+      },
+      "2018": {
+       "projected_defaults": 1251.7711481588854,
+       "actual_defaults": 888.0,
+       "projected_loss": 11936704.009311527,
+       "actual_loss": 9006159.445363713
+      }
+     }
+    },
+    "flat": {
+     "as_of": "201512",
+     "months": 36,
+     "loans": 265597,
+     "balance": 44337532090.84,
+     "projected_defaults": 4888.789326711772,
+     "actual_defaults": 3273,
+     "projected_loss": 71273129.85780641,
+     "actual_loss": 43219340.37244959,
+     "defaults_ratio": 1.4936722660286503,
+     "loss_ratio": 1.649102675876096,
+     "lifetime_reserve": 80387066.18011336,
+     "share_of_actual_loss_from_unresolved": 0.23866018415738652,
+     "actual_defaults_matched_to_loss_events": 3273,
+     "by_year": {
+      "2016": {
+       "projected_defaults": 1739.9885474455289,
+       "actual_defaults": 1233.0,
+       "projected_loss": 30831199.348469026,
+       "actual_loss": 20888070.185336333
+      },
+      "2017": {
+       "projected_defaults": 1794.4319189087678,
+       "actual_defaults": 1152.0,
+       "projected_loss": 25307750.485113237,
+       "actual_loss": 13325110.741749547
+      },
+      "2018": {
+       "projected_defaults": 1354.3688603574753,
+       "actual_defaults": 888.0,
+       "projected_loss": 15134180.02422393,
+       "actual_loss": 9006159.445363713
+      }
+     }
+    }
+   },
+   "201612": {
+    "lgd_refit": {
+     "resolved_defaults": 25545,
+     "with_loss": 16152,
+     "loss_per_dollar": 0.3132519722457495
+    },
+    "actual": {
+     "as_of": "201612",
+     "months": 36,
+     "loans": 273564,
+     "balance": 46479325834.369995,
+     "projected_defaults": 4207.497536113426,
+     "actual_defaults": 3134,
+     "projected_loss": 50533250.71300065,
+     "actual_loss": 30024156.03947953,
+     "defaults_ratio": 1.3425327173303847,
+     "loss_ratio": 1.6830864669952148,
+     "lifetime_reserve": 61195273.35724712,
+     "share_of_actual_loss_from_unresolved": 0.26233265138652895,
+     "actual_defaults_matched_to_loss_events": 3134,
+     "by_year": {
+      "2017": {
+       "projected_defaults": 1536.0468263614825,
+       "actual_defaults": 1244.0,
+       "projected_loss": 22575159.196596924,
+       "actual_loss": 14510108.531720614
+      },
+      "2018": {
+       "projected_defaults": 1367.6866445869525,
+       "actual_defaults": 1040.0,
+       "projected_loss": 16196659.413248511,
+       "actual_loss": 9912566.857400779
+      },
+      "2019": {
+       "projected_defaults": 1303.7640651649908,
+       "actual_defaults": 850.0,
+       "projected_loss": 11761432.103155335,
+       "actual_loss": 5601480.650358139
+      }
+     }
+    },
+    "flat": {
+     "as_of": "201612",
+     "months": 36,
+     "loans": 273564,
+     "balance": 46479325834.369995,
+     "projected_defaults": 4490.649635086036,
+     "actual_defaults": 3134,
+     "projected_loss": 54270325.56436985,
+     "actual_loss": 30024156.03947953,
+     "defaults_ratio": 1.4328811854135406,
+     "loss_ratio": 1.8075554061539119,
+     "lifetime_reserve": 64226497.21955033,
+     "share_of_actual_loss_from_unresolved": 0.26233265138652895,
+     "actual_defaults_matched_to_loss_events": 3134,
+     "by_year": {
+      "2017": {
+       "projected_defaults": 1601.744023059523,
+       "actual_defaults": 1244.0,
+       "projected_loss": 24074379.557775777,
+       "actual_loss": 14510108.531720614
+      },
+      "2018": {
+       "projected_defaults": 1580.8316692122771,
+       "actual_defaults": 1040.0,
+       "projected_loss": 18179762.678793337,
+       "actual_loss": 9912566.857400779
+      },
+      "2019": {
+       "projected_defaults": 1308.0739428142404,
+       "actual_defaults": 850.0,
+       "projected_loss": 12016183.3278011,
+       "actual_loss": 5601480.650358139
+      }
+     }
+    }
+   },
+   "201712": {
+    "lgd_refit": {
+     "resolved_defaults": 27332,
+     "with_loss": 16771,
+     "loss_per_dollar": 0.30216293869985883
+    },
+    "actual": {
+     "as_of": "201712",
+     "months": 36,
+     "loans": 290549,
+     "balance": 50912264872.78999,
+     "projected_defaults": 5755.797821397324,
+     "actual_defaults": 2859,
+     "projected_loss": 54571325.915153734,
+     "actual_loss": 21210275.229885444,
+     "defaults_ratio": 2.0132206440704175,
+     "loss_ratio": 2.572872125594217,
+     "lifetime_reserve": 69828904.76448202,
+     "share_of_actual_loss_from_unresolved": 0.28729394851508283,
+     "actual_defaults_matched_to_loss_events": 2859,
+     "by_year": {
+      "2018": {
+       "projected_defaults": 1489.715777667549,
+       "actual_defaults": 1179.0,
+       "projected_loss": 19369932.48240627,
+       "actual_loss": 11174779.215891417
+      },
+      "2019": {
+       "projected_defaults": 1553.959251955336,
+       "actual_defaults": 1064.0,
+       "projected_loss": 16262087.863096861,
+       "actual_loss": 7052281.390669934
+      },
+      "2020": {
+       "projected_defaults": 2712.1227917744154,
+       "actual_defaults": 616.0,
+       "projected_loss": 18939305.569650605,
+       "actual_loss": 2983214.6233240943
+      }
+     }
+    },
+    "flat": {
+     "as_of": "201712",
+     "months": 36,
+     "loans": 290549,
+     "balance": 50912264872.78999,
+     "projected_defaults": 4767.110731128005,
+     "actual_defaults": 2859,
+     "projected_loss": 49888067.612614885,
+     "actual_loss": 21210275.229885444,
+     "defaults_ratio": 1.6674049426820583,
+     "loss_ratio": 2.352070733260557,
+     "lifetime_reserve": 60249185.52573013,
+     "share_of_actual_loss_from_unresolved": 0.28729394851508283,
+     "actual_defaults_matched_to_loss_events": 2859,
+     "by_year": {
+      "2018": {
+       "projected_defaults": 1665.7420868404222,
+       "actual_defaults": 1179.0,
+       "projected_loss": 21332959.924330276,
+       "actual_loss": 11174779.215891417
+      },
+      "2019": {
+       "projected_defaults": 1603.8971127980903,
+       "actual_defaults": 1064.0,
+       "projected_loss": 16711293.08784372,
+       "actual_loss": 7052281.390669934
+      },
+      "2020": {
+       "projected_defaults": 1497.4715314895022,
+       "actual_defaults": 616.0,
+       "projected_loss": 11843814.600441007,
+       "actual_loss": 2983214.6233240943
+      }
+     }
+    }
+   },
+   "201812": {
+    "lgd_refit": {
+     "resolved_defaults": 28805,
+     "with_loss": 17243,
+     "loss_per_dollar": 0.2939163491745288
+    },
+    "actual": {
+     "as_of": "201812",
+     "months": 36,
+     "loans": 309942,
+     "balance": 55777602058.100006,
+     "projected_defaults": 6534.845499103595,
+     "actual_defaults": 2515,
+     "projected_loss": 50811731.5838005,
+     "actual_loss": 14036775.455711555,
+     "defaults_ratio": 2.5983481109755844,
+     "loss_ratio": 3.6199005778870132,
+     "lifetime_reserve": 54216773.51124583,
+     "share_of_actual_loss_from_unresolved": 0.3047028485428417,
+     "actual_defaults_matched_to_loss_events": 2515,
+     "by_year": {
+      "2019": {
+       "projected_defaults": 1571.5741491562583,
+       "actual_defaults": 1232.0,
+       "projected_loss": 18671129.136357345,
+       "actual_loss": 8607634.162906155
+      },
+      "2020": {
+       "projected_defaults": 2992.296850227577,
+       "actual_defaults": 756.0,
+       "projected_loss": 25617305.755366992,
+       "actual_loss": 3526021.0973790004
+      },
+      "2021": {
+       "projected_defaults": 1970.9744997197781,
+       "actual_defaults": 527.0,
+       "projected_loss": 6523296.692076232,
+       "actual_loss": 1903120.1954264021
+      }
+     }
+    },
+    "flat": {
+     "as_of": "201812",
+     "months": 36,
+     "loans": 309942,
+     "balance": 55777602058.100006,
+     "projected_defaults": 4279.931598418676,
+     "actual_defaults": 2515,
+     "projected_loss": 45596455.90083963,
+     "actual_loss": 14036775.455711555,
+     "defaults_ratio": 1.7017620669656763,
+     "loss_ratio": 3.248356864060717,
+     "lifetime_reserve": 56762302.05809866,
+     "share_of_actual_loss_from_unresolved": 0.3047028485428417,
+     "actual_defaults_matched_to_loss_events": 2515,
+     "by_year": {
+      "2019": {
+       "projected_defaults": 1471.8244332965648,
+       "actual_defaults": 1232.0,
+       "projected_loss": 19604838.50517423,
+       "actual_loss": 8607634.162906155
+      },
+      "2020": {
+       "projected_defaults": 1378.1500626151696,
+       "actual_defaults": 756.0,
+       "projected_loss": 14300100.19947817,
+       "actual_loss": 3526021.0973790004
+      },
+      "2021": {
+       "projected_defaults": 1429.957102506922,
+       "actual_defaults": 527.0,
+       "projected_loss": 11691517.196187314,
+       "actual_loss": 1903120.1954264021
+      }
+     }
+    }
+   },
+   "201912": {
+    "lgd_refit": {
+     "resolved_defaults": 30052,
+     "with_loss": 17614,
+     "loss_per_dollar": 0.2864337870180903
+    },
+    "actual": {
+     "as_of": "201912",
+     "months": 36,
+     "loans": 317446,
+     "balance": 57953893676.32,
+     "projected_defaults": 6494.123893071965,
+     "actual_defaults": 2147,
+     "projected_loss": 43047173.19204696,
+     "actual_loss": 7857583.936696729,
+     "defaults_ratio": 3.024743313028395,
+     "loss_ratio": 5.478423589089101,
+     "lifetime_reserve": 44933374.98364576,
+     "share_of_actual_loss_from_unresolved": 0.23988301898931116,
+     "actual_defaults_matched_to_loss_events": 2147,
+     "by_year": {
+      "2020": {
+       "projected_defaults": 3322.7837552744413,
+       "actual_defaults": 850.0,
+       "projected_loss": 32970242.415910844,
+       "actual_loss": 4082925.482537239
+      },
+      "2021": {
+       "projected_defaults": 2360.9094081402354,
+       "actual_defaults": 616.0,
+       "projected_loss": 9188531.752802221,
+       "actual_loss": 2218749.095443556
+      },
+      "2022": {
+       "projected_defaults": 810.4307296572903,
+       "actual_defaults": 681.0,
+       "projected_loss": 888399.023334052,
+       "actual_loss": 1555909.3587159335
+      }
+     }
+    },
+    "flat": {
+     "as_of": "201912",
+     "months": 36,
+     "loans": 317446,
+     "balance": 57953893676.32,
+     "projected_defaults": 4939.397715956442,
+     "actual_defaults": 2147,
+     "projected_loss": 42758065.98332925,
+     "actual_loss": 7857583.936696729,
+     "defaults_ratio": 2.300604432210732,
+     "loss_ratio": 5.44163019164698,
+     "lifetime_reserve": 51213381.38935026,
+     "share_of_actual_loss_from_unresolved": 0.23988301898931116,
+     "actual_defaults_matched_to_loss_events": 2147,
+     "by_year": {
+      "2020": {
+       "projected_defaults": 1774.536546242684,
+       "actual_defaults": 850.0,
+       "projected_loss": 19281894.175284684,
+       "actual_loss": 4082925.482537239
+      },
+      "2021": {
+       "projected_defaults": 1586.5164419139705,
+       "actual_defaults": 616.0,
+       "projected_loss": 13548021.988159444,
+       "actual_loss": 2218749.095443556
+      },
+      "2022": {
+       "projected_defaults": 1578.3447277997739,
+       "actual_defaults": 681.0,
+       "projected_loss": 9928149.819885192,
+       "actual_loss": 1555909.3587159335
+      }
+     }
+    }
+   },
+   "202012": {
+    "lgd_refit": {
+     "resolved_defaults": 31189,
+     "with_loss": 17914,
+     "loss_per_dollar": 0.27877839915906794
+    },
+    "actual": {
+     "as_of": "202012",
+     "months": 36,
+     "loans": 276691,
+     "balance": 49740113164.93,
+     "projected_defaults": 3347.8685860043156,
+     "actual_defaults": 2137,
+     "projected_loss": 10786740.374702748,
+     "actual_loss": 6228069.787875521,
+     "defaults_ratio": 1.5666207702406718,
+     "loss_ratio": 1.7319556045601492,
+     "lifetime_reserve": 12931428.574587403,
+     "share_of_actual_loss_from_unresolved": 0.21461831729593925,
+     "actual_defaults_matched_to_loss_events": 2137,
+     "by_year": {
+      "2021": {
+       "projected_defaults": 1826.4798017262478,
+       "actual_defaults": 665.0,
+       "projected_loss": 7479866.041207627,
+       "actual_loss": 2287368.0879839836
+      },
+      "2022": {
+       "projected_defaults": 871.4619864874961,
+       "actual_defaults": 744.0,
+       "projected_loss": 1463331.175093066,
+       "actual_loss": 1667508.2225345965
+      },
+      "2023": {
+       "projected_defaults": 649.9267977905646,
+       "actual_defaults": 728.0,
+       "projected_loss": 1843543.1584020944,
+       "actual_loss": 2273193.4773569414
+      }
+     }
+    },
+    "flat": {
+     "as_of": "202012",
+     "months": 36,
+     "loans": 276691,
+     "balance": 49740113164.93,
+     "projected_defaults": 4091.295569594631,
+     "actual_defaults": 2137,
+     "projected_loss": 26080874.121447913,
+     "actual_loss": 6228069.787875521,
+     "defaults_ratio": 1.9145042440779743,
+     "loss_ratio": 4.187633570230826,
+     "lifetime_reserve": 28539315.25882446,
+     "share_of_actual_loss_from_unresolved": 0.21461831729593925,
+     "actual_defaults_matched_to_loss_events": 2137,
+     "by_year": {
+      "2021": {
+       "projected_defaults": 2003.0882363885537,
+       "actual_defaults": 665.0,
+       "projected_loss": 14809832.420340935,
+       "actual_loss": 2287368.0879839836
+      },
+      "2022": {
+       "projected_defaults": 1279.4227367415535,
+       "actual_defaults": 744.0,
+       "projected_loss": 7567829.187641685,
+       "actual_loss": 1667508.2225345965
+      },
+      "2023": {
+       "projected_defaults": 808.7845964645181,
+       "actual_defaults": 728.0,
+       "projected_loss": 3703212.5134653137,
+       "actual_loss": 2273193.4773569414
+      }
+     }
+    }
+   },
+   "202112": {
+    "lgd_refit": {
+     "resolved_defaults": 32403,
+     "with_loss": 18118,
+     "loss_per_dollar": 0.26871861463998126
+    },
+    "actual": {
+     "as_of": "202112",
+     "months": 36,
+     "loans": 248691,
+     "balance": 46579141050.12,
+     "projected_defaults": 2368.9946711621265,
+     "actual_defaults": 2637,
+     "projected_loss": 6673393.956507437,
+     "actual_loss": 8088784.202516454,
+     "defaults_ratio": 0.8983673383246592,
+     "loss_ratio": 0.8250181720055427,
+     "lifetime_reserve": 9569786.712751599,
+     "share_of_actual_loss_from_unresolved": 0.4005887524491493,
+     "actual_defaults_matched_to_loss_events": 2637,
+     "by_year": {
+      "2022": {
+       "projected_defaults": 834.3486471740188,
+       "actual_defaults": 819.0,
+       "projected_loss": 1715393.1817125378,
+       "actual_loss": 2031533.6335396103
+      },
+      "2023": {
+       "projected_defaults": 714.2085567370335,
+       "actual_defaults": 866.0,
+       "projected_loss": 2708196.0539937182,
+       "actual_loss": 2936208.6921889726
+      },
+      "2024": {
+       "projected_defaults": 820.4374672510725,
+       "actual_defaults": 952.0,
+       "projected_loss": 2249804.720801188,
+       "actual_loss": 3121041.876787871
+      }
+     }
+    },
+    "flat": {
+     "as_of": "202112",
+     "months": 36,
+     "loans": 248691,
+     "balance": 46579141050.12,
+     "projected_defaults": 2899.463096505637,
+     "actual_defaults": 2637,
+     "projected_loss": 3282408.6358006783,
+     "actual_loss": 8088784.202516454,
+     "defaults_ratio": 1.0995309429297069,
+     "loss_ratio": 0.40579752823415755,
+     "lifetime_reserve": 4806588.843818624,
+     "share_of_actual_loss_from_unresolved": 0.4005887524491493,
+     "actual_defaults_matched_to_loss_events": 2637,
+     "by_year": {
+      "2022": {
+       "projected_defaults": 1036.5496866294948,
+       "actual_defaults": 819.0,
+       "projected_loss": 1864081.3508677185,
+       "actual_loss": 2031533.6335396103
+      },
+      "2023": {
+       "projected_defaults": 956.0786044584677,
+       "actual_defaults": 866.0,
+       "projected_loss": 889124.2798509578,
+       "actual_loss": 2936208.6921889726
+      },
+      "2024": {
+       "projected_defaults": 906.8348054176719,
+       "actual_defaults": 952.0,
+       "projected_loss": 529203.0050819904,
+       "actual_loss": 3121041.876787871
+      }
+     }
+    }
+   },
+   "202212": {
+    "lgd_refit": {
+     "resolved_defaults": 33225,
+     "with_loss": 18205,
+     "loss_per_dollar": 0.26280600543573174
+    },
+    "actual": {
+     "as_of": "202212",
+     "months": 36,
+     "loans": 268439,
+     "balance": 54523722832.05,
+     "projected_defaults": 3554.827495571341,
+     "actual_defaults": 3759,
+     "projected_loss": 17587047.201679576,
+     "actual_loss": 17028587.515776485,
+     "defaults_ratio": 0.9456843563637513,
+     "loss_ratio": 1.0327954203709317,
+     "lifetime_reserve": 22019821.150262166,
+     "share_of_actual_loss_from_unresolved": 0.679018145519349,
+     "actual_defaults_matched_to_loss_events": 3759,
+     "by_year": {
+      "2023": {
+       "projected_defaults": 1071.0785821261493,
+       "actual_defaults": 1117.0,
+       "projected_loss": 6534773.649606904,
+       "actual_loss": 5543926.523065466
+      },
+      "2024": {
+       "projected_defaults": 1281.3246348457953,
+       "actual_defaults": 1388.0,
+       "projected_loss": 5581761.121283358,
+       "actual_loss": 6341184.271794779
+      },
+      "2025": {
+       "projected_defaults": 1202.4242785994065,
+       "actual_defaults": 1254.0,
+       "projected_loss": 5470512.430789324,
+       "actual_loss": 5143476.720916241
+      }
+     }
+    },
+    "flat": {
+     "as_of": "202212",
+     "months": 36,
+     "loans": 268439,
+     "balance": 54523722832.05,
+     "projected_defaults": 3409.0757684499795,
+     "actual_defaults": 3759,
+     "projected_loss": 9661590.924095307,
+     "actual_loss": 17028587.515776485,
+     "defaults_ratio": 0.9069102868981057,
+     "loss_ratio": 0.5673747699357993,
+     "lifetime_reserve": 14193608.87868745,
+     "share_of_actual_loss_from_unresolved": 0.679018145519349,
+     "actual_defaults_matched_to_loss_events": 3759,
+     "by_year": {
+      "2023": {
+       "projected_defaults": 1040.882022036765,
+       "actual_defaults": 1117.0,
+       "projected_loss": 5209035.375965101,
+       "actual_loss": 5543926.523065466
+      },
+      "2024": {
+       "projected_defaults": 1063.908278385111,
+       "actual_defaults": 1388.0,
+       "projected_loss": 2271928.233944309,
+       "actual_loss": 6341184.271794779
+      },
+      "2025": {
+       "projected_defaults": 1304.285468028101,
+       "actual_defaults": 1254.0,
+       "projected_loss": 2180627.314185886,
+       "actual_loss": 5143476.720916241
+      }
+     }
+    }
+   }
+  },
+  "verdict_actual": {
+   "pooled_ratio": 1.4159659392808714,
+   "ratios": {
+    "201212": 1.1166338834188232,
+    "201312": 1.0733710599670612,
+    "201412": 1.1899302959177702,
+    "201512": 1.3953817342894503,
+    "201612": 1.6830864669952148,
+    "201712": 2.572872125594217,
+    "201812": 3.6199005778870132,
+    "201912": 5.478423589089101,
+    "202012": 1.7319556045601492,
+    "202112": 0.8250181720055427,
+    "202212": 1.0327954203709317
+   },
+   "dates_in_band": 6,
+   "dates_needed": 8,
+   "pooled_in_bar": false,
+   "enough_dates_in_band": false,
+   "passes": false
+  },
+  "verdict_flat": {
+   "pooled_ratio": 1.7407128305412072,
+   "ratios": {
+    "201212": 1.9602392350691373,
+    "201312": 1.324240706490461,
+    "201412": 1.1095187049970723,
+    "201512": 1.649102675876096,
+    "201612": 1.8075554061539119,
+    "201712": 2.352070733260557,
+    "201812": 3.248356864060717,
+    "201912": 5.44163019164698,
+    "202012": 4.187633570230826,
+    "202112": 0.40579752823415755,
+    "202212": 0.5673747699357993
+   },
+   "dates_in_band": 2,
+   "dates_needed": 8,
+   "pooled_in_bar": false,
+   "enough_dates_in_band": false,
+   "passes": false
+  },
+  "verdict": {
+   "pooled_ratio": 1.4159659392808714,
+   "ratios": {
+    "201212": 1.1166338834188232,
+    "201312": 1.0733710599670612,
+    "201412": 1.1899302959177702,
+    "201512": 1.3953817342894503,
+    "201612": 1.6830864669952148,
+    "201712": 2.572872125594217,
+    "201812": 3.6199005778870132,
+    "201912": 5.478423589089101,
+    "202012": 1.7319556045601492,
+    "202112": 0.8250181720055427,
+    "202212": 1.0327954203709317
+   },
+   "dates_in_band": 6,
+   "dates_needed": 8,
+   "pooled_in_bar": false,
+   "enough_dates_in_band": false,
+   "passes": false
+  }
+ },
+ "forbearance": {
+  "counts_2020_2021": {
+   "defaults_booked_A_by_year": {
+    "2021": 684,
+    "2020": 893
+   },
+   "defaults_flag_ignored_B": 3672,
+   "extra_under_B_only": 2353,
+   "extra_current_again_within_12m": 1408,
+   "extra_with_a_later_loss": 48
+  },
+  "A_booked": {
+   "as_of": "202006",
+   "months": 36,
+   "loans": 304015,
+   "balance": 55014856629.22,
+   "projected_defaults": 5852.301633177782,
+   "actual_defaults": 2004,
+   "projected_loss": 30674022.2349694,
+   "actual_loss": 5765933.689899159,
+   "defaults_ratio": 2.920310196196498,
+   "loss_ratio": 5.3198707936417255,
+   "lifetime_reserve": 32306757.302716736,
+   "share_of_actual_loss_from_unresolved": 0.20872612912761526,
+   "actual_defaults_matched_to_loss_events": 2004,
+   "by_year": {
+    "2020": {
+     "projected_defaults": 1952.501146095281,
+     "actual_defaults": 317.0,
+     "projected_loss": 17733617.088838372,
+     "actual_loss": 881236.417206852
+    },
+    "2021": {
+     "projected_defaults": 2602.0430844028497,
+     "actual_defaults": 640.0,
+     "projected_loss": 10802851.320414865,
+     "actual_loss": 2266630.9442254426
+    },
+    "2022": {
+     "projected_defaults": 953.4036438638544,
+     "actual_defaults": 716.0,
+     "projected_loss": 1324190.1260285573,
+     "actual_loss": 1615933.0587172527
+    },
+    "2023": {
+     "projected_defaults": 344.3537588157958,
+     "actual_defaults": 331.0,
+     "projected_loss": 813363.6996878539,
+     "actual_loss": 1002133.269749612
+    }
+   }
+  },
+  "B_flag_ignored": {
+   "as_of": "202006",
+   "months": 36,
+   "loans": 303219,
+   "balance": 54841439017.92,
+   "projected_defaults": 12462.669424928124,
+   "actual_defaults": 3615,
+   "projected_loss": 106060229.17489906,
+   "actual_loss": 5900180.649675747,
+   "defaults_ratio": 3.447488084350795,
+   "loss_ratio": 17.97575963724564,
+   "lifetime_reserve": 107682786.1109877,
+   "share_of_actual_loss_from_unresolved": 0.2374583665930201,
+   "actual_defaults_matched_to_loss_events": 2099,
+   "by_year": {
+    "2020": {
+     "projected_defaults": 8350.291634106368,
+     "actual_defaults": 967.0,
+     "projected_loss": 91586055.73699324,
+     "actual_loss": 1252813.1397572644
+    },
+    "2021": {
+     "projected_defaults": 2823.7801178671,
+     "actual_defaults": 1285.0,
+     "projected_loss": 12407141.493289253,
+     "actual_loss": 2325729.5512880427
+    },
+    "2022": {
+     "projected_defaults": 956.9015438259023,
+     "actual_defaults": 993.0,
+     "projected_loss": 1283363.0032597173,
+     "actual_loss": 1506105.047512812
+    },
+    "2023": {
+     "projected_defaults": 331.69612912866904,
+     "actual_defaults": 370.0,
+     "projected_loss": 783668.9413579567,
+     "actual_loss": 815532.9111176282
+    }
+   }
+  },
+  "B_book_excludes_defaulted_by_reported_count_before_july_2020": 804,
+  "verdict": {
+   "booked_ratio": 5.3198707936417255,
+   "flag_ignored_ratio": 17.97575963724564,
+   "extra_defaults": 2353,
+   "extra_cured_within_12m": 1408,
+   "cured_share": 0.5983850403739907,
+   "booked_closer": true,
+   "half_cured": true,
+   "passes": true
+  }
  }
 }
