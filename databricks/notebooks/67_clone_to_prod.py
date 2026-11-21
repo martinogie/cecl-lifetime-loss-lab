@@ -47,17 +47,41 @@ summary = {"source": SRC, "target": DST, "tables": {}, "volume": {}, "models": {
 
 # COMMAND ----------
 
+
+def tie_out(s, t):
+    n_src = spark.table(f"{SRC}.{s}.{t}").count()
+    n_dst = spark.table(f"{DST}.{s}.{t}").count()
+    if n_src != n_dst:  # control C02: tie-out
+        raise RuntimeError(f"tie-out failed: {DST}.{s}.{t} has {n_dst:,} rows, {SRC} {n_src:,}")
+    summary["tables"][f"{s}.{t}"] = n_dst
+    print(f"{s}.{t}: {n_dst:,} rows (tie-out ok)")
+
+
+objects = {}
 for s in SCHEMAS:
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {DST}.{s}")
-    for row in spark.sql(f"SHOW TABLES IN {SRC}.{s}").collect():
-        t = row["tableName"]
-        spark.sql(f"CREATE OR REPLACE TABLE {DST}.{s}.{t} DEEP CLONE {SRC}.{s}.{t}")
-        n_src = spark.table(f"{SRC}.{s}.{t}").count()
-        n_dst = spark.table(f"{DST}.{s}.{t}").count()
-        if n_src != n_dst:  # control C02: tie-out
-            raise RuntimeError(f"tie-out failed: {DST}.{s}.{t} has {n_dst:,} rows, {SRC} {n_src:,}")
-        summary["tables"][f"{s}.{t}"] = n_dst
-        print(f"{s}.{t}: {n_dst:,} rows (tie-out ok)")
+    objects[s] = spark.sql(f"SELECT table_name, table_type FROM {SRC}.information_schema.tables "
+                           f"WHERE table_schema = '{s}'").collect()  # fmt: skip
+# Tables first (deep clone copies the data); views after, because they read the tables.
+for s in SCHEMAS:
+    for row in objects[s]:
+        if row["table_type"] in ("MANAGED", "EXTERNAL"):
+            spark.sql(
+                f"CREATE OR REPLACE TABLE {DST}.{s}.{row['table_name']} DEEP CLONE {SRC}.{s}.{row['table_name']}"
+            )
+            tie_out(s, row["table_name"])
+# A view is a saved query (dbt's staging and intermediate models): DEEP CLONE does not apply. It is recreated
+# in prod from its own definition, pointed at the prod catalog, so it reads the prod tables.
+for s in SCHEMAS:
+    for row in objects[s]:
+        if row["table_type"] == "VIEW":
+            t = row["table_name"]
+            text = spark.sql(f"SELECT view_definition FROM {SRC}.information_schema.views "
+                             f"WHERE table_schema = '{s}' AND table_name = '{t}'").collect()[0][0]  # fmt: skip
+            if SRC not in text and f"`{SRC}`" not in text:
+                print(f"note: view {s}.{t} names no catalog; created as is")
+            spark.sql(f"CREATE OR REPLACE VIEW {DST}.{s}.{t} AS {text.replace(SRC, DST)}")
+            tie_out(s, t)
 
 # COMMAND ----------
 
