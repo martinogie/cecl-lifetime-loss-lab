@@ -68,4 +68,4 @@
 
 ## Rollforward by loan group
 
-See the allowance memo, section 3.
+Q1 and Q2 2026: see the allowance memo, section 3.

@@ -1,0 +1,42 @@
+{
+  "note": "Overlay log (ADR-006), read by cecl.overlays and scripts/build_reserve.py. 'overlays': proposed overlays, each checked against the ADR-006 rules every run; only approved ones that pass every rule are booked. 'assessments': issues considered for an overlay and not proposed, with the decision. Aggregates only. Educational model; not an audited reserve.",
+  "overlays": [],
+  "assessments": [
+    {
+      "id": "A-2026Q2-1",
+      "reserve_ym": "202606",
+      "factor": "Q5",
+      "issue": "L-038: model v2 under-projected holdout defaults (0.74 of actual in expected-loss terms over July 2024 - June 2026; +34% would close it)",
+      "sizing": "docs/phase4/overlay_sizing_L038.md (numbers method on the holdout book)",
+      "decision": "No overlay (Option B): the L-038 default shortfall is assessed at the expected-loss level; the LGD model's documented conservatism (L-033, 1.64x) more than offsets it. Both errors disclosed with every reserve figure; +34% shown as a sensitivity. Baseline only; reviewed each quarter.",
+      "decided_by": "Martins Ogiekpolor",
+      "decided": "2026-11-19",
+      "review": "each quarter",
+      "confirmed": "Martins Ogiekpolor, 2026-11-20: Option B applies to all three dates (31 December 2025, 31 March 2026, 30 June 2026), kept consistent"
+    },
+    {
+      "id": "A-2026Q1-1",
+      "reserve_ym": "202603",
+      "factor": "Q5",
+      "issue": "L-038, as for 30 June 2026 (the first reserve build covers both dates)",
+      "sizing": "docs/phase4/overlay_sizing_L038.md",
+      "decision": "No overlay (Option B), same decision and disclosures as A-2026Q2-1.",
+      "decided_by": "Martins Ogiekpolor",
+      "decided": "2026-11-19",
+      "review": "each quarter",
+      "confirmed": "Martins Ogiekpolor, 2026-11-20: Option B applies to all three dates (31 December 2025, 31 March 2026, 30 June 2026), kept consistent"
+    },
+    {
+      "id": "A-2025Q4-1",
+      "reserve_ym": "202512",
+      "factor": "Q5",
+      "issue": "L-038, as for 30 June 2026 (built later, 20 November 2026, for the Q1 2026 rollforward)",
+      "sizing": "docs/phase4/overlay_sizing_L038.md",
+      "decision": "No overlay (Option B), same decision and disclosures as A-2026Q2-1.",
+      "decided_by": "Martins Ogiekpolor",
+      "decided": "2026-11-19",
+      "review": "each quarter",
+      "confirmed": "Martins Ogiekpolor, 2026-11-20: Option B applies to all three dates (31 December 2025, 31 March 2026, 30 June 2026), kept consistent"
+    }
+  ]
+}

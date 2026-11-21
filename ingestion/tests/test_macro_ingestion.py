@@ -245,6 +245,19 @@ def test_check_fed_history() -> None:
     assert "quarter before" in " ".join(mc.check_fed_history(header, rows, moved).errors)
 
 
+def test_fed_2025_contract_section() -> None:
+    """The 2025 scenarios (31 December 2025 reserve) are checked against their own contract section."""
+    contract = small_contract()
+    assert contract["fed_2025"]["columns"] == contract["fed"]["columns"]  # same Fed layout
+    header, rows = fed_scenarios.parse_csv(fed_text("Supervisory Baseline", contract))  # dated from 2026 Q1
+    errors = " ".join(mc.check_fed("baseline", header, rows, contract, "fed_2025").errors)
+    assert "consecutively from 2025 Q1" in errors
+    header, hist = fed_scenarios.parse_csv(fed_history_text(contract, last=(2024, 4)))
+    f = mc.check_fed_history(header, hist, contract, "fed_2025")
+    assert f.ok and f.what == "fed_2025_history"
+    assert not mc.check_fed_history(header, hist, contract).ok  # the 2026 section expects 2025 Q4
+
+
 def test_enforce_raises_with_every_error() -> None:
     good, bad = mc.Findings("a"), mc.Findings("b", errors=["broken"])
     mc.enforce([good])

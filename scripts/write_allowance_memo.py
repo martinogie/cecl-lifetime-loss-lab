@@ -16,7 +16,7 @@ from typing import Any
 
 SRC = Path("docs/phase4/reserve_2026Q2.json")
 OUT = Path("docs/allowance_memos/2026Q2_allowance_memo.md")
-DATES = {"202603": "31 March 2026", "202606": "30 June 2026"}
+DATES = {"202512": "31 December 2025", "202603": "31 March 2026", "202606": "30 June 2026"}
 NAMES = {"baseline": "Baseline", "adverse": "Adverse (halfway path)", "severely_adverse": "Severely adverse"}
 
 STATUS = (
@@ -147,17 +147,111 @@ def freddie_benchmark(q: dict[str, Any]) -> list[str]:
     ]
 
 
+def reserve_table(r: dict[str, Any], keys: tuple[str, ...]) -> list[str]:
+    d = [r["dates"][k] for k in keys]
+
+    def row(label: str, f: Any) -> str:
+        return f"| {label} | " + " | ".join(f(x) for x in d) + " |"
+
+    def tie(x: dict[str, Any]) -> str:
+        return "pass" if all(t["passes"] for t in x["tie_outs"].values()) else "FAIL"
+
+    return [
+        "| | " + " | ".join(DATES[k] for k in keys) + " |",
+        "|---|" + "---|" * len(keys),
+        row("Fed scenarios used (published by the reserve date)", lambda x: str(x["fed_scenario_year"])),
+        row("Loans", lambda x: f"{x['book']['loans']:,}"),
+        row("Balance", lambda x: m(x["book"]["balance"])),
+        row("Performing-loan reserve (engine, weighted 60/30/10)", lambda x: m(x["weighted_reserve"])),
+        row("Performing reserve ratio (reserve / balance)", lambda x: pct(x["reserve_ratio"], 3)),
+        row("Overlays booked (ADR-006 register)", lambda x: m(x["overlays"]["booked_total"])),
+        row("Defaulted, unresolved loans (90+ days late or REO): loans / balance",
+            lambda x: f"{x['defaulted_pipeline']['loans']:,} / {m(x['defaulted_pipeline']['balance'])}"),
+        row("Defaulted-loan reserve (balance x Phase 3 LGD)", lambda x: m(x["defaulted_pipeline"]["reserve"])),
+        row("**Total allowance (booked)**", lambda x: f"**{m(x['total_allowance'])}**"),
+        row("Total allowance ratio", lambda x: pct(x["total_allowance_ratio"], 3)),
+        row("Sensitivity: total with the +34% default uplift on the performing reserve (Option A)",
+            lambda x: m(x["total_allowance_with_uplift"])),
+        row("Tie-out: book reserve = sum of loan reserves (every scenario)", tie),
+    ]  # fmt: skip
+
+
+def rollforward_section(rf: dict[str, Any], a: str, b: str, title: str) -> list[str]:
+    return [
+        f"### {title}",
+        "",
+        f"| Loan group (origination year) | {DATES[a]} | Provision | Gross write-offs | Recoveries | {DATES[b]} |",
+        "|---|---|---|---|---|---|",
+        *[
+            f"| {g['group']} | {g['start']} | {g['provision']} | {g['write_offs']} | {g['recoveries']} | {g['end']} |"
+            for g in rf["by_group"]
+        ],
+        f"| **Total** | **{rf['total']['start']}** | **{rf['total']['provision']}** | **{rf['total']['write_offs']}** | "
+        f"**{rf['total']['recoveries']}** | **{rf['total']['end']}** |",
+        "",
+        f"Reconciles to the cent: **{'yes' if rf['reconciles_to_the_cent'] else 'NO'}**. Loss dispositions in the "
+        f"quarter: {rf['write_off_events']}, of which {rf['estimated_write_off_events']} **estimated** ({rf['note']}).",
+    ]
+
+
+def bridge_section(br: dict[str, Any], a: str, b: str) -> list[str]:
+    years = br.get("fed_scenario_years", [None, None])
+    note = (f" The economic forecast step includes the move from the Fed's {years[0]} scenarios to its {years[1]} "
+            "scenarios (published in between)." if years[0] != years[1] else "")  # fmt: skip
+    return [
+        f"### {DATES[a]} to {DATES[b]}",
+        "",
+        "| Step | Amount |",
+        "|---|---|",
+        *[f"| {k.replace('_', ' ').capitalize()} | {m(v)} |" for k, v in br["steps"].items()],
+        "",
+        f"Bridge reconciles: **{'yes' if br['reconciles'] else 'NO'}**; start and end equal the booked total "
+        f"allowance: **{'yes' if br.get('ties_to_total_allowance') else 'NO'}**.{note}",
+    ]
+
+
+def overlay_section(r: dict[str, Any], keys: tuple[str, ...]) -> list[str]:
+    L = [
+        "### Overlay register (ADR-006; `cecl/overlays.py`, log `docs/governance/overlay_log.json`)",
+        "",
+        "Every proposed overlay is checked each run: a standard factor (Q1-Q9; Q4 and Q6 not applicable), the numbers "
+        "method (or a written justification for a percentage), caps of 5% each and 10% in total of the modelled reserve "
+        "(or a written exception flagged here), the numbers method and the checker's sign-off for a decrease, expiry "
+        "at quarter-end, at most two renewals before the model must be fixed, and maker/checker on different days. "
+        "Only approved overlays that pass every rule are booked.",
+        "",
+        "| Reserve date | Modelled reserve | Overlays proposed | Booked | Booked total | Share of modelled |",
+        "|---|---|---|---|---|---|",
+    ]
+    for k in keys:
+        o = r["dates"][k]["overlays"]
+        n_booked = sum(e["status"] == "booked" for e in o["entries"])
+        L.append(f"| {DATES[k]} | {m(o['modelled_reserve'])} | {len(o['entries'])} | {n_booked} | "
+                 f"{m(o['booked_total'])} | {pct(o['booked_share_of_modelled'], 1)} |")  # fmt: skip
+    L += ["", "Considered and not proposed:", ""]
+    for k in keys:
+        for a in r["dates"][k]["overlays"].get("assessments", []):
+            L.append(f"- **{DATES[k]}, {a['id']} ({a['factor']}):** {a['issue']}. Decision: {a['decision']} "
+                     f"({a['decided_by']}, {a['decided']}; review {a['review']}).")  # fmt: skip
+    return L
+
+
 def main() -> int:
     r = json.loads(SRC.read_text(encoding="utf-8"))
-    q1, q2 = r["dates"]["202603"], r["dates"]["202606"]
+    q0, q1, q2 = r["dates"]["202512"], r["dates"]["202603"], r["dates"]["202606"]
+    keys = ("202512", "202603", "202606")
     u = r["uplift_sensitivity"]
-    rf, br, bm = r["rollforward_q2_2026"], r["bridge_q1_to_q2_2026"], r["benchmarks"]
+    bm = r["benchmarks"]
     L: list[str] = [
         "# Allowance memo: Q2 2026 (reserve date 30 June 2026)",
         "",
         "- **Prepared by:** Martins Ogiekpolor (maker). **Checker review:** _pending (a different day, ADR-006)._",
-        "- **Book:** Freddie Mac Single-Family sample loans alive at the reserve date. **Scenarios:** Federal Reserve 2026 "
-        "baseline and severely adverse, plus the halfway adverse path (ADR-005), from July 2026.",
+        "- **Book:** Freddie Mac Single-Family sample loans alive at the reserve date. **Scenarios:** Federal Reserve "
+        "baseline and severely adverse, plus the halfway adverse path (ADR-005), from the quarter after each reserve "
+        "date. Each reserve uses only the Fed scenarios published by its date: 2025 scenarios for 31 December 2025, 2026 "
+        "scenarios for 31 March and 30 June 2026 (point in time, Martins, 20 November 2026).",
+        f"- **Forecast and reversion (ADR-003):** {r.get('forecast_months', 24)} months, then {r.get('reversion_months', 12)} "
+        "months straight-line reversion (settings of the projection job and the pricing; checked to match).",
         "- **Source:** `docs/phase4/reserve_2026Q2.json` (`scripts/build_reserve.py`); loan-level data never leaves the PC "
         "or Databricks.",
         "",
@@ -165,18 +259,7 @@ def main() -> int:
         "",
         "## 1. The reserve",
         "",
-        f"| | {DATES['202603']} | {DATES['202606']} |",
-        "|---|---|---|",
-        f"| Loans | {q1['book']['loans']:,} | {q2['book']['loans']:,} |",
-        f"| Balance | {m(q1['book']['balance'])} | {m(q2['book']['balance'])} |",
-        f"| Performing-loan reserve (engine, weighted 60/30/10, no overlay) | {m(q1['weighted_reserve'])} | {m(q2['weighted_reserve'])} |",
-        f"| Performing reserve ratio (reserve / balance) | {pct(q1['reserve_ratio'], 3)} | {pct(q2['reserve_ratio'], 3)} |",
-        f"| Defaulted, unresolved loans (90+ days late or REO): loans / balance | {q1['defaulted_pipeline']['loans']:,} / {m(q1['defaulted_pipeline']['balance'])} | {q2['defaulted_pipeline']['loans']:,} / {m(q2['defaulted_pipeline']['balance'])} |",
-        f"| Defaulted-loan reserve (balance x Phase 3 LGD) | {m(q1['defaulted_pipeline']['reserve'])} | {m(q2['defaulted_pipeline']['reserve'])} |",
-        f"| **Total allowance (booked)** | **{m(q1['total_allowance'])}** | **{m(q2['total_allowance'])}** |",
-        f"| Total allowance ratio | {pct(q1['total_allowance_ratio'], 3)} | {pct(q2['total_allowance_ratio'], 3)} |",
-        f"| Sensitivity: total with the +34% default uplift on the performing reserve (Option A) | {m(q1['total_allowance_with_uplift'])} | {m(q2['total_allowance_with_uplift'])} |",
-        f"| Tie-out: book reserve = sum of loan reserves (every scenario) | {'pass' if all(t['passes'] for t in q1['tie_outs'].values()) else 'FAIL'} | {'pass' if all(t['passes'] for t in q2['tie_outs'].values()) else 'FAIL'} |",
+        *reserve_table(r, keys),
         "",
         f"### By scenario, {DATES['202606']}",
         "",
@@ -187,6 +270,10 @@ def main() -> int:
         f"### By scenario, {DATES['202603']}",
         "",
         *scenario_table(q1, u),
+        "",
+        f"### By scenario, {DATES['202512']} (Fed 2025 scenarios)",
+        "",
+        *scenario_table(q0, u),
         "",
         *components_section(),
         "",
@@ -200,7 +287,7 @@ def main() -> int:
         *[
             f"| {DATES[k]} | {m(r['dates'][k]['severely_adverse_with_and_without_uplift']['without'])} | "
             f"{m(r['dates'][k]['severely_adverse_with_and_without_uplift']['with'])} |"
-            for k in ("202603", "202606")
+            for k in keys
         ],  # fmt: skip
         "",
         "### Scenario-weight sensitivity (ADR-005: severe weight floor 5%, cap 25%; baseline and adverse keep 2:1)",
@@ -227,37 +314,32 @@ def main() -> int:
         "defaults counted correctly; 0.60 in loss terms), and the reserve runs to each loan's maturity.",
         "- **Other context (L-039 re-measurement):** in 2011-2019 v2 over-projected defaults by 27-37%; so in benign "
         "conditions the default side is likely conservative too, and in a 2024-2026-like period it is short.",
-        "- Overlays booked: **none**. Cap check (5% each, 10% total): not applicable.",
+        "- Overlays booked: **none** at any of the three dates (register below).",
         "",
-        "## 3. Rollforward, Q2 2026 (to the cent)",
+        *overlay_section(r, keys),
+        "",
+        "## 3. Rollforward, Q1 and Q2 2026 (to the cent)",
         "",
         STATUS,
         "",
-        "| Loan group (origination year) | 31 March 2026 | Provision | Gross write-offs | Recoveries | 30 June 2026 |",
-        "|---|---|---|---|---|---|",
-        *[
-            f"| {g['group']} | {g['start']} | {g['provision']} | {g['write_offs']} | {g['recoveries']} | {g['end']} |"
-            for g in rf["by_group"]
-        ],
-        f"| **Total** | **{rf['total']['start']}** | **{rf['total']['provision']}** | **{rf['total']['write_offs']}** | "
-        f"**{rf['total']['recoveries']}** | **{rf['total']['end']}** |",
+        "Start + provision - gross write-offs + recoveries = end, on the total allowance (performing reserve, booked "
+        "overlays and the defaulted-loan reserve); provision is the balancing figure. Write-offs are Freddie's realised "
+        "losses at disposition (a gain counts as zero); recoveries are MI and other recoveries.",
         "",
-        f"Reconciles to the cent: **{'yes' if rf['reconciles_to_the_cent'] else 'NO'}** (start + provision - write-offs + "
-        f"recoveries = end, on the total allowance; provision is the balancing figure). Loss dispositions in the quarter: "
-        f"{rf['write_off_events']}, of which {rf['estimated_write_off_events']} **estimated**: {rf['note']}. Write-offs are "
-        "Freddie's realised losses at disposition (a gain counts as zero); recoveries are MI and other recoveries.",
+        *rollforward_section(r["rollforward_q1_2026"], "202512", "202603", "Q1 2026"),
         "",
-        "## 4. Reserve bridge, 31 March to 30 June 2026 (weighted)",
+        *rollforward_section(r["rollforward_q2_2026"], "202603", "202606", "Q2 2026"),
         "",
-        "| Step | Amount |",
-        "|---|---|",
-        *[f"| {k.replace('_', ' ').capitalize()} | {m(v)} |" for k, v in br["steps"].items()],
+        "## 4. Reserve bridges (weighted, total allowance)",
         "",
-        f"Bridge reconciles: **{'yes' if br['reconciles'] else 'NO'}**. Exits: the March reserve of loans that left the "
-        "book; new loans: the June reserve of loans not in the March book; credit quality and ageing: continuing loans "
-        "under the March economy, June vs March; economic forecast: the June economy vs the March economy for the June "
-        "book; defaulted-loan reserve change: the change in the reserve on defaulted, unresolved loans; model changes and "
-        "overlays: none.",
+        "Exits: the start reserve of loans that left the book; new loans: the end reserve of loans not in the start "
+        "book; credit quality and ageing: continuing loans under the start economy, end vs start; economic forecast: "
+        "the end economy vs the start economy for the end book; overlays: change in booked overlays; defaulted-loan "
+        "reserve change: the change in the reserve on defaulted, unresolved loans; model changes: none (same models).",
+        "",
+        *bridge_section(r["bridge_q4_2025_to_q1_2026"], "202512", "202603"),
+        "",
+        *bridge_section(r["bridge_q1_to_q2_2026"], "202603", "202606"),
         "",
         "## 5. Benchmarks (M-05, M-06)",
         "",
@@ -300,7 +382,7 @@ def main() -> int:
         "",
         "L-028 payoffs (largely the L-039 count, see the validation report), L-031 turnover drift, L-033 LGD conservative, "
         "L-034 EAD, L-035 crisis exam, L-036 household stress not used, L-037 downturn check test 7, L-038 holdout failed, "
-        "L-039 check bias; conforming loans only; Freddie's underwriting and MI shape losses; recent vintages have "
+        "L-039 check bias, L-040 tail, L-041 allowance components outside the engine, L-042 December 2025 reserve built after the fact; conforming loans only; Freddie's underwriting and MI shape losses; recent vintages have "
         "incomplete losses.",
         "",
         "## 9. Sign-off",
@@ -326,7 +408,7 @@ def main() -> int:
         D += [f"## {title}", "", "| Origination year | Gross write-offs |", "|---|---|"]
         D += [f"| {y} | ${v:,.2f} |" for y, v in sorted(d[key].items())]
         D.append("")
-    D += ["## Rollforward by loan group", "", "See the allowance memo, section 3.", ""]
+    D += ["## Rollforward by loan group", "", "Q1 and Q2 2026: see the allowance memo, section 3.", ""]
     Path("docs/phase4/disclosures_2026Q2.md").write_text("\n".join(D), encoding="utf-8")
     print(f"written {OUT} and docs/phase4/disclosures_2026Q2.md")
     return 0

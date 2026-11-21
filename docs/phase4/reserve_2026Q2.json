@@ -8,7 +8,130 @@
   "adverse": 0.3,
   "severely_adverse": 0.1
  },
+ "forecast_months": 24,
+ "reversion_months": 12,
  "dates": {
+  "202512": {
+   "scenarios": {
+    "baseline": {
+     "reserve": 78874561.09914997,
+     "forecast": 57717999.90769927,
+     "reversion": 16263867.787607536,
+     "tail": 4892693.403843181,
+     "lifetime_pd_weighted_by_balance": 0.02207466572356807,
+     "reserve_with_uplift": 105964356.84669511
+    },
+    "adverse": {
+     "reserve": 448771424.60589963,
+     "forecast": 408745597.0899185,
+     "reversion": 33371335.095701963,
+     "tail": 6654492.420279204,
+     "lifetime_pd_weighted_by_balance": 0.03824980838210808,
+     "reserve_with_uplift": 602903835.1130903
+    },
+    "severely_adverse": {
+     "reserve": 1200120994.965792,
+     "forecast": 1105110505.1883326,
+     "reversion": 78357086.2642208,
+     "tail": 16653403.51323868,
+     "lifetime_pd_weighted_by_balance": 0.05788328249828888,
+     "reserve_with_uplift": 1612307537.4062076
+    }
+   },
+   "tie_outs": {
+    "baseline": {
+     "book_reserve": 78874561.09914997,
+     "sum_of_loan_reserves": 78874561.09914999,
+     "difference": -1.4901161193847656e-08,
+     "passes": true,
+     "loans": 340358
+    },
+    "adverse": {
+     "book_reserve": 448771424.60589963,
+     "sum_of_loan_reserves": 448771424.60589963,
+     "difference": 0.0,
+     "passes": true,
+     "loans": 340358
+    },
+    "severely_adverse": {
+     "book_reserve": 1200120994.965792,
+     "sum_of_loan_reserves": 1200120994.9657922,
+     "difference": -2.384185791015625e-07,
+     "passes": true,
+     "loans": 340358
+    }
+   },
+   "fed_scenario_year": 2025,
+   "book": {
+    "loans": 340358,
+    "balance": 80546010525.25
+   },
+   "weighted_reserve": 301968263.53783906,
+   "weighted_reserve_with_uplift": 405680518.3825649,
+   "reserve_ratio": 0.0037490157683623127,
+   "weight_sensitivity": [
+    {
+     "severe_weight": 0.05,
+     "reserve": 252070889.56961948,
+     "reserve_with_uplift": 338645683.99236256
+    },
+    {
+     "severe_weight": 0.1,
+     "reserve": 301968263.53783906,
+     "reserve_with_uplift": 405680518.3825649
+    },
+    {
+     "severe_weight": 0.15,
+     "reserve": 351865637.5060587,
+     "reserve_with_uplift": 472715352.7727673
+    },
+    {
+     "severe_weight": 0.2,
+     "reserve": 401763011.4742783,
+     "reserve_with_uplift": 539750187.1629696
+    },
+    {
+     "severe_weight": 0.25,
+     "reserve": 451660385.44249785,
+     "reserve_with_uplift": 606785021.553172
+    }
+   ],
+   "severely_adverse_with_and_without_uplift": {
+    "without": 1200120994.965792,
+    "with": 1612307537.4062076
+   },
+   "defaulted_pipeline": {
+    "loans": 1857,
+    "balance": 440598230.14,
+    "reserve": 26230816.140505742,
+    "lgd": 0.05953454722723445
+   },
+   "overlays": {
+    "reserve_ym": "202512",
+    "quarter_end": "2025-12-31",
+    "modelled_reserve": 301968263.53783906,
+    "booked_total": 0,
+    "booked_share_of_modelled": 0.0,
+    "total_cap_flag": "",
+    "entries": [],
+    "assessments": [
+     {
+      "id": "A-2025Q4-1",
+      "reserve_ym": "202512",
+      "factor": "Q5",
+      "issue": "L-038, as for 30 June 2026 (built later, 20 November 2026, for the Q1 2026 rollforward)",
+      "sizing": "docs/phase4/overlay_sizing_L038.md",
+      "decision": "No overlay (Option B), same decision and disclosures as A-2026Q2-1.",
+      "decided_by": "Martins Ogiekpolor",
+      "decided": "2026-11-19",
+      "review": "each quarter"
+     }
+    ]
+   },
+   "total_allowance": 328199079.6783448,
+   "total_allowance_with_uplift": 431911334.52307063,
+   "total_allowance_ratio": 0.0040525104671270944
+  },
   "202603": {
    "scenarios": {
     "baseline": {
@@ -59,6 +182,7 @@
      "loans": 341291
     }
    },
+   "fed_scenario_year": 2026,
    "book": {
     "loans": 341291,
     "balance": 81024442495.16
@@ -102,6 +226,28 @@
     "balance": 467260355.4,
     "reserve": 27359574.078766987,
     "lgd": 0.058553167977081474
+   },
+   "overlays": {
+    "reserve_ym": "202603",
+    "quarter_end": "2026-03-31",
+    "modelled_reserve": 262728049.88151678,
+    "booked_total": 0,
+    "booked_share_of_modelled": 0.0,
+    "total_cap_flag": "",
+    "entries": [],
+    "assessments": [
+     {
+      "id": "A-2026Q1-1",
+      "reserve_ym": "202603",
+      "factor": "Q5",
+      "issue": "L-038, as for 30 June 2026 (the first reserve build covers both dates)",
+      "sizing": "docs/phase4/overlay_sizing_L038.md",
+      "decision": "No overlay (Option B), same decision and disclosures as A-2026Q2-1.",
+      "decided_by": "Martins Ogiekpolor",
+      "decided": "2026-11-19",
+      "review": "each quarter"
+     }
+    ]
    },
    "total_allowance": 290087623.96028376,
    "total_allowance_with_uplift": 380322664.37457323,
@@ -157,6 +303,7 @@
      "loans": 350495
     }
    },
+   "fed_scenario_year": 2026,
    "book": {
     "loans": 350495,
     "balance": 84623562939.01
@@ -201,10 +348,98 @@
     "reserve": 29175213.689652584,
     "lgd": 0.05744036608325655
    },
+   "overlays": {
+    "reserve_ym": "202606",
+    "quarter_end": "2026-06-30",
+    "modelled_reserve": 268322290.35198092,
+    "booked_total": 0,
+    "booked_share_of_modelled": 0.0,
+    "total_cap_flag": "",
+    "entries": [],
+    "assessments": [
+     {
+      "id": "A-2026Q2-1",
+      "reserve_ym": "202606",
+      "factor": "Q5",
+      "issue": "L-038: model v2 under-projected holdout defaults (0.74 of actual in expected-loss terms over July 2024 - June 2026; +34% would close it)",
+      "sizing": "docs/phase4/overlay_sizing_L038.md (numbers method on the holdout book)",
+      "decision": "No overlay (Option B): the L-038 default shortfall is assessed at the expected-loss level; the LGD model's documented conservatism (L-033, 1.64x) more than offsets it. Both errors disclosed with every reserve figure; +34% shown as a sensitivity. Baseline only; reviewed each quarter.",
+      "decided_by": "Martins Ogiekpolor",
+      "decided": "2026-11-19",
+      "review": "each quarter"
+     }
+    ]
+   },
    "total_allowance": 297497504.0416335,
    "total_allowance_with_uplift": 389653909.590583,
    "total_allowance_ratio": 0.0034945649659546404
   }
+ },
+ "rollforward_q1_2026": {
+  "by_group": [
+   {
+    "group": "2018 and older",
+    "start": "11918246.92",
+    "provision": "-1234630.90",
+    "write_offs": "-538503.42",
+    "recoveries": "39468.95",
+    "end": "10184581.55"
+   },
+   {
+    "group": "2019-2021",
+    "start": "24511201.86",
+    "provision": "-4022244.33",
+    "write_offs": "-656368.76",
+    "recoveries": "44027.32",
+    "end": "19876616.09"
+   },
+   {
+    "group": "2022-2024",
+    "start": "212062549.50",
+    "provision": "-37164014.10",
+    "write_offs": "-2245454.95",
+    "recoveries": "1043599.39",
+    "end": "173696679.84"
+   },
+   {
+    "group": "2025-2026",
+    "start": "79707081.40",
+    "provision": "6622665.08",
+    "write_offs": "0",
+    "recoveries": "0",
+    "end": "86329746.48"
+   }
+  ],
+  "total": {
+   "start": "328199079.68",
+   "write_offs": "-3440327.13",
+   "recoveries": "1127095.66",
+   "provision": "-35798224.25",
+   "end": "290087623.96"
+  },
+  "reconciles_to_the_cent": true,
+  "write_off_events": 39,
+  "estimated_write_off_events": 1,
+  "note": "Freddie reports losses about 3 months after the sale; write-offs not yet reported are estimated (balance removed x Phase 3 LGD) and trued up when reported"
+ },
+ "bridge_q4_2025_to_q1_2026": {
+  "steps": {
+   "start": 328199079.6783448,
+   "exits": -20047497.10692577,
+   "new_loans": 17458763.796485316,
+   "credit_quality_and_ageing": 11702623.904696262,
+   "economic_forecast": -48354104.25057812,
+   "model_changes": 0.0,
+   "overlays": 0,
+   "defaulted_loan_reserve_change": 1128757.9382612444,
+   "end": 290087623.96028376
+  },
+  "reconciles": true,
+  "ties_to_total_allowance": true,
+  "fed_scenario_years": [
+   2025,
+   2026
+  ]
  },
  "rollforward_q2_2026": {
   "by_group": [
@@ -251,7 +486,7 @@
   "reconciles_to_the_cent": true,
   "write_off_events": 57,
   "estimated_write_off_events": 57,
-  "note": "Freddie reports losses about 3 months after the sale; Q2 2026 write-offs not yet reported are estimated (balance removed x Phase 3 LGD), trued up at the Q3 close"
+  "note": "Freddie reports losses about 3 months after the sale; write-offs not yet reported are estimated (balance removed x Phase 3 LGD) and trued up when reported"
  },
  "bridge_q1_to_q2_2026": {
   "steps": {
@@ -261,22 +496,21 @@
    "credit_quality_and_ageing": 14257504.870801087,
    "economic_forecast": -21056017.680016458,
    "model_changes": 0.0,
-   "overlays": 0.0,
+   "overlays": 0,
    "defaulted_loan_reserve_change": 1815639.6108855978,
    "end": 297497504.0416335
   },
-  "reconciles": true
+  "reconciles": true,
+  "ties_to_total_allowance": true,
+  "fed_scenario_years": [
+   2026,
+   2026
+  ]
  },
  "benchmarks": {
   "loss_rate_method": {
-   "annual_net_loss_rate_1999_2025": 0.0013392885996991516,
+   "annual_net_loss_rate_1999_2025": 0.0013392885996991513,
    "annual_rates": {
-    "2004": 0.00033358281458434764,
-    "2006": 0.00021838403836419118,
-    "2007": 0.00017756713177642723,
-    "2017": 0.0008149300716355592,
-    "2020": 0.0002903234004896405,
-    "2022": 5.113091977750524e-05,
     "1999": 0.0,
     "2001": 2.88233084950041e-05,
     "2002": 9.746249578354816e-05,
@@ -297,11 +531,17 @@
     "2016": 0.00215520819603189,
     "2021": 0.00015168043643000922,
     "2023": 0.00014030979451689152,
-    "2024": 8.318735266327035e-05
+    "2024": 8.318735266327035e-05,
+    "2004": 0.00033358281458434764,
+    "2006": 0.00021838403836419118,
+    "2007": 0.00017756713177642723,
+    "2017": 0.0008149300716355592,
+    "2020": 0.0002903234004896405,
+    "2022": 5.113091977750524e-05
    },
    "expected_remaining_life_years": 7.422040003628703,
    "book_balance": 84623562939.01,
-   "reserve": 841179673.0496417
+   "reserve": 841179673.0496416
   },
   "vintage_method": {
    "mature_vintages": [
@@ -924,39 +1164,75 @@
    "2023": 1247174.1502252705,
    "2024": 613915.9354210673
   },
-  "rollforward_by_loan_group": [
-   {
-    "group": "2018 and older",
-    "start": "10184581.55",
-    "provision": "-403057.53",
-    "write_offs": "-57907.84",
-    "recoveries": "0.00",
-    "end": "9723616.18"
-   },
-   {
-    "group": "2019-2021",
-    "start": "19876616.09",
-    "provision": "-1604611.24",
-    "write_offs": "-58305.02",
-    "recoveries": "0.00",
-    "end": "18213699.83"
-   },
-   {
-    "group": "2022-2024",
-    "start": "173696679.84",
-    "provision": "-10223269.13",
-    "write_offs": "-749362.14",
-    "recoveries": "0.00",
-    "end": "162724048.57"
-   },
-   {
-    "group": "2025-2026",
-    "start": "86329746.48",
-    "provision": "20506392.98",
-    "write_offs": "0",
-    "recoveries": "0",
-    "end": "106836139.46"
-   }
-  ]
+  "rollforward_by_loan_group": {
+   "q1_2026": [
+    {
+     "group": "2018 and older",
+     "start": "11918246.92",
+     "provision": "-1234630.90",
+     "write_offs": "-538503.42",
+     "recoveries": "39468.95",
+     "end": "10184581.55"
+    },
+    {
+     "group": "2019-2021",
+     "start": "24511201.86",
+     "provision": "-4022244.33",
+     "write_offs": "-656368.76",
+     "recoveries": "44027.32",
+     "end": "19876616.09"
+    },
+    {
+     "group": "2022-2024",
+     "start": "212062549.50",
+     "provision": "-37164014.10",
+     "write_offs": "-2245454.95",
+     "recoveries": "1043599.39",
+     "end": "173696679.84"
+    },
+    {
+     "group": "2025-2026",
+     "start": "79707081.40",
+     "provision": "6622665.08",
+     "write_offs": "0",
+     "recoveries": "0",
+     "end": "86329746.48"
+    }
+   ],
+   "q2_2026": [
+    {
+     "group": "2018 and older",
+     "start": "10184581.55",
+     "provision": "-403057.53",
+     "write_offs": "-57907.84",
+     "recoveries": "0.00",
+     "end": "9723616.18"
+    },
+    {
+     "group": "2019-2021",
+     "start": "19876616.09",
+     "provision": "-1604611.24",
+     "write_offs": "-58305.02",
+     "recoveries": "0.00",
+     "end": "18213699.83"
+    },
+    {
+     "group": "2022-2024",
+     "start": "173696679.84",
+     "provision": "-10223269.13",
+     "write_offs": "-749362.14",
+     "recoveries": "0.00",
+     "end": "162724048.57"
+    },
+    {
+     "group": "2025-2026",
+     "start": "86329746.48",
+     "provision": "20506392.98",
+     "write_offs": "0",
+     "recoveries": "0",
+     "end": "106836139.46"
+    }
+   ]
+  }
  }
 }

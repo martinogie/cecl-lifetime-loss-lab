@@ -1,6 +1,6 @@
 # Phase 4 plan: the CECL engine
 
-**Status (20 November 2026): built.** Decisions taken 19 November 2026: overlay Option B (L-038; L-033 netting decision), ADR-008 B4b, LGD cap 150% kept, horizon to maturity (monthly 3 years, then yearly). Results: `docs/allowance_memos/2026Q2_allowance_memo.md`, `docs/phase4/reserve_2026Q2.json`, `docs/phase4/disclosures_2026Q2.md`. The text below is the original proposal.
+**Status (20 November 2026): complete.** Decisions taken 19 November 2026: overlay Option B (L-038; L-033 netting decision), ADR-008 B4b, LGD cap 150% kept, horizon to maturity (monthly 3 years, then yearly). Completed 20 November 2026: forecast and reversion as settings, the overlay framework (`cecl/overlays.py`, `docs/governance/overlay_log.json`), and the 31 December 2025 reserve (Fed 2025 scenarios, point in time) giving rollforwards and bridges for Q1 and Q2 2026. Results: `docs/allowance_memos/2026Q2_allowance_memo.md`, `docs/phase4/reserve_2026Q2.json`, `docs/phase4/disclosures_2026Q2.md`. Open: the memo's checker sign-off (Martins, a different day). The text below is the original proposal.
 
 Proposed 19 November 2026, after Phase 3. Nothing here is built yet. Educational model on Freddie Mac
 conforming mortgages; not an audited reserve and not accounting advice.

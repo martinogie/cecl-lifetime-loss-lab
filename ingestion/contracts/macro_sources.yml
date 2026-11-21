@@ -60,20 +60,42 @@ fed:
     url: https://www.federalreserve.gov/supervisionreg/files/2026_Final_Historic_Domestic.csv
     scenario_name: Actual
     last_quarter: "2025 Q4"   # must be the quarter just before first_quarter
-  columns: ["Scenario Name", "Date", "Real GDP growth", "Nominal GDP growth",
+  columns: &fed_columns ["Scenario Name", "Date", "Real GDP growth", "Nominal GDP growth",
             "Real disposable income growth", "Nominal disposable income growth", "Unemployment rate",
             "CPI inflation rate", "3-month Treasury rate", "5-year Treasury yield",
             "10-year Treasury yield", "BBB corporate yield", "Mortgage rate", "Prime rate",
             "Dow Jones Total Stock Market Index (Level)", "House Price Index (Level)",
             "Commercial Real Estate Price Index (Level)", "Market Volatility Index (Level)"]
   # Ranges for the variables the models use (others are kept in bronze but not range-checked).
-  ranges:
+  ranges: &fed_ranges
     "Unemployment rate": [1, 30]
     "3-month Treasury rate": [-2, 20]
     "5-year Treasury yield": [-2, 20]
     "10-year Treasury yield": [-2, 20]
     "Mortgage rate": [1, 20]
     "House Price Index (Level)": [10, 5000]
+
+fed_2025:
+  # The Fed's 2025 scenarios (published 4 February 2025), for reserve dates before the 2026 scenarios were
+  # public: a reserve uses only the scenarios published by its reserve date (point in time; Martins,
+  # 20 November 2026). Used for the 31 December 2025 reserve. Same layout as 2026; the Fed named the files
+  # differently that year. Loaded once (no schedule: the 2025 scenarios do not change).
+  year: 2025
+  published: "2025-02-04"
+  files:
+    baseline: https://www.federalreserve.gov/supervisionreg/files/2025-Table_2A_Supervisory_Baseline_Domestic.csv
+    severely_adverse: https://www.federalreserve.gov/supervisionreg/files/2025-Table_3A_Supervisory_Severely_Adverse_Domestic.csv
+  scenario_names:
+    baseline: Supervisory Baseline
+    severely_adverse: Supervisory Severely Adverse
+  quarters: 13          # 2025 Q1 to 2028 Q1
+  first_quarter: "2025 Q1"
+  history:
+    url: https://www.federalreserve.gov/supervisionreg/files/2025-Table_1A_Historic_Domestic.csv
+    scenario_name: Actual
+    last_quarter: "2024 Q4"
+  columns: *fed_columns
+  ranges: *fed_ranges
 
 fred_household:
   # Model v2 household-stress candidates (docs/phase2/model_v2_plan.md, decision D3), national.

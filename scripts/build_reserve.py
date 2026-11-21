@@ -9,14 +9,17 @@ panel. Outputs (aggregates only): docs/phase4/reserve_2026Q2.json; the allowance
 
 What it builds:
 1. Each loan's lifetime expected loss per scenario (`cecl.engine.price`); tie-out: book = sum of loans.
-2. The weighted reserve (ADR-005: losses weighted 60/30/10) at 31 March and 30 June 2026, and a
-   weight-sensitivity table (severe weight 5% to 25%).
+2. The weighted reserve (ADR-005: losses weighted 60/30/10) at 31 December 2025, 31 March and 30 June 2026,
+   and a weight-sensitivity table (severe weight 5% to 25%). Each date uses the Fed scenarios published by
+   then (`scenarios.fed_year`): 2025 for December 2025, 2026 for March and June 2026.
 3. The overlay decision (L-038, Option B: none on the baseline) and its required sensitivities: every
    reserve with the +34% default uplift alongside, and the severely adverse reserve with and without it.
 4. Benchmarks: the loss-rate method and the vintage method (M-05, M-06).
-5. The Q2 2026 rollforward (start + provision - write-offs + recoveries = end, to the cent), overall and
-   by loan group, and the reserve bridge (exits, new loans, credit quality and ageing, economic forecast,
-   model changes, overlays).
+5. The Q1 and Q2 2026 rollforwards (start + provision - write-offs + recoveries = end, to the cent), overall
+   and by loan group, and the reserve bridges (exits, new loans, credit quality and ageing, economic
+   forecast, model changes, overlays, defaulted-loan reserve change).
+7. The overlay register for each date (ADR-006, `cecl.overlays`, log `docs/governance/overlay_log.json`):
+   only approved overlays that pass every rule are booked, on top of the modelled reserve.
 6. Disclosure tables: rollforward by loan group; credit quality (FICO and LTV bands) by origination year;
    gross write-offs by origination year.
 """
@@ -34,17 +37,21 @@ from typing import Any
 
 import numpy as np
 
-from cecl import engine, environment, lgd, scenarios
+from cecl import engine, environment, lgd, overlays, scenarios
 from cecl.models import multistate
 
 LOCAL = Path("data/local")
 RES = LOCAL / "reserve"
 OUT = Path("docs/phase4/reserve_2026Q2.json")
-Q1, Q2 = "202603", "202606"
+Q0, Q1, Q2 = "202512", "202603", "202606"
+QUARTERS = ((Q0, Q1, "q1_2026", "202601", "202603"), (Q1, Q2, "q2_2026", "202604", "202606"))
+OVERLAY_LOG = Path("docs/governance/overlay_log.json")
 WEIGHTS = {"baseline": 0.60, "adverse": 0.30, "severely_adverse": 0.10}  # ADR-005
 SEVERE_RANGE = (0.05, 0.10, 0.15, 0.20, 0.25)  # floor 5%, cap 25%
 UPLIFT = 0.3434541551805488  # L-038 sizing (docs/phase4/overlay_sizing_L038.json): Option A sensitivity
 LOSS_CODES = lgd.LOSS_CODES
+FORECAST_MONTHS = scenarios.FORECAST_MONTHS  # ADR-003 settings; must match the projection job's parameters
+REVERSION_MONTHS = scenarios.REVERSION_MONTHS
 
 
 def cents(x: float) -> Decimal:
@@ -60,6 +67,19 @@ def group_of(vintage: Any) -> Any:
     )
 
 
+def check_settings(book: Any, src: Path) -> None:
+    """The projection job and this pricing must use the same forecast and reversion lengths: the default and
+    payoff chances were simulated under the job's economy. Books written before the settings existed carry no
+    columns and were built with ADR-003's 24 and 12."""
+    job = tuple(
+        int(book[c].iloc[0]) if c in book.columns else d
+        for c, d in (("forecast_months", 24), ("reversion_months", 12))
+    )
+    if job != (FORECAST_MONTHS, REVERSION_MONTHS):
+        raise SystemExit(f"{src}: projected with forecast/reversion {job}, priced with "
+                         f"{(FORECAST_MONTHS, REVERSION_MONTHS)}; re-run the projection or change the settings")  # fmt: skip
+
+
 def load_inputs(con: Any) -> dict[str, Any]:
     import pandas as pd
 
@@ -68,7 +88,7 @@ def load_inputs(con: Any) -> dict[str, Any]:
     curtail = {int(k): v for k, v in json.loads((LOCAL / "phase3" / "ead_rates.json").read_text()).items()}
     L = LOCAL / "silver" / "macro"
     return {"lgd": model, "curtail": curtail, "state": pd.read_parquet(L / "state_monthly.parquet"),
-            "national": pd.read_parquet(L / "national_monthly.parquet"), "fed": pd.read_parquet(L / "fed_paths.parquet"),
+            "national": pd.read_parquet(L / "national_monthly.parquet"), "fed": {y: pd.read_parquet(L / f"{t}.parquet") for y, t in scenarios.FED_TABLES.items()},
             "long_run": pd.read_parquet(L / "long_run_averages.parquet")}  # fmt: skip
 
 
@@ -80,6 +100,7 @@ def price_run(R: str, E: str, name: str, inp: dict[str, Any]) -> Any:
     if cache.exists() and cache.stat().st_mtime > src.stat().st_mtime:
         return pd.read_parquet(cache)  # already priced from this exact projection file
     book = pd.read_parquet(src)
+    check_settings(book, src)
     p_def = book[[f"pd_{k}" for k in range(1, engine.MONTHLY + 1)]].to_numpy(dtype=float)
     p_pre = book[[f"pp_{k}" for k in range(1, engine.MONTHLY + 1)]].to_numpy(dtype=float)
     E_book = (
@@ -89,10 +110,11 @@ def price_run(R: str, E: str, name: str, inp: dict[str, Any]) -> Any:
     )
     weights = E_book.groupby("property_state")["upb_start"].sum().to_dict()
     gap = multistate.months_between(E, R) - 1
-    sc = scenarios.build(name, E, inp["state"], inp["national"], inp["fed"], inp["long_run"], weights,
-                         horizon=engine.MONTHLY + 3 + gap)  # fmt: skip
+    sc = scenarios.build(name, E, inp["state"], inp["national"], inp["fed"][scenarios.fed_year(E)], inp["long_run"], weights,
+                         horizon=engine.MONTHLY + 3 + gap, forecast_months=FORECAST_MONTHS,
+                         reversion_months=REVERSION_MONTHS)  # fmt: skip
     growth = sc.long_run["hpi_growth"]
-    out = engine.price(book, p_def, p_pre, sc.macro, R, inp["lgd"], inp["curtail"], growth)
+    out = engine.price(book, p_def, p_pre, sc.macro, R, inp["lgd"], inp["curtail"], growth, FORECAST_MONTHS)
     frame = book[
         [
             "loan_id",
@@ -181,8 +203,8 @@ def losses(con: Any, first: str, last: str, model: Any = None) -> Any:
 
 
 def rollforward(start: Any, end: Any, wo: Any) -> dict[str, Any]:
-    """Q2 2026: start (31 March, booked weighted) + provision - gross write-offs + recoveries = end (30 June),
-    to the cent, overall and by loan group (provision is the balancing figure, as in a bank's books)."""
+    """One quarter: start (booked total allowance) + provision - gross write-offs + recoveries = end, to the
+    cent, overall and by loan group (provision is the balancing figure, as in a bank's books)."""
     import pandas as pd
 
     s = start.groupby("group")["reserve"].sum()
@@ -214,18 +236,19 @@ def rollforward(start: Any, end: Any, wo: Any) -> dict[str, Any]:
             "reconciles_to_the_cent": bool(reconciles)}  # fmt: skip
 
 
-def bridge(runs: dict[tuple[str, str, str], Any]) -> dict[str, Any]:
-    """31 March -> 30 June reserve (weighted), step by step:
-    exits (loans in the March book not in June: March reserve removed), new loans (June reserve of loans not
-    in March), credit quality and ageing (continuing loans: June book under the March economy minus their
-    March reserve), economic forecast (June economy minus March economy, June book), model changes (none:
-    the same v2 models), overlays (none, Option B)."""
+def bridge(runs: dict[tuple[str, str, str], Any], a: str, b: str) -> dict[str, Any]:
+    """Reserve at quarter-end `a` -> quarter-end `b` (weighted, performing loans), step by step:
+    exits (loans in the `a` book not in `b`: their `a` reserve removed), new loans (`b` reserve of loans not
+    in `a`), credit quality and ageing (continuing loans: `b` book under the `a` economy minus their `a`
+    reserve), economic forecast (`b` economy minus `a` economy, `b` book; includes a change of Fed scenario
+    year), model changes (none: the same v2 models). Overlays and the defaulted-loan reserve are added by
+    the caller."""
     steps = {k: 0.0 for k in ("start", "exits", "new_loans", "credit_quality_and_ageing", "economic_forecast",
                               "model_changes", "overlays", "end")}  # fmt: skip
     for s, w in WEIGHTS.items():
-        mar = runs[(Q1, Q1, s)].set_index("loan_id")["total"]
-        jun = runs[(Q2, Q2, s)].set_index("loan_id")["total"]
-        jun_marecon = runs[(Q2, Q1, s)].set_index("loan_id")["total"]
+        mar = runs[(a, a, s)].set_index("loan_id")["total"]
+        jun = runs[(b, b, s)].set_index("loan_id")["total"]
+        jun_marecon = runs[(b, a, s)].set_index("loan_id")["total"]
         cont = mar.index.intersection(jun.index)
         steps["start"] += w * float(mar.sum())
         steps["exits"] += -w * float(mar.drop(cont).sum())
@@ -343,7 +366,7 @@ def main(argv: list[str] | None = None) -> int:
     con = duckdb.connect()
     inp = load_inputs(con)
     runs: dict[tuple[str, str, str], Any] = {}
-    for R, E in ((Q1, Q1), (Q2, Q2), (Q2, Q1)):
+    for R, E in ((Q0, Q0), (Q1, Q1), (Q2, Q2), (Q1, Q0), (Q2, Q1)):
         for s in scenarios.SCENARIOS:
             runs[(R, E, s)] = price_run(R, E, s, inp)
             print(R, E, s, f"{runs[(R, E, s)]['total'].sum():,.0f}", flush=True)
@@ -351,10 +374,12 @@ def main(argv: list[str] | None = None) -> int:
                                    "audited bank reserve and not accounting advice.",
                            "model": "PD/prepayment M-01 v2 @challenger (holdout failed, L-038; check bias L-039); LGD M-02; EAD M-03",
                            "overlay_decision": "Option B: no L-038 overlay on the baseline reserve (L-033 netting decision, 19 Nov 2026)",
-                           "uplift_sensitivity": UPLIFT, "weights": WEIGHTS, "dates": {}}  # fmt: skip
+                           "uplift_sensitivity": UPLIFT, "weights": WEIGHTS,
+                           "forecast_months": FORECAST_MONTHS, "reversion_months": REVERSION_MONTHS, "dates": {}}  # fmt: skip
     pipelines: dict[str, Any] = {}
-    for R in (Q1, Q2):
-        d: dict[str, Any] = {"scenarios": {}, "tie_outs": {}}
+    log, assessed = overlays.load(OVERLAY_LOG)
+    for R in (Q0, Q1, Q2):
+        d: dict[str, Any] = {"scenarios": {}, "tie_outs": {}, "fed_scenario_year": scenarios.fed_year(R)}
         for s in scenarios.SCENARIOS:
             f = runs[(R, R, s)]
             d["tie_outs"][s] = tie_out(f)
@@ -379,9 +404,13 @@ def main(argv: list[str] | None = None) -> int:
         d["defaulted_pipeline"] = {"loans": int(len(pipe)), "balance": float(pipe["balance"].sum()),
                                    "reserve": float(pipe["reserve"].sum()),
                                    "lgd": float(pipe["reserve"].sum() / max(pipe["balance"].sum(), 1e-9))}  # fmt: skip
-        d["total_allowance"] = d["weighted_reserve"] + d["defaulted_pipeline"]["reserve"]
+        # ADR-006: the register checks every overlay against the modelled (weighted) reserve; only booked ones count
+        d["overlays"] = overlays.register(log, d["weighted_reserve"], R)
+        d["overlays"]["assessments"] = [a for a in assessed if a.get("reserve_ym") == R]
+        booked_overlays = d["overlays"]["booked_total"]
+        d["total_allowance"] = d["weighted_reserve"] + booked_overlays + d["defaulted_pipeline"]["reserve"]
         d["total_allowance_with_uplift"] = (
-            d["weighted_reserve_with_uplift"] + d["defaulted_pipeline"]["reserve"]
+            d["weighted_reserve_with_uplift"] + booked_overlays + d["defaulted_pipeline"]["reserve"]
         )
         d["total_allowance_ratio"] = d["total_allowance"] / (bal + d["defaulted_pipeline"]["balance"])
         res["dates"][R] = d
@@ -395,36 +424,64 @@ def main(argv: list[str] | None = None) -> int:
         pipe = pipelines[R][["loan_id", "reserve"]].merge(orig_year, on="loan_id", how="left")
         f = pd.concat([f, pipe[["loan_id", "vintage_year", "reserve"]]], ignore_index=True)
         f["group"] = group_of(f["vintage_year"].fillna(2000))
+        ov_total = res["dates"][R]["overlays"]["booked_total"]
+        if ov_total:  # booked overlays sit at book level, in their own rollforward row
+            f = pd.concat([f, pd.DataFrame([{"loan_id": "", "vintage_year": None, "reserve": ov_total,
+                                             "group": "Overlays (ADR-006)"}])], ignore_index=True)  # fmt: skip
         return f
 
-    start, end = booked(Q1), booked(Q2)
-    wo_q2 = losses(con, "202604", "202606", inp["lgd"])
-    wo_q2 = wo_q2.merge(orig_year, on="loan_id", how="left")  # every loss realised in the quarter
-    wo_q2["group"] = group_of(wo_q2["vintage_year"].fillna(2000))
-    res["rollforward_q2_2026"] = rollforward(start, end, wo_q2)
-    res["rollforward_q2_2026"]["write_off_events"] = int(len(wo_q2))
-    res["rollforward_q2_2026"]["estimated_write_off_events"] = int(wo_q2["estimated"].sum())
-    res["rollforward_q2_2026"]["note"] = (
-        "Freddie reports losses about 3 months after the sale; Q2 2026 write-offs not yet "
-        "reported are estimated (balance removed x Phase 3 LGD), trued up at the Q3 close"
-    )
-    res["bridge_q1_to_q2_2026"] = bridge(runs)
-    b = res["bridge_q1_to_q2_2026"]["steps"]
-    pipe_change = (
-        res["dates"][Q2]["defaulted_pipeline"]["reserve"] - res["dates"][Q1]["defaulted_pipeline"]["reserve"]
-    )
-    b["start"] += res["dates"][Q1]["defaulted_pipeline"]["reserve"]
-    b["defaulted_loan_reserve_change"] = pipe_change
-    b["end"] += res["dates"][Q2]["defaulted_pipeline"]["reserve"]
-    b["end"] = b.pop("end")  # keep "end" last
-    total = b["start"] + sum(v for k, v in b.items() if k not in ("start", "end"))
-    res["bridge_q1_to_q2_2026"]["reconciles"] = abs(total - b["end"]) < 0.01
+    for a, b_, tag, first_m, last_m in QUARTERS:
+        start, end = booked(a), booked(b_)
+        wo = losses(con, first_m, last_m, inp["lgd"])
+        wo = wo.merge(orig_year, on="loan_id", how="left")  # every loss realised in the quarter
+        wo["group"] = group_of(wo["vintage_year"].fillna(2000))
+        rf = rollforward(start, end, wo)
+        rf["write_off_events"] = int(len(wo))
+        rf["estimated_write_off_events"] = int(wo["estimated"].sum())
+        rf["note"] = (
+            "Freddie reports losses about 3 months after the sale; write-offs not yet reported are estimated "
+            "(balance removed x Phase 3 LGD) and trued up when reported"
+        )
+        res[f"rollforward_{tag}"] = rf
+        br = bridge(runs, a, b_)
+        steps = br["steps"]
+        steps["overlays"] = (
+            res["dates"][b_]["overlays"]["booked_total"] - res["dates"][a]["overlays"]["booked_total"]
+        )
+        steps["start"] += (
+            res["dates"][a]["defaulted_pipeline"]["reserve"] + res["dates"][a]["overlays"]["booked_total"]
+        )
+        steps["defaulted_loan_reserve_change"] = (
+            res["dates"][b_]["defaulted_pipeline"]["reserve"]
+            - res["dates"][a]["defaulted_pipeline"]["reserve"]
+        )
+        steps["end"] += (
+            res["dates"][b_]["defaulted_pipeline"]["reserve"] + res["dates"][b_]["overlays"]["booked_total"]
+        )
+        steps["end"] = steps.pop("end")  # keep "end" last
+        total = steps["start"] + sum(v for k, v in steps.items() if k not in ("start", "end"))
+        br["reconciles"] = abs(total - steps["end"]) < 0.01
+        br["ties_to_total_allowance"] = (
+            abs(steps["start"] - res["dates"][a]["total_allowance"]) < 0.01
+            and abs(steps["end"] - res["dates"][b_]["total_allowance"]) < 0.01
+        )
+        br["fed_scenario_years"] = [
+            res["dates"][a]["fed_scenario_year"],
+            res["dates"][b_]["fed_scenario_year"],
+        ]
+        res["bridge_q4_2025_to_q1_2026" if tag == "q1_2026" else "bridge_q1_to_q2_2026"] = br
+        if tag == "q2_2026":
+            wo_q2 = wo
+    end = booked(Q2)
     res["benchmarks"] = benchmarks(con, end, pd.read_parquet(RES / f"book_{Q2}_{Q2}_baseline.parquet"))
     wo_ytd = losses(con, "202601", "202606", inp["lgd"])
     res["disclosures"] = disclosures(
         runs[(Q2, Q2, "baseline")], wo_ytd, wo_q2.drop(columns=["vintage_year", "group"]), orig_year
     )
-    res["disclosures"]["rollforward_by_loan_group"] = res["rollforward_q2_2026"]["by_group"]
+    res["disclosures"]["rollforward_by_loan_group"] = {
+        "q1_2026": res["rollforward_q1_2026"]["by_group"],
+        "q2_2026": res["rollforward_q2_2026"]["by_group"],
+    }
     print(
         json.dumps(
             {
@@ -439,7 +496,9 @@ def main(argv: list[str] | None = None) -> int:
             default=float,
         )
     )
-    print(json.dumps({"rollforward": res["rollforward_q2_2026"]["total"], "reconciles": res["rollforward_q2_2026"]["reconciles_to_the_cent"],
+    print(json.dumps({"rollforward_q1": res["rollforward_q1_2026"]["total"], "reconciles_q1": res["rollforward_q1_2026"]["reconciles_to_the_cent"],
+                      "bridge_q1": res["bridge_q4_2025_to_q1_2026"],
+                      "rollforward": res["rollforward_q2_2026"]["total"], "reconciles": res["rollforward_q2_2026"]["reconciles_to_the_cent"],
                       "bridge": res["bridge_q1_to_q2_2026"], "loss_rate": res["benchmarks"]["loss_rate_method"]["reserve"],
                       "vintage": res["benchmarks"]["vintage_method"]["reserve"]}, indent=1, default=float))  # fmt: skip
     if args.write:
