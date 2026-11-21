@@ -1,0 +1,721 @@
+{
+ "dataAsOf": {
+  "reserveDate": "2026-06-30",
+  "updated": "2026-11-20"
+ },
+ "status": {
+  "model": "Model v2 (challenger)",
+  "holdout": "v2 failed its holdout (July 2024 - June 2026, run once): 0.81 of actual defaults under the recorded check, 0.92 counted correctly (L-038, L-039).",
+  "overlay": "No overlay (Option B): the LGD model's conservatism (1.64x the real loss per default, L-033) more than offsets the default shortfall (0.74 in loss terms). The +34% default uplift is shown as a sensitivity.",
+  "framing": "Educational model on Freddie Mac conforming mortgages (sample book). Not an audited bank reserve and not accounting advice."
+ },
+ "fed": {
+  "baseline": {
+   "loss9qM": 68.473,
+   "lossRate9q": 0.0009813304195014716,
+   "lifetimeM": 95.512,
+   "lifetimePd": 0.0229008419860292,
+   "quarters": [
+    {
+     "quarterEnd": "202609",
+     "unemployment": 4.487148773610902,
+     "hpiChange": 0.005152298660418622,
+     "mortgageRate": 6.3566666666666665,
+     "expectedDefaults": 600.8049197136088,
+     "expectedLossM": 8.087,
+     "lossRate": 9.557017495453364e-05
+    },
+    {
+     "quarterEnd": "202612",
+     "unemployment": 4.487148773610902,
+     "hpiChange": 0.007936244524029957,
+     "mortgageRate": 6.29,
+     "expectedDefaults": 622.6177027886777,
+     "expectedLossM": 8.404,
+     "lossRate": 9.930812511387563e-05
+    },
+    {
+     "quarterEnd": "202703",
+     "unemployment": 4.453815440277568,
+     "hpiChange": 0.009379341024999774,
+     "mortgageRate": 6.29,
+     "expectedDefaults": 558.9296583687296,
+     "expectedLossM": 7.85,
+     "lossRate": 9.276085685588118e-05
+    },
+    {
+     "quarterEnd": "202706",
+     "unemployment": 4.387148773610902,
+     "hpiChange": 0.010513201627966205,
+     "mortgageRate": 6.256666666666667,
+     "expectedDefaults": 437.29840102687785,
+     "expectedLossM": 6.825,
+     "lossRate": 8.065613291547879e-05
+    },
+    {
+     "quarterEnd": "202709",
+     "unemployment": 4.353815440277569,
+     "hpiChange": 0.011440845499497263,
+     "mortgageRate": 6.19,
+     "expectedDefaults": 468.32170215598694,
+     "expectedLossM": 8.0,
+     "lossRate": 9.454041862547292e-05
+    },
+    {
+     "quarterEnd": "202712",
+     "unemployment": 4.253815440277569,
+     "hpiChange": 0.01216243023849918,
+     "mortgageRate": 6.156666666666667,
+     "expectedDefaults": 508.64570556745986,
+     "expectedLossM": 8.631,
+     "lossRate": 0.00010198752192638175
+    },
+    {
+     "quarterEnd": "202803",
+     "unemployment": 4.187148773610903,
+     "hpiChange": 0.01257468489889927,
+     "mortgageRate": 6.09,
+     "expectedDefaults": 457.34899080371747,
+     "expectedLossM": 7.789,
+     "lossRate": 9.204132002662469e-05
+    },
+    {
+     "quarterEnd": "202806",
+     "unemployment": 4.187148773610903,
+     "hpiChange": 0.013193114114365995,
+     "mortgageRate": 6.09,
+     "expectedDefaults": 371.4168944091898,
+     "expectedLossM": 6.155,
+     "lossRate": 7.273786234122632e-05
+    },
+    {
+     "quarterEnd": "202809",
+     "unemployment": 4.555371465275238,
+     "hpiChange": 0.015456977493875658,
+     "mortgageRate": 6.07207448630137,
+     "expectedDefaults": 423.68155574041816,
+     "expectedLossM": 6.732,
+     "lossRate": 7.955019242951516e-05
+    },
+    {
+     "quarterEnd": "202812",
+     "unemployment": 4.923594156939573,
+     "hpiChange": 0.02020439523485006,
+     "mortgageRate": 6.054148972602739,
+     "expectedDefaults": 508.18604574237065,
+     "expectedLossM": 7.429,
+     "lossRate": 8.779114016617607e-05
+    },
+    {
+     "quarterEnd": "202903",
+     "unemployment": 5.291816848603908,
+     "hpiChange": 0.027470155423601678,
+     "mortgageRate": 6.03622345890411,
+     "expectedDefaults": 530.7299013994283,
+     "expectedLossM": 6.238,
+     "lossRate": 7.371601117858881e-05
+    },
+    {
+     "quarterEnd": "202906",
+     "unemployment": 5.6600395402682455,
+     "hpiChange": 0.03730770839178464,
+     "mortgageRate": 6.01829794520548,
+     "expectedDefaults": 489.47559335355425,
+     "expectedLossM": 5.223,
+     "lossRate": 6.172538387284175e-05
+    }
+   ]
+  },
+  "adverse": {
+   "loss9qM": 325.02,
+   "lossRate9q": 0.004700057942446834,
+   "lifetimeM": 383.91,
+   "lifetimePd": 0.03615892463621967,
+   "quarters": [
+    {
+     "quarterEnd": "202609",
+     "unemployment": 5.35381544027757,
+     "hpiChange": -0.03926449957455975,
+     "mortgageRate": 6.306666666666667,
+     "expectedDefaults": 629.278005101696,
+     "expectedLossM": 15.126,
+     "lossRate": 0.00017874617153145505
+    },
+    {
+     "quarterEnd": "202612",
+     "unemployment": 5.95381544027757,
+     "hpiChange": -0.06341521841140588,
+     "mortgageRate": 6.223333333333334,
+     "expectedDefaults": 834.8358055372294,
+     "expectedLossM": 28.129,
+     "lossRate": 0.0003324043281776516
+    },
+    {
+     "quarterEnd": "202703",
+     "unemployment": 6.403815440277569,
+     "hpiChange": -0.07825794279580116,
+     "mortgageRate": 6.173333333333334,
+     "expectedDefaults": 909.3930322579176,
+     "expectedLossM": 35.705,
+     "lossRate": 0.0004219318603090625
+    },
+    {
+     "quarterEnd": "202706",
+     "unemployment": 6.720482106944236,
+     "hpiChange": -0.09289231824320889,
+     "mortgageRate": 6.1066666666666665,
+     "expectedDefaults": 860.2882809368853,
+     "expectedLossM": 37.661,
+     "lossRate": 0.00044503682465320266
+    },
+    {
+     "quarterEnd": "202709",
+     "unemployment": 6.937148773610903,
+     "hpiChange": -0.10696035210502983,
+     "mortgageRate": 6.023333333333333,
+     "expectedDefaults": 1061.569782138887,
+     "expectedLossM": 47.291,
+     "lossRate": 0.0005588448755631311
+    },
+    {
+     "quarterEnd": "202712",
+     "unemployment": 7.037148773610902,
+     "hpiChange": -0.12056456755731396,
+     "mortgageRate": 5.956666666666667,
+     "expectedDefaults": 1133.6978168142812,
+     "expectedLossM": 50.449,
+     "lossRate": 0.0005961558227701024
+    },
+    {
+     "quarterEnd": "202803",
+     "unemployment": 7.00381544027757,
+     "hpiChange": -0.13365292137925838,
+     "mortgageRate": 5.873333333333333,
+     "expectedDefaults": 997.5602506435871,
+     "expectedLossM": 45.383,
+     "lossRate": 0.0005362937595565379
+    },
+    {
+     "quarterEnd": "202806",
+     "unemployment": 6.870482106944237,
+     "hpiChange": -0.14018150555301906,
+     "mortgageRate": 5.84,
+     "expectedDefaults": 747.2774376204263,
+     "expectedLossM": 34.835,
+     "lossRate": 0.0004116498638059527
+    },
+    {
+     "quarterEnd": "202809",
+     "unemployment": 6.567871465275238,
+     "hpiChange": -0.13391528719428372,
+     "mortgageRate": 5.88457448630137,
+     "expectedDefaults": 725.7995968472429,
+     "expectedLossM": 30.44,
+     "lossRate": 0.00035970744554207753
+    },
+    {
+     "quarterEnd": "202812",
+     "unemployment": 6.2652608236062415,
+     "hpiChange": -0.12679736115025544,
+     "mortgageRate": 5.929148972602739,
+     "expectedDefaults": 679.7236368091167,
+     "expectedLossM": 23.98,
+     "lossRate": 0.0002833712357852788
+    },
+    {
+     "quarterEnd": "202903",
+     "unemployment": 5.962650181937241,
+     "hpiChange": -0.1188075205565952,
+     "mortgageRate": 5.97372345890411,
+     "expectedDefaults": 531.1398468754855,
+     "expectedLossM": 13.42,
+     "lossRate": 0.000158587740234847
+    },
+    {
+     "quarterEnd": "202906",
+     "unemployment": 5.6600395402682455,
+     "hpiChange": -0.10992295557504046,
+     "mortgageRate": 6.01829794520548,
+     "expectedDefaults": 415.6695176579667,
+     "expectedLossM": 7.544,
+     "lossRate": 8.914887873931888e-05
+    }
+   ]
+  },
+  "severely_adverse": {
+   "loss9qM": 828.652,
+   "lossRate9q": 0.011873615439620183,
+   "lifetimeM": 958.421,
+   "lifetimePd": 0.05440539068506559,
+   "quarters": [
+    {
+     "quarterEnd": "202609",
+     "unemployment": 6.220482106944237,
+     "hpiChange": -0.0839493516367002,
+     "mortgageRate": 6.256666666666667,
+     "expectedDefaults": 659.0356713053658,
+     "expectedLossM": 21.713,
+     "lossRate": 0.00025658001837178306
+    },
+    {
+     "quarterEnd": "202612",
+     "unemployment": 7.420482106944237,
+     "hpiChange": -0.13484075993865374,
+     "mortgageRate": 6.156666666666667,
+     "expectedDefaults": 1070.6197299638025,
+     "expectedLossM": 57.466,
+     "lossRate": 0.0006790774556405712
+    },
+    {
+     "quarterEnd": "202703",
+     "unemployment": 8.35381544027757,
+     "hpiChange": -0.16597052218087638,
+     "mortgageRate": 6.056666666666667,
+     "expectedDefaults": 1361.7594300712822,
+     "expectedLossM": 93.982,
+     "lossRate": 0.001110589441273202
+    },
+    {
+     "quarterEnd": "202706",
+     "unemployment": 9.053815440277571,
+     "hpiChange": -0.1963684727203159,
+     "mortgageRate": 5.956666666666667,
+     "expectedDefaults": 1353.013160097566,
+     "expectedLossM": 104.644,
+     "lossRate": 0.0012365771391506847
+    },
+    {
+     "quarterEnd": "202709",
+     "unemployment": 9.520482106944238,
+     "hpiChange": -0.22543140508165838,
+     "mortgageRate": 5.8566666666666665,
+     "expectedDefaults": 1612.2732076279067,
+     "expectedLossM": 124.681,
+     "lossRate": 0.001473357349670396
+    },
+    {
+     "quarterEnd": "202712",
+     "unemployment": 9.820482106944237,
+     "hpiChange": -0.2533553120114474,
+     "mortgageRate": 5.756666666666667,
+     "expectedDefaults": 1813.6138496228614,
+     "expectedLossM": 128.49,
+     "lossRate": 0.0015183758676452276
+    },
+    {
+     "quarterEnd": "202803",
+     "unemployment": 9.820482106944237,
+     "hpiChange": -0.27994414737864015,
+     "mortgageRate": 5.656666666666667,
+     "expectedDefaults": 1640.7098096073853,
+     "expectedLossM": 119.287,
+     "lossRate": 0.0014096156718150772
+    },
+    {
+     "quarterEnd": "202806",
+     "unemployment": 9.553815440277571,
+     "hpiChange": -0.29356608162539993,
+     "mortgageRate": 5.59,
+     "expectedDefaults": 1316.2544464287603,
+     "expectedLossM": 98.451,
+     "lossRate": 0.0011634045835389796
+    },
+    {
+     "quarterEnd": "202809",
+     "unemployment": 8.580371465275238,
+     "hpiChange": -0.28327877018174286,
+     "mortgageRate": 5.69707448630137,
+     "expectedDefaults": 1209.626980014512,
+     "expectedLossM": 79.938,
+     "lossRate": 0.0009446332087216794
+    },
+    {
+     "quarterEnd": "202812",
+     "unemployment": 7.606927490272907,
+     "hpiChange": -0.27373932337100637,
+     "mortgageRate": 5.804148972602739,
+     "expectedDefaults": 972.5958113304605,
+     "expectedLossM": 55.235,
+     "lossRate": 0.0006527180206108027
+    },
+    {
+     "quarterEnd": "202903",
+     "unemployment": 6.633483515270575,
+     "hpiChange": -0.26498140465052533,
+     "mortgageRate": 5.91122345890411,
+     "expectedDefaults": 771.7879225706439,
+     "expectedLossM": 30.68,
+     "lossRate": 0.0003625442198441022
+    },
+    {
+     "quarterEnd": "202906",
+     "unemployment": 5.6600395402682455,
+     "hpiChange": -0.25703619195388216,
+     "mortgageRate": 6.01829794520548,
+     "expectedDefaults": 567.1374072235295,
+     "expectedLossM": 14.305,
+     "lossRate": 0.00016903927452192579
+    }
+   ]
+  }
+ },
+ "shocks": [
+  {
+   "key": "hpi_m10",
+   "label": "House prices -10%",
+   "reserveM": 238.005,
+   "multiple": 2.491885938526089,
+   "lossRate9q": 0.0025613562422014354,
+   "worstHpiChange": -0.09053811853483006,
+   "peakUnemployment": 5.6600395402682455,
+   "informationOnly": false
+  },
+  {
+   "key": "hpi_m20",
+   "label": "House prices -20%",
+   "reserveM": 461.341,
+   "multiple": 4.830190105615621,
+   "lossRate9q": 0.004810154287696863,
+   "worstHpiChange": -0.191589438697627,
+   "peakUnemployment": 5.6600395402682455,
+   "informationOnly": false
+  },
+  {
+   "key": "hpi_m30",
+   "label": "House prices -30%",
+   "reserveM": 815.357,
+   "multiple": 8.536699988737734,
+   "lossRate9q": 0.00868613300633852,
+   "worstHpiChange": -0.2926407588604237,
+   "peakUnemployment": 5.6600395402682455,
+   "informationOnly": false
+  },
+  {
+   "key": "unemployment_p2",
+   "label": "Unemployment +2 points",
+   "reserveM": 108.673,
+   "multiple": 1.1377990772953825,
+   "lossRate9q": 0.001321682815673297,
+   "worstHpiChange": 0.005152298660418622,
+   "peakUnemployment": 6.387148773610902,
+   "informationOnly": false
+  },
+  {
+   "key": "unemployment_p4",
+   "label": "Unemployment +4 points",
+   "reserveM": 124.286,
+   "multiple": 1.3012629257963986,
+   "lossRate9q": 0.0015434333853784734,
+   "worstHpiChange": 0.005152298660418622,
+   "peakUnemployment": 8.387148773610901,
+   "informationOnly": false
+  },
+  {
+   "key": "rates_up2",
+   "label": "Mortgage rate +2 points",
+   "reserveM": 93.789,
+   "multiple": 0.981957918021699,
+   "lossRate9q": 0.0008495769251393219,
+   "worstHpiChange": 0.005152298660418622,
+   "peakUnemployment": 5.6600395402682455,
+   "informationOnly": false
+  },
+  {
+   "key": "rates_down2",
+   "label": "Mortgage rate -2 points",
+   "reserveM": 92.77,
+   "multiple": 0.9712952357030731,
+   "lossRate9q": 0.001204108302574199,
+   "worstHpiChange": 0.005152298660418622,
+   "peakUnemployment": 5.6600395402682455,
+   "informationOnly": false
+  },
+  {
+   "key": "hpi_m20_unemployment_p2",
+   "label": "House prices -20% and unemployment +2",
+   "reserveM": 531.691,
+   "multiple": 5.566746835548105,
+   "lossRate9q": 0.006449217836096803,
+   "worstHpiChange": -0.191589438697627,
+   "peakUnemployment": 6.387148773610902,
+   "informationOnly": false
+  },
+  {
+   "key": "hpi_m30_unemployment_p4",
+   "label": "House prices -30% and unemployment +4",
+   "reserveM": 1046.968,
+   "multiple": 10.961644426781875,
+   "lossRate9q": 0.013053019006109364,
+   "worstHpiChange": -0.2926407588604237,
+   "peakUnemployment": 8.387148773610901,
+   "informationOnly": false
+  },
+  {
+   "key": "hpi_m30_immediate",
+   "label": "House prices -30% at once (information only)",
+   "reserveM": 936.014,
+   "multiple": 9.799964309573475,
+   "lossRate9q": 0.010212015523576536,
+   "worstHpiChange": -0.29639339093770706,
+   "peakUnemployment": 5.6600395402682455,
+   "informationOnly": true
+  }
+ ],
+ "sensitivity": [
+  {
+   "assumption": "Forecast period",
+   "setting": "24 months",
+   "reserveM": 268.322,
+   "changeM": 0.0,
+   "changePct": 0.0,
+   "booked": true,
+   "totalM": 297.498
+  },
+  {
+   "assumption": "Forecast period",
+   "setting": "12 months",
+   "reserveM": 213.799,
+   "changeM": -54.523,
+   "changePct": -0.2032001600628326,
+   "booked": false,
+   "totalM": 242.974
+  },
+  {
+   "assumption": "Forecast period",
+   "setting": "36 months",
+   "reserveM": 267.479,
+   "changeM": -0.844,
+   "changePct": -0.003144613258462048,
+   "booked": false,
+   "totalM": 296.654
+  },
+  {
+   "assumption": "Reversion speed",
+   "setting": "12 months",
+   "reserveM": 268.322,
+   "changeM": 0.0,
+   "changePct": 0.0,
+   "booked": true,
+   "totalM": 297.498
+  },
+  {
+   "assumption": "Reversion speed",
+   "setting": "6 months",
+   "reserveM": 267.129,
+   "changeM": -1.194,
+   "changePct": -0.00444825463827736,
+   "booked": false,
+   "totalM": 296.304
+  },
+  {
+   "assumption": "Reversion speed",
+   "setting": "24 months",
+   "reserveM": 268.616,
+   "changeM": 0.294,
+   "changePct": 0.0010945823664212373,
+   "booked": false,
+   "totalM": 297.791
+  },
+  {
+   "assumption": "Fed timing",
+   "setting": "shifted",
+   "reserveM": 268.322,
+   "changeM": 0.0,
+   "changePct": 0.0,
+   "booked": true,
+   "totalM": 297.498
+  },
+  {
+   "assumption": "Fed timing",
+   "setting": "calendar quarters",
+   "reserveM": 177.699,
+   "changeM": -90.623,
+   "changePct": -0.337738780923328,
+   "booked": false,
+   "totalM": 206.875
+  },
+  {
+   "assumption": "Payoff speed",
+   "setting": "x1.0 (as fitted)",
+   "reserveM": 268.322,
+   "changeM": 0.0,
+   "changePct": 0.0,
+   "booked": true,
+   "totalM": 297.498
+  },
+  {
+   "assumption": "Payoff speed",
+   "setting": "x0.8",
+   "reserveM": 280.688,
+   "changeM": 12.365,
+   "changePct": 0.04608397353724247,
+   "booked": false,
+   "totalM": 309.863
+  },
+  {
+   "assumption": "Payoff speed",
+   "setting": "x1.2",
+   "reserveM": 254.602,
+   "changeM": -13.72,
+   "changePct": -0.05113336666426993,
+   "booked": false,
+   "totalM": 283.777
+  },
+  {
+   "assumption": "LGD floor (severity of loans that lose)",
+   "setting": "none",
+   "reserveM": 268.322,
+   "changeM": 0.0,
+   "changePct": 0.0,
+   "booked": true,
+   "totalM": 297.498
+  },
+  {
+   "assumption": "LGD floor (severity of loans that lose)",
+   "setting": "5%",
+   "reserveM": 270.316,
+   "changeM": 1.994,
+   "changePct": 0.007431923576133315,
+   "booked": false,
+   "totalM": 299.492
+  },
+  {
+   "assumption": "LGD floor (severity of loans that lose)",
+   "setting": "10%",
+   "reserveM": 274.792,
+   "changeM": 6.469,
+   "changePct": 0.024110589244228375,
+   "booked": false,
+   "totalM": 303.967
+  },
+  {
+   "assumption": "Scenario weights (baseline/adverse/severe)",
+   "setting": "80/15/5",
+   "reserveM": 181.917,
+   "changeM": -86.405,
+   "changePct": -0.3220200602323101,
+   "booked": false,
+   "totalM": 211.092
+  },
+  {
+   "assumption": "Scenario weights (baseline/adverse/severe)",
+   "setting": "70/20/10",
+   "reserveM": 239.482,
+   "changeM": -28.84,
+   "changePct": -0.10748194704956382,
+   "booked": false,
+   "totalM": 268.658
+  },
+  {
+   "assumption": "Scenario weights (baseline/adverse/severe)",
+   "setting": "60/30/10 (booked)",
+   "reserveM": 268.322,
+   "changeM": 0.0,
+   "changePct": 0.0,
+   "booked": true,
+   "totalM": 297.498
+  },
+  {
+   "assumption": "Scenario weights (baseline/adverse/severe)",
+   "setting": "50/40/10",
+   "reserveM": 297.162,
+   "changeM": 28.84,
+   "changePct": 0.10748194704956404,
+   "booked": false,
+   "totalM": 326.337
+  },
+  {
+   "assumption": "Scenario weights (baseline/adverse/severe)",
+   "setting": "50/35/15",
+   "reserveM": 325.888,
+   "changeM": 57.565,
+   "changePct": 0.21453811318274663,
+   "booked": false,
+   "totalM": 355.063
+  },
+  {
+   "assumption": "Scenario weights (baseline/adverse/severe)",
+   "setting": "40/40/20",
+   "reserveM": 383.453,
+   "changeM": 115.131,
+   "changePct": 0.42907622636549325,
+   "booked": false,
+   "totalM": 412.628
+  },
+  {
+   "assumption": "Default uplift (L-038 Option A)",
+   "setting": "0% (Option B)",
+   "reserveM": 268.322,
+   "changeM": 0.0,
+   "changePct": 0.0,
+   "booked": true,
+   "totalM": 297.498
+  },
+  {
+   "assumption": "Default uplift (L-038 Option A)",
+   "setting": "+34%",
+   "reserveM": 360.479,
+   "changeM": 92.156,
+   "changePct": 0.3434541551805488,
+   "booked": false,
+   "totalM": 389.654
+  }
+ ],
+ "tornado": [
+  {
+   "assumption": "Scenario weights (baseline/adverse/severe)",
+   "lowM": -86.405,
+   "highM": 115.131,
+   "rangeM": 201.536
+  },
+  {
+   "assumption": "Default uplift (L-038 Option A)",
+   "lowM": 0.0,
+   "highM": 92.156,
+   "rangeM": 92.156
+  },
+  {
+   "assumption": "Fed timing",
+   "lowM": -90.623,
+   "highM": 0.0,
+   "rangeM": 90.623
+  },
+  {
+   "assumption": "Forecast period",
+   "lowM": -54.523,
+   "highM": 0.0,
+   "rangeM": 54.523
+  },
+  {
+   "assumption": "Payoff speed",
+   "lowM": -13.72,
+   "highM": 12.365,
+   "rangeM": 26.086
+  },
+  {
+   "assumption": "LGD floor (severity of loans that lose)",
+   "lowM": 0.0,
+   "highM": 6.469,
+   "rangeM": 6.469
+  },
+  {
+   "assumption": "Reversion speed",
+   "lowM": -1.194,
+   "highM": 0.294,
+   "rangeM": 1.487
+  }
+ ],
+ "booked": {
+  "performingM": 268.322,
+  "totalM": 297.498
+ },
+ "benchmark": {
+  "ours": 0.011873615439620183,
+  "dfastAggregate": 0.015,
+  "dfastRange": [
+   0.009,
+   0.028
+  ],
+  "source": "Federal Reserve, 2026 Supervisory Stress Test results (24 June 2026), public_results_DFAST_2026.csv: domestic first-lien mortgage loss rate, severely adverse, 9 quarters (2026 Q1 - 2028 Q1), losses as a % of average balances"
+ }
+}

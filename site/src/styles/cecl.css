@@ -1,0 +1,57 @@
+/* CECL Lifetime Loss Lab's own styles on top of the pinned design system (src/design, do not edit there).
+   Page layouts follow the Bank Health site so the finance projects look like one family. */
+:root {
+  --sc-baseline: #3E5C73;
+  --sc-adverse: #B14A14;
+  --sc-severe: #8E1B2E;
+  --sc-weighted: #1A1612;
+}
+.hero { padding-top: 72px; padding-bottom: 56px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 56px; align-items: end; }
+.who { border-top: 3px solid var(--ink); padding-top: 18px; font-size: 15px; }
+.who-item { padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+.figures { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--card); }
+.figures-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.fig { padding: 28px 20px; border-right: 1px solid var(--rule); display: flex; flex-direction: column; gap: 6px; }
+.fig:last-child { border-right: none; }
+.fig-n { font-family: var(--serif); font-size: 44px; line-height: 1; font-weight: 500; }
+.fig-l { font-size: 13px; color: var(--ink-3); }
+.section { padding-top: 72px; padding-bottom: 24px; }
+.head-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; }
+.page { padding-top: 56px; padding-bottom: 88px; display: flex; flex-wrap: wrap; gap: 56px; }
+.toc { flex: 1 1 200px; max-width: 240px; gap: 10px; font-size: 14px; position: sticky; top: 16px; align-self: flex-start; }
+article { flex: 999 1 640px; }
+.sec { scroll-margin-top: 24px; }
+.r { text-align: right; }
+.sub { display: block; font-weight: 400; font-size: 13px; color: var(--ink-3); }
+.callouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 20px; }
+.callout { background: var(--card); border: 1px solid var(--rule); padding: 20px; }
+.limit { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 8px 32px; padding: 18px 0; border-top: 1px solid var(--rule); }
+.limit strong { font-size: 20px; font-weight: 500; }
+.limit span { color: var(--ink-2); }
+.status-box { border-left: 3px solid var(--accent); background: var(--card); padding: 16px 20px; font-size: 15px; color: var(--ink-2); display: flex; flex-direction: column; gap: 8px; }
+.status-box strong { color: var(--ink); }
+.hbar-row { display: grid; grid-template-columns: minmax(110px, 180px) 1fr 84px; gap: 12px; align-items: center; font-size: 14px; }
+.hbar-track { height: 14px; background: var(--track); }
+.hbar-fill { height: 100%; background: var(--accent); }
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 240px; border-bottom: 1px solid var(--ink); padding-top: 24px; }
+.bar-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; }
+.bar-b { width: 100%; max-width: 44px; }
+.bar-years { display: flex; gap: 6px; }
+.bar-years span { flex: 1 1 0; min-width: 0; text-align: center; font-size: 11px; color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 14px; }
+.sw { display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; }
+.tornado-row { display: grid; grid-template-columns: minmax(140px, 260px) 1fr; gap: 12px; align-items: center; font-size: 14px; }
+.tornado-track { position: relative; height: 18px; background: var(--track); }
+.tornado-mid { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+.tornado-lo, .tornado-hi { position: absolute; top: 0; bottom: 0; }
+.tornado-lo { background: var(--sc-baseline); }
+.tornado-hi { background: var(--sc-severe); }
+.pass { color: #2F5D3A; font-weight: 600; }
+.fail { color: var(--accent); font-weight: 600; }
+@media (max-width: 900px) { .toc { position: static; max-width: none; } }
+@media (max-width: 640px) {
+  .hero { padding-top: 40px; }
+  .fig { border-right: none; border-bottom: 1px solid var(--rule); padding: 20px 0; }
+  .section { padding-top: 48px; }
+  .hbar-row { grid-template-columns: 90px 1fr 64px; }
+}

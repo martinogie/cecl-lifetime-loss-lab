@@ -72,3 +72,13 @@ Thumbs.db
 
 # Private working documents (never published)
 Claude outputs/
+
+# Website build and test output (site/)
+site/node_modules/
+site/.astro/
+site/test-results/
+site/playwright-report/
+# The website's data files and schemas are aggregates only (no loan rows; checked in CI), so they are
+# kept, as on the Bank Health site. Only these two folders are exempt from the data/ rule above.
+!site/public/data/
+!site/data/

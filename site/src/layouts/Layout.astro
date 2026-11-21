@@ -1,0 +1,102 @@
+---
+// CECL Lifetime Loss Lab's page layout: header with navigation, the "reserve date" strip and the model
+// status, footer. Styles come from the portfolio design system, pinned in ../design (design-v1.0.1, Finance
+// accent; never edit there: CI runs design/check-design.mjs), plus the site's own ../styles/cecl.css.
+import "@fontsource-variable/inter";
+import "@fontsource-variable/newsreader";
+import "../design/tokens.css";
+import "../design/sectors/finance.css";
+import "../design/base.css";
+import "../design/chrome.css";
+import "../styles/cecl.css";
+
+interface Props {
+  title: string;
+  description: string;
+  current: "overview" | "explorer" | "scenarios" | "disclosures" | "methods" | "pipeline";
+}
+const { title, description, current } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const nav = [
+  ["overview", "Overview", `${base}/`],
+  ["explorer", "Loss explorer", `${base}/explorer/`],
+  ["scenarios", "Scenario lab", `${base}/scenarios/`],
+  ["disclosures", "Disclosures", `${base}/disclosures/`],
+  ["methods", "Methods", `${base}/methods/`],
+  ["pipeline", "Pipeline", `${base}/pipeline/`],
+] as const;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · CECL Lifetime Loss Lab</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
+  </head>
+  <body data-base={base}>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="wrap header-row">
+        <a class="brand" href={`${base}/`}>
+          <span class="brand-name">CECL Lifetime Loss Lab</span>
+          <span class="brand-tag">Mortgage credit-loss allowance</span>
+        </a>
+        <nav aria-label="Main" class="nav">
+          {nav.map(([key, label, href]) => (
+            <a href={href} aria-current={current === key ? "page" : undefined}>{label}</a>
+          ))}
+        </nav>
+      </div>
+      <div class="strip">
+        <div class="wrap strip-row small">
+          <!-- Placeholders as long as the real text, so nothing moves when the data arrives. -->
+          <span data-asof aria-busy="true">Reserve date –– ––– –––– · updated ––– ––, ––––</span>
+          <span data-model>Model v– (–––––––––)</span>
+          <span>Educational model, not an audited reserve</span>
+        </div>
+      </div>
+    </header>
+    <main id="main">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="wrap footer-grid">
+        <div class="stack" style="gap:10px">
+          <span class="serif" style="font-size:24px;color:var(--bg)">CECL Lifetime Loss Lab</span>
+          <p style="color:var(--footer-text-2)">An educational CECL allowance on Freddie Mac's conforming mortgages (sample files). Not an audited bank reserve and not accounting advice. Summary figures only: no loan-level data is published.</p>
+        </div>
+        <div class="stack" style="gap:8px">
+          <span class="foot-label">Sources</span>
+          <span>Freddie Mac Single-Family Loan-Level Dataset</span>
+          <span>Federal Reserve supervisory scenarios; FRED; FHFA; BLS</span>
+          <span>FFIEC call reports (peer ranges)</span>
+        </div>
+        <div class="stack" style="gap:8px">
+          <span class="foot-label">Built by</span>
+          <span>Martins Ogiekpolor</span>
+          <a href="https://github.com/martinogie/cecl-lifetime-loss-lab">Code on GitHub</a>
+          <a href={`${base}/pipeline/`}>How the pipeline works</a>
+        </div>
+      </div>
+      <div class="wrap small" style="padding-bottom:28px;color:var(--muted-dark)">© 2026 Martins Ogiekpolor</div>
+    </footer>
+    <script>
+      import { loadJson, asOfText } from "../lib/site";
+      // Fill the "reserve date" strip from the overview file (every page).
+      loadJson("overview.json")
+        .then((o) => {
+          const asof = document.querySelector("[data-asof]");
+          if (asof) { asof.textContent = asOfText(o); asof.removeAttribute("aria-busy"); }
+          const model = document.querySelector("[data-model]");
+          if (model) model.textContent = o.status.model;
+        })
+        .catch(() => {
+          const asof = document.querySelector("[data-asof]");
+          if (asof) { asof.textContent = "Data unavailable"; asof.removeAttribute("aria-busy"); }
+        });
+    </script>
+  </body>
+</html>

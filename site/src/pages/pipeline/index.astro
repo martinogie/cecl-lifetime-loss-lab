@@ -1,0 +1,42 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+<Layout title="Pipeline" description="How the CECL allowance is produced: data, models, engine and close, with the controls that prove the numbers weren't made by mistake." current="pipeline">
+  <div class="wrap page">
+    <aside class="toc stack small">
+      <span class="eyebrow">On this page</span>
+      <a href="#flow">From files to the allowance</a><a href="#controls">Controls</a><a href="#stack">Tools</a>
+    </aside>
+    <article class="stack" style="gap:64px;min-width:0">
+      <header class="stack" style="gap:14px">
+        <span class="eyebrow accent">Pipeline and controls</span>
+        <h1 class="h1" style="font-size:clamp(36px,4.8vw,60px);line-height:1.05">From loan files to a signed-off allowance</h1>
+        <p class="lede">The same steps a bank's allowance team runs each quarter, automated and checked, so any past quarter can be rebuilt to the cent.</p>
+      </header>
+      <section id="flow" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">From files to the allowance</h2>
+        <ol class="stack" style="gap:0;padding:0;list-style:none" data-steps></ol>
+      </section>
+      <section id="controls" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">Controls</h2>
+        <ul class="stack" style="gap:10px;padding-left:20px" data-controls></ul>
+      </section>
+      <section id="stack" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">Tools</h2>
+        <p style="color:var(--ink-2)" data-stack></p>
+        <div class="status-box" data-status></div>
+      </section>
+    </article>
+  </div>
+</Layout>
+
+<script>
+  import { loadJson, statusBox, esc } from "../../lib/site";
+  loadJson("pipeline.json").then((x) => {
+    document.querySelector("[data-steps]")!.innerHTML = (x.steps as any[]).map((s, i) =>
+      `<li class="limit"><strong class="serif">${i + 1}. ${esc(s.step)}</strong><span>${esc(s.what)}</span></li>`).join("");
+    document.querySelector("[data-controls]")!.innerHTML = (x.controls as string[]).map((c) => `<li>${esc(c)}</li>`).join("");
+    document.querySelector("[data-stack]")!.textContent = (x.stack as string[]).join(" · ");
+    document.querySelector("[data-status]")!.innerHTML = statusBox(x.status);
+  });
+</script>

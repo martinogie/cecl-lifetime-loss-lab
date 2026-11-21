@@ -1,0 +1,279 @@
+{
+ "note": "Aggregates only. Phase 5 rate-shock runs re-priced by loan group (L-043). Educational model; not an audited reserve.",
+ "market_rate_june_2026": 6.49,
+ "totals": {
+  "baseline": {
+   "reserve": 95511970.15034826,
+   "lifetime_pd": 0.0229008419860292,
+   "expected_payoffs_36": 112814.5961151906,
+   "ead_at_default": 1776724106.416943
+  },
+  "rates_up2": {
+   "reserve": 93788735.35498664,
+   "lifetime_pd": 0.024083636464556524,
+   "expected_payoffs_36": 77996.37195901656,
+   "ead_at_default": 1856694882.923564
+  },
+  "rates_down2": {
+   "reserve": 92770321.5596474,
+   "lifetime_pd": 0.020732641907548487,
+   "expected_payoffs_36": 173393.06120279233,
+   "ead_at_default": 1623640109.2551744
+  }
+ },
+ "groups": {
+  "current_ltv_band": {
+   "60-80": {
+    "balance": 27444493147.73,
+    "loans": 82493,
+    "baseline": {
+     "reserve": 46513651.96252029,
+     "lifetime_pd": 0.021918153402732538,
+     "loss_per_default_dollar": 0.0823429778319325
+    },
+    "rates_up2": {
+     "reserve": 46126143.62728821,
+     "lifetime_pd": 0.023209745522148332,
+     "loss_per_default_dollar": 0.07760219704648279
+    },
+    "rates_down2": {
+     "reserve": 43963665.272105366,
+     "lifetime_pd": 0.019199262069849253,
+     "loss_per_default_dollar": 0.08780381998230868
+    }
+   },
+   "80-90": {
+    "balance": 10445902673.07,
+    "loans": 29242,
+    "baseline": {
+     "reserve": 21610716.64892529,
+     "lifetime_pd": 0.03462951921293357,
+     "loss_per_default_dollar": 0.06281371844076608
+    },
+    "rates_up2": {
+     "reserve": 20665822.50188686,
+     "lifetime_pd": 0.035924034444058554,
+     "loss_per_default_dollar": 0.05834069880026679
+    },
+    "rates_down2": {
+     "reserve": 21724199.234179907,
+     "lifetime_pd": 0.03258731623244841,
+     "loss_per_default_dollar": 0.0664961585194055
+    }
+   },
+   "<=60": {
+    "balance": 41070256222.22,
+    "loans": 223068,
+    "baseline": {
+     "reserve": 13940363.242167493,
+     "lifetime_pd": 0.017569222696745206,
+     "loss_per_default_dollar": 0.022189722403111022
+    },
+    "rates_up2": {
+     "reserve": 14152218.388303407,
+     "lifetime_pd": 0.018627090154576476,
+     "loss_per_default_dollar": 0.021341388092638146
+    },
+    "rates_down2": {
+     "reserve": 13194291.632470764,
+     "lifetime_pd": 0.01590567718858921,
+     "loss_per_default_dollar": 0.02302690357520436
+    }
+   },
+   ">90": {
+    "balance": 5662910895.99,
+    "loans": 15692,
+    "baseline": {
+     "reserve": 13447238.296735192,
+     "lifetime_pd": 0.04469594733938461,
+     "loss_per_default_dollar": 0.05613132143324982
+    },
+    "rates_up2": {
+     "reserve": 12844550.837508168,
+     "lifetime_pd": 0.04605142059548331,
+     "loss_per_default_dollar": 0.05243930885870688
+    },
+    "rates_down2": {
+     "reserve": 13888165.420891356,
+     "lifetime_pd": 0.0413041709590691,
+     "loss_per_default_dollar": 0.06221080917213143
+    }
+   }
+  },
+  "vintage_group": {
+   "2018 and older": {
+    "balance": 10014645670.439999,
+    "loans": 87388,
+    "baseline": {
+     "reserve": 2350627.57978242,
+     "lifetime_pd": 0.021314105206463353,
+     "loss_per_default_dollar": 0.01332578545318994
+    },
+    "rates_up2": {
+     "reserve": 2508903.072547616,
+     "lifetime_pd": 0.022909595417330078,
+     "loss_per_default_dollar": 0.013330360541737682
+    },
+    "rates_down2": {
+     "reserve": 2292516.9141120403,
+     "lifetime_pd": 0.0198302330621851,
+     "loss_per_default_dollar": 0.013855051522095615
+    }
+   },
+   "2019-2021": {
+    "balance": 18813357605.96,
+    "loans": 82424,
+    "baseline": {
+     "reserve": 5061158.180397367,
+     "lifetime_pd": 0.0179514409505621,
+     "loss_per_default_dollar": 0.017173933433749084
+    },
+    "rates_up2": {
+     "reserve": 5009558.913297834,
+     "lifetime_pd": 0.018381348655079482,
+     "loss_per_default_dollar": 0.01663969416247282
+    },
+    "rates_down2": {
+     "reserve": 4539009.863328617,
+     "lifetime_pd": 0.016324990632222272,
+     "loss_per_default_dollar": 0.01690106346772175
+    }
+   },
+   "2022-2024": {
+    "balance": 32153095709.35,
+    "loans": 110962,
+    "baseline": {
+     "reserve": 50832508.00551888,
+     "lifetime_pd": 0.02694104409786918,
+     "loss_per_default_dollar": 0.062400533273397826
+    },
+    "rates_up2": {
+     "reserve": 49690199.41281245,
+     "lifetime_pd": 0.02856608300615645,
+     "loss_per_default_dollar": 0.057935537525182594
+    },
+    "rates_down2": {
+     "reserve": 50724586.28348842,
+     "lifetime_pd": 0.024954130485988896,
+     "loss_per_default_dollar": 0.06648435739400807
+    }
+   },
+   "2025-2026": {
+    "balance": 23642463953.260002,
+    "loans": 69721,
+    "baseline": {
+     "reserve": 37267676.38464958,
+     "lifetime_pd": 0.02201685853179753,
+     "loss_per_default_dollar": 0.07589993997029282
+    },
+    "rates_up2": {
+     "reserve": 36580073.95632874,
+     "lifetime_pd": 0.023022505615784512,
+     "loss_per_default_dollar": 0.07176171145031757
+    },
+    "rates_down2": {
+     "reserve": 35214208.49871831,
+     "lifetime_pd": 0.01888114699129109,
+     "loss_per_default_dollar": 0.08253517003689823
+    }
+   }
+  },
+  "note_rate_vs_market": {
+   "-0.5 to 0.5": {
+    "balance": 27410836757.03,
+    "loans": 88192,
+    "baseline": {
+     "reserve": 37837668.075614735,
+     "lifetime_pd": 0.021618543388376134,
+     "loss_per_default_dollar": 0.06755788243440235
+    },
+    "rates_up2": {
+     "reserve": 38288504.8767402,
+     "lifetime_pd": 0.023399316400441485,
+     "loss_per_default_dollar": 0.06374715670101587
+    },
+    "rates_down2": {
+     "reserve": 37447501.26035941,
+     "lifetime_pd": 0.019353524881300162,
+     "loss_per_default_dollar": 0.07377298013980528
+    }
+   },
+   "-2 to -0.5": {
+    "balance": 18285513289.43,
+    "loans": 76210,
+    "baseline": {
+     "reserve": 15834016.836258126,
+     "lifetime_pd": 0.02168609109278453,
+     "loss_per_default_dollar": 0.04431375862989279
+    },
+    "rates_up2": {
+     "reserve": 16938360.103333775,
+     "lifetime_pd": 0.02454334242256349,
+     "loss_per_default_dollar": 0.04208930089029119
+    },
+    "rates_down2": {
+     "reserve": 16099474.656959493,
+     "lifetime_pd": 0.019887075534420557,
+     "loss_per_default_dollar": 0.04829797025719891
+    }
+   },
+   "0.5 to 1.5": {
+    "balance": 10087969719.52,
+    "loans": 35010,
+    "baseline": {
+     "reserve": 31216357.2981269,
+     "lifetime_pd": 0.04012045293416339,
+     "loss_per_default_dollar": 0.08042608758719211
+    },
+    "rates_up2": {
+     "reserve": 28310679.207478046,
+     "lifetime_pd": 0.03962327896302315,
+     "loss_per_default_dollar": 0.07436962207673105
+    },
+    "rates_down2": {
+     "reserve": 29851256.72738236,
+     "lifetime_pd": 0.037074528308670605,
+     "loss_per_default_dollar": 0.08286652326405965
+    }
+   },
+   "<= -2": {
+    "balance": 28436835026.93,
+    "loans": 149313,
+    "baseline": {
+     "reserve": 7802113.009864096,
+     "lifetime_pd": 0.018233389704928226,
+     "loss_per_default_dollar": 0.01747635059156811
+    },
+    "rates_up2": {
+     "reserve": 7574991.003857733,
+     "lifetime_pd": 0.01833380695755379,
+     "loss_per_default_dollar": 0.016938011951225428
+    },
+    "rates_down2": {
+     "reserve": 6927053.195093003,
+     "lifetime_pd": 0.016294040455582342,
+     "loss_per_default_dollar": 0.017306110462335107
+    }
+   },
+   ">= 1.5": {
+    "balance": 402408146.09999996,
+    "loans": 1770,
+    "baseline": {
+     "reserve": 2821814.930484408,
+     "lifetime_pd": 0.0636005096781009,
+     "loss_per_default_dollar": 0.11399088778157365
+    },
+    "rates_up2": {
+     "reserve": 2676200.163576887,
+     "lifetime_pd": 0.0665662165893537,
+     "loss_per_default_dollar": 0.10400385305732884
+    },
+    "rates_down2": {
+     "reserve": 2445035.719853134,
+     "lifetime_pd": 0.05708302157933974,
+     "loss_per_default_dollar": 0.11013796183467975
+    }
+   }
+  }
+ }
+}

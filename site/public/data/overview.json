@@ -1,0 +1,115 @@
+{
+ "dataAsOf": {
+  "reserveDate": "2026-06-30",
+  "updated": "2026-11-20"
+ },
+ "status": {
+  "model": "Model v2 (challenger)",
+  "holdout": "v2 failed its holdout (July 2024 - June 2026, run once): 0.81 of actual defaults under the recorded check, 0.92 counted correctly (L-038, L-039).",
+  "overlay": "No overlay (Option B): the LGD model's conservatism (1.64x the real loss per default, L-033) more than offsets the default shortfall (0.74 in loss terms). The +34% default uplift is shown as a sensitivity.",
+  "framing": "Educational model on Freddie Mac conforming mortgages (sample book). Not an audited bank reserve and not accounting advice."
+ },
+ "dates": {
+  "202512": {
+   "label": "31 Dec 2025",
+   "loans": 340358,
+   "balanceM": 80546.011,
+   "performingM": 301.968,
+   "defaultedM": 26.231,
+   "totalM": 328.199,
+   "ratio": 0.0040525104671270944,
+   "totalWithUpliftM": 431.911,
+   "fedScenarioYear": 2025
+  },
+  "202603": {
+   "label": "31 Mar 2026",
+   "loans": 341291,
+   "balanceM": 81024.442,
+   "performingM": 262.728,
+   "defaultedM": 27.36,
+   "totalM": 290.088,
+   "ratio": 0.0035597197483067484,
+   "totalWithUpliftM": 380.323,
+   "fedScenarioYear": 2026
+  },
+  "202606": {
+   "label": "30 Jun 2026",
+   "loans": 350495,
+   "balanceM": 84623.563,
+   "performingM": 268.322,
+   "defaultedM": 29.175,
+   "totalM": 297.498,
+   "ratio": 0.0034945649659546404,
+   "totalWithUpliftM": 389.654,
+   "fedScenarioYear": 2026
+  }
+ },
+ "scenarios": {
+  "baseline": {
+   "reserveM": 95.512,
+   "lifetimePd": 0.0229008419860292,
+   "withUpliftM": 128.316
+  },
+  "adverse": {
+   "reserveM": 383.91,
+   "lifetimePd": 0.03615892463621967,
+   "withUpliftM": 515.765
+  },
+  "severely_adverse": {
+   "reserveM": 958.421,
+   "lifetimePd": 0.05440539068506559,
+   "withUpliftM": 1287.595
+  }
+ },
+ "weights": {
+  "baseline": 0.6,
+  "adverse": 0.3,
+  "severely_adverse": 0.1
+ },
+ "components": {
+  "baseline": {
+   "lifetimePd": 0.0229008419860292,
+   "eadRatio": 0.9168055591744841,
+   "lgd": 0.05375734465772735,
+   "reserveM": 95.512
+  },
+  "adverse": {
+   "lifetimePd": 0.03615892463621967,
+   "eadRatio": 0.931115159783841,
+   "lgd": 0.1347470312193394,
+   "reserveM": 383.91
+  },
+  "severely_adverse": {
+   "lifetimePd": 0.05440539068506559,
+   "eadRatio": 0.9314690797809476,
+   "lgd": 0.22348824548835775,
+   "reserveM": 958.421
+  },
+  "weighted": {
+   "lifetimePd": 0.030028721650989982,
+   "eadRatio": 0.924631512955504,
+   "lgd": 0.11419837144103259,
+   "reserveM": 268.322
+  }
+ },
+ "benchmarks": {
+  "lossRateM": 841.18,
+  "vintageM": 680.572,
+  "freddieRatio": 0.0019,
+  "freddieOnOurBookM": 160.785
+ },
+ "ratios": {
+  "total": 0.0034945649659546404,
+  "baselineOnly": 0.0014646424202934972,
+  "lgdConservatismRemoved": 0.002130832296313805
+ },
+ "stress": {
+  "severeNineQuarterLossRate": 0.011873615439620183,
+  "dfastAggregate": 0.015,
+  "dfastRange": [
+   0.009,
+   0.028
+  ]
+ },
+ "peers": []
+}

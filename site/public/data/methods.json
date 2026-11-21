@@ -1,0 +1,110 @@
+{
+ "dataAsOf": {
+  "reserveDate": "2026-06-30",
+  "updated": "2026-11-20"
+ },
+ "status": {
+  "model": "Model v2 (challenger)",
+  "holdout": "v2 failed its holdout (July 2024 - June 2026, run once): 0.81 of actual defaults under the recorded check, 0.92 counted correctly (L-038, L-039).",
+  "overlay": "No overlay (Option B): the LGD model's conservatism (1.64x the real loss per default, L-033) more than offsets the default shortfall (0.74 in loss terms). The +34% default uplift is shown as a sensitivity.",
+  "framing": "Educational model on Freddie Mac conforming mortgages (sample book). Not an audited bank reserve and not accounting advice."
+ },
+ "models": [
+  {
+   "id": "M-01",
+   "name": "Default and payoff (PD and prepayment)",
+   "how": "Monthly logistic transition models from the loan's delinquency state (current, 30, 60 days late), played forward by path simulation, 8 paths per loan",
+   "status": "Challenger; holdout failed"
+  },
+  {
+   "id": "M-02",
+   "name": "Loss given default (LGD)",
+   "how": "Two steps: the chance of any loss, then its size; monotone trees tied to the loan-to-value and house prices",
+   "status": "Built; conservative (1.64x)"
+  },
+  {
+   "id": "M-03",
+   "name": "Exposure at default (EAD)",
+   "how": "The payment schedule plus partial prepayment by loan age",
+   "status": "Built; within 2% on held-out loans"
+  },
+  {
+   "id": "M-04",
+   "name": "CECL engine",
+   "how": "PD x LGD x EAD for every loan and month to maturity; Fed scenarios published by the reserve date; 24-month forecast, 12-month reversion; weights 60/30/10",
+   "status": "Built; tie-outs and rollforwards to the cent"
+  },
+  {
+   "id": "M-05/06",
+   "name": "Benchmarks",
+   "how": "Loss-rate and vintage methods",
+   "status": "Range checks"
+  },
+  {
+   "id": "M-07",
+   "name": "Adverse path",
+   "how": "Halfway between the Fed's baseline and severely adverse paths",
+   "status": "Built"
+  }
+ ],
+ "exams": [
+  {
+   "exam": "2011-2013",
+   "recorded": 0.92,
+   "corrected": 1.27
+  },
+  {
+   "exam": "2014-2016",
+   "recorded": 1.09,
+   "corrected": 1.37
+  },
+  {
+   "exam": "2017-2019",
+   "recorded": 1.09,
+   "corrected": 1.35
+  },
+  {
+   "exam": "2008-2010 crisis",
+   "recorded": 0.38,
+   "corrected": 0.5
+  },
+  {
+   "exam": "Holdout, Jul 2024 - Jun 2026",
+   "recorded": 0.81,
+   "corrected": 0.92
+  }
+ ],
+ "backtests": {},
+ "limits": [
+  {
+   "id": "L-038",
+   "text": "v2 failed its holdout: defaults short in 2024-2026, worst in the newest vintages."
+  },
+  {
+   "id": "L-033",
+   "text": "The LGD predicts 1.64 times the real loss per default (resolved 2017-2021 defaults)."
+  },
+  {
+   "id": "L-039",
+   "text": "The check used in the exams under-counted projected defaults; counted correctly, v2 over-projects in calm years."
+  },
+  {
+   "id": "L-035",
+   "text": "The crisis exam failed: like any data-driven model, v2 under-reacts to a kind of downturn it has not seen."
+  },
+  {
+   "id": "L-040",
+   "text": "After year 3 the loss runs at the month-36 chances and the long-run economy."
+  },
+  {
+   "id": "L-001",
+   "text": "Conforming Freddie Mac loans only: no subprime, jumbo, commercial or card loans."
+  },
+  {
+   "id": "L-043",
+   "text": "Mortgage-rate shocks lower the reserve slightly in both directions."
+  }
+ ],
+ "definitionOfDefault": "90+ days late, a real-estate-owned acquisition, or a loss-event payoff; payment pauses for disasters and COVID stop the delinquency clock.",
+ "l043": false
+}

@@ -1,0 +1,84 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+<Layout title="Methods" description="How the CECL allowance is built and validated: default, loss and exposure models, the tests they passed and failed, and their known limitations." current="methods">
+  <div class="wrap page">
+    <aside class="toc stack small">
+      <span class="eyebrow">On this page</span>
+      <a href="#models">The models</a><a href="#formula">PD x LGD x EAD</a><a href="#exams">The exams</a><a href="#backtests">Backtests</a><a href="#limits">Known limitations</a>
+    </aside>
+    <article class="stack" style="gap:64px;min-width:0">
+      <header class="stack" style="gap:14px">
+        <span class="eyebrow accent">Methods and validation</span>
+        <h1 class="h1" style="font-size:clamp(36px,4.8vw,60px);line-height:1.05">How it works, and where it falls short</h1>
+        <p class="lede">Every test's rules were written down and committed before it ran. Failures stay on record. The models are explained here in plain words; the full detail is in the model card and the validation report.</p>
+      </header>
+
+      <section id="models" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">The models</h2>
+        <p style="color:var(--ink-2)" data-default-def></p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="The models (scrolls sideways on small screens)" style="border-top:2px solid var(--ink)">
+          <table style="min-width:640px;font-size:14px"><thead><tr><th scope="col">Model</th><th scope="col">How it works</th><th scope="col">Status</th></tr></thead><tbody data-models></tbody></table>
+        </div>
+      </section>
+
+      <section id="formula" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">Chance of default x loss per default x exposure</h2>
+        <p style="color:var(--ink-2)">For each loan, the engine adds up, month by month to maturity: the chance it defaults that month x the balance it would owe x the share likely lost. Summed over the book, the three parts multiply to the reserve exactly when each is weighted the right way.</p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Reserve components (scrolls sideways)" style="border-top:2px solid var(--ink)">
+          <table style="min-width:620px;font-size:14px"><thead><tr><th scope="col">Scenario</th><th scope="col" class="r">Lifetime chance of default</th><th scope="col" class="r">Balance at default / today</th><th scope="col" class="r">Loss per $ defaulted</th><th scope="col" class="r">Reserve</th></tr></thead><tbody data-components></tbody></table>
+        </div>
+      </section>
+
+      <section id="exams" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">The default model's exams</h2>
+        <p style="color:var(--ink-2)">Projected defaults as a share of actual, on periods the model did not train on. A check used during the exams cut the projection short and under-counted it (L-039); both counts are shown. Counted correctly, the model over-projects in calm years and falls short in 2024-2026.</p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Exams (scrolls sideways)" style="border-top:2px solid var(--ink)">
+          <table style="min-width:520px;font-size:14px"><thead><tr><th scope="col">Exam</th><th scope="col" class="r">As recorded</th><th scope="col" class="r">Counted correctly</th></tr></thead><tbody data-exams></tbody></table>
+        </div>
+      </section>
+
+      <section id="backtests" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">Backtests (validation, run once each)</h2>
+        <div class="callouts" data-backtests></div>
+        <div class="stack" style="gap:10px" data-rolling></div>
+      </section>
+
+      <section id="limits" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">Known limitations</h2>
+        <div class="stack" data-limits></div>
+        <div class="status-box" data-status></div>
+        <p class="small muted">Full detail: the <a href="https://github.com/martinogie/cecl-lifetime-loss-lab/blob/main/docs/model_card.md">model card</a>, the <a href="https://github.com/martinogie/cecl-lifetime-loss-lab/blob/main/docs/validation_report.md">validation report</a> and the <a href="https://github.com/martinogie/cecl-lifetime-loss-lab/blob/main/docs/governance/limitations_log.md">limitations log</a>.</p>
+      </section>
+    </article>
+  </div>
+</Layout>
+
+<script>
+  import { loadJson, pct, fixed, money, hbar, statusBox, esc, SCENARIO_NAMES } from "../../lib/site";
+  Promise.all([loadJson("methods.json"), loadJson("overview.json")]).then(([x, o]) => {
+    document.querySelector("[data-default-def]")!.textContent = `Default means: ${x.definitionOfDefault}`;
+    document.querySelector("[data-models]")!.innerHTML = (x.models as any[]).map((m) =>
+      `<tr><th scope="row">${esc(m.id)}<span class="sub">${esc(m.name)}</span></th><td>${esc(m.how)}</td><td>${esc(m.status)}</td></tr>`).join("");
+    document.querySelector("[data-components]")!.innerHTML = Object.entries(o.components as Record<string, any>).map(([s, c]) =>
+      `<tr><th scope="row">${SCENARIO_NAMES[s] ?? esc(s)}</th><td class="r num">${pct(c.lifetimePd)}</td><td class="r num">${fixed(c.eadRatio, 3)}</td><td class="r num">${pct(c.lgd)}</td><td class="r num">${money(c.reserveM)}</td></tr>`).join("");
+    document.querySelector("[data-exams]")!.innerHTML = (x.exams as any[]).map((e) =>
+      `<tr><th scope="row">${esc(e.exam)}</th><td class="r num">${fixed(e.recorded)}</td><td class="r num">${fixed(e.corrected)}</td></tr>`).join("");
+
+    const bt = x.backtests || {};
+    const verdict = (p: boolean | undefined) => (p === undefined ? `<span class="muted">pending</span>` : p ? `<span class="pass">Pass</span>` : `<span class="fail">Fail</span>`);
+    const cards: string[] = [];
+    cards.push(`<div class="callout stack" style="gap:6px"><span class="eyebrow">Crisis backtest</span><span>Models fitted to 2006, tested on 2007-2010.</span>${bt.crisis ? `<span class="serif" style="font-size:28px">${fixed(bt.crisis.defaultsRatio)} defaults · ${fixed(bt.crisis.lossRatio)} losses</span><span class="small muted">projected / actual; simple benchmark ${fixed(bt.crisis.benchmarkDefaultsRatio)} / ${fixed(bt.crisis.benchmarkLossRatio)}</span>` : ""}${verdict(bt.crisis?.passes)}</div>`);
+    cards.push(`<div class="callout stack" style="gap:6px"><span class="eyebrow">Rolling backtest</span><span>Refitted at each year-end 2012-2022; 36 months of losses that followed.</span>${bt.rolling ? `<span class="serif" style="font-size:28px">${fixed(bt.rolling.pooledRatio)} pooled</span><span class="small muted">projected / actual; ${bt.rolling.datesInBand} of 11 dates within 0.67-1.50</span>` : ""}${verdict(bt.rolling?.passes)}</div>`);
+    cards.push(`<div class="callout stack" style="gap:6px"><span class="eyebrow">Forbearance test</span><span>2020-2021 payment pauses: stop the clock, or count them as late?</span>${bt.forbearance ? `<span class="serif" style="font-size:28px">${pct(bt.forbearance.curedShare, 0)} cured</span><span class="small muted">of the extra "defaults" without the rule, within 12 months</span>` : ""}${verdict(bt.forbearance?.passes)}</div>`);
+    document.querySelector("[data-backtests]")!.innerHTML = cards.join("");
+    if (bt.rolling) {
+      const max = Math.max(...bt.rolling.dates.map((d: any) => d.ratio ?? 0), 1.5);
+      document.querySelector("[data-rolling]")!.innerHTML = `<span class="eyebrow">Rolling backtest: projected / actual 36-month loss by year-end</span>` +
+        bt.rolling.dates.map((d: any) => hbar(d.date, d.ratio ?? 0, max, fixed(d.ratio))).join("");
+    }
+    document.querySelector("[data-limits]")!.innerHTML = (x.limits as any[]).map((l) =>
+      `<div class="limit"><strong class="serif">${esc(l.id)}</strong><span>${esc(l.text)}</span></div>`).join("");
+    document.querySelector("[data-status]")!.innerHTML = statusBox(x.status);
+  });
+</script>

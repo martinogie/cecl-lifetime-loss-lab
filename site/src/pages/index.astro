@@ -1,0 +1,119 @@
+---
+import Layout from "../layouts/Layout.astro";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+<Layout title="Overview" description="A bank-style CECL allowance for a mortgage book: lifetime expected credit loss from default, loss and exposure models under the Fed's scenarios." current="overview">
+  <section class="wrap hero">
+    <div class="stack" style="gap:22px">
+      <span class="eyebrow accent" data-hero-eyebrow>&nbsp;</span>
+      <h1 class="h1" style="font-size:clamp(36px,5.2vw,72px)">How much should a bank set aside today for the mortgage losses it expects over the life of its loans?</h1>
+      <p class="lede" style="max-width:660px">Under CECL, a US bank books its expected lifetime credit loss on day one. This lab builds that allowance end to end for a book of Freddie Mac mortgages: the chance each loan defaults or pays off month by month, the loss if it defaults, the balance at default, the Fed's economic scenarios, and the controls a bank's allowance committee expects.</p>
+      <div class="toggles" style="margin-top:8px;gap:12px">
+        <a class="btn big solid" href={`${base}/explorer/`}>Explore the losses</a>
+        <a class="btn big" href={`${base}/scenarios/`}>Try the scenarios</a>
+      </div>
+    </div>
+    <aside class="who stack" style="gap:14px">
+      <span class="eyebrow">What it shows</span>
+      <p class="who-item"><strong>The allowance</strong> for a mortgage book, rebuilt to the cent each quarter with a rollforward and a bridge.</p>
+      <p class="who-item"><strong>Stress results</strong> under the Fed's 2026 scenarios and custom shocks, next to the Fed's own stress test.</p>
+      <p><strong>Honest validation</strong>: every test's rules written down before it ran, failures kept on record.</p>
+    </aside>
+  </section>
+
+  <section aria-label="Key figures" class="figures">
+    <div class="wrap figures-grid" data-figures>
+      <div class="fig"><span class="fig-n">–</span><span class="fig-l loading">Loading…</span></div>
+    </div>
+  </section>
+
+  <section class="wrap section stack" style="gap:20px">
+    <div class="status-box" data-status><p class="loading">Loading…</p></div>
+  </section>
+
+  <section class="wrap section grid-auto" style="gap:48px">
+    <div class="stack" style="gap:14px">
+      <span class="eyebrow">Three economies, one reserve</span>
+      <h2 class="h2">The reserve under each Fed scenario, and the weighted figure that is booked</h2>
+      <p class="serif" style="font-size:19px;color:var(--ink-2)">The booked reserve weights the scenarios 60% baseline, 30% a halfway adverse path, 10% severely adverse. The severe path alone would need about ten times the baseline.</p>
+    </div>
+    <div class="stack" style="gap:12px" data-scenarios><p class="loading">Loading…</p></div>
+  </section>
+
+  <section class="wrap section stack" style="gap:20px">
+    <div class="stack" style="gap:8px;max-width:760px">
+      <span class="eyebrow">Three quarter-ends</span>
+      <h2 class="h2">The allowance over time</h2>
+      <p style="color:var(--ink-2)">Each reserve date uses only the Fed scenarios published by then: the 2025 scenarios for December 2025, the 2026 scenarios after that.</p>
+    </div>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="The allowance at three quarter-ends (scrolls sideways on small screens)" style="border-top:2px solid var(--ink)">
+      <table style="min-width:720px;font-size:15px">
+        <thead><tr><th scope="col">Reserve date</th><th scope="col" class="r">Loans</th><th scope="col" class="r">Balance</th><th scope="col" class="r">Performing reserve</th><th scope="col" class="r">Defaulted loans</th><th scope="col" class="r">Total allowance</th><th scope="col" class="r">Ratio</th><th scope="col" class="r">With +34% uplift</th></tr></thead>
+        <tbody data-dates><tr><td colspan="8" class="loading">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="wrap section stack" style="gap:20px">
+    <div class="stack" style="gap:8px;max-width:760px">
+      <span class="eyebrow">Compared with real banks</span>
+      <h2 class="h2">Our reserve ratio next to banks' residential reserve ratios</h2>
+      <p style="color:var(--ink-2)" data-peer-intro>A sanity range, not a target: bank books include jumbo, non-conforming and home-equity loans; Freddie Mac loans above 80% loan-to-value carry mortgage insurance.</p>
+    </div>
+    <div class="stack" style="gap:10px" data-peers><p class="loading">Loading…</p></div>
+    <p class="small muted" data-peer-source></p>
+  </section>
+
+  <section class="wrap section" style="padding-bottom:80px">
+    <div class="stack" style="border-top:3px solid var(--ink);padding-top:18px;gap:28px">
+      <h2 class="serif" style="font-weight:500;font-size:34px">How the reserve is built</h2>
+      <div class="grid-auto" style="gap:32px">
+        <div class="stack" style="gap:10px"><span class="serif" style="font-size:52px;line-height:1;color:var(--accent)">1</span><h3 style="font-size:18px">Chance of default</h3><p style="color:var(--ink-2)">For each loan and each future month, the chance it defaults or pays off, from its delinquency state, equity, credit score, rate and the economy.</p></div>
+        <div class="stack" style="gap:10px"><span class="serif" style="font-size:52px;line-height:1;color:var(--accent)">2</span><h3 style="font-size:18px">Loss and exposure</h3><p style="color:var(--ink-2)">If it defaults: the balance still owed and the share likely lost, which rises as house prices fall.</p></div>
+        <div class="stack" style="gap:10px"><span class="serif" style="font-size:52px;line-height:1;color:var(--accent)">3</span><h3 style="font-size:18px">Scenarios and weights</h3><p style="color:var(--ink-2)">Two years of the Fed's paths, one year back to long-run averages, weighted across three economies. Overlays only under written rules.</p></div>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import { loadJson, fmtInt, pct, money, hbar, statusBox, SCENARIO_NAMES } from "../lib/site";
+
+  loadJson("overview.json").then((o) => {
+    const q2 = o.dates["202606"];
+    document.querySelector("[data-hero-eyebrow]")!.textContent = `30 June 2026 · ${fmtInt(q2.loans)} loans · ${money(q2.balanceM)}`;
+    document.querySelector("[data-figures]")!.innerHTML = [
+      [money(q2.totalM), "total allowance, 30 June 2026"],
+      [pct(q2.ratio), "of the book's balance"],
+      [money(o.scenarios.severely_adverse.reserveM), "if the Fed's severely adverse path happened"],
+      [pct(o.stress.severeNineQuarterLossRate), `9-quarter severe loss rate (Fed stress test banks: ${pct(o.stress.dfastAggregate, 1)})`],
+    ].map(([n, l]) => `<div class="fig"><span class="fig-n">${n}</span><span class="fig-l">${l}</span></div>`).join("");
+    document.querySelector("[data-status]")!.innerHTML = statusBox(o.status);
+
+    const sc = { ...Object.fromEntries(Object.entries(o.scenarios).map(([k, v]: any) => [k, v.reserveM])), weighted: q2.performingM } as Record<string, number>;
+    const max = Math.max(...Object.values(sc));
+    const colors: Record<string, string> = { baseline: "var(--sc-baseline)", adverse: "var(--sc-adverse)", severely_adverse: "var(--sc-severe)", weighted: "var(--sc-weighted)" };
+    document.querySelector("[data-scenarios]")!.innerHTML =
+      ["baseline", "adverse", "severely_adverse", "weighted"].map((k) => hbar(SCENARIO_NAMES[k], sc[k], max, money(sc[k]), colors[k])).join("") +
+      `<p class="small muted">Performing loans only; the reserve on loans already in default (${money(q2.defaultedM)}) is added for the total allowance.</p>`;
+
+    document.querySelector("[data-dates]")!.innerHTML = ["202512", "202603", "202606"].map((k) => {
+      const d = o.dates[k];
+      return `<tr><td>${d.label}<span class="sub">Fed ${d.fedScenarioYear} scenarios</span></td><td class="r num">${fmtInt(d.loans)}</td><td class="r num">${money(d.balanceM)}</td><td class="r num">${money(d.performingM)}</td><td class="r num">${money(d.defaultedM)}</td><td class="r num"><strong>${money(d.totalM)}</strong></td><td class="r num">${pct(d.ratio)}</td><td class="r num">${money(d.totalWithUpliftM)}</td></tr>`;
+    }).join("");
+
+    const peers = (o.peers as any[]) || [];
+    const all = peers.find((p) => p.group === "All banks $1bn+");
+    const ours = [["Our total allowance", o.ratios.total], ["Our baseline only", o.ratios.baselineOnly], ["Ours, LGD conservatism removed", o.ratios.lgdConservatismRemoved], ["Freddie Mac's own allowance", o.benchmarks.freddieRatio]] as [string, number][];
+    const top = Math.max(...ours.map((x) => x[1]), all ? all.p90 : 0);
+    let html = ours.map(([l, v]) => hbar(l, v, top, pct(v), "var(--sc-weighted)")).join("");
+    if (all) {
+      html += hbar(`Banks $1bn+: median (${fmtInt(all.banks)})`, all.median, top, pct(all.median)) +
+              `<p class="small" style="color:var(--ink-2)">Banks' middle half: ${pct(all.p25)} to ${pct(all.p75)}; 10th to 90th percentile: ${pct(all.p10)} to ${pct(all.p90)}.</p>`;
+      document.querySelector("[data-peer-source]")!.textContent = "FFIEC call reports, Schedule RI-C (residential real estate allowance / residential real estate loans), banks with $1bn or more in assets, 30 June 2026. Freddie Mac: Q2 2026 earnings release.";
+    } else {
+      document.querySelector("[data-peer-source]")!.textContent = "Bank ranges from the FFIEC call reports are being loaded. Freddie Mac: Q2 2026 earnings release.";
+    }
+    document.querySelector("[data-peers]")!.innerHTML = html;
+  });
+</script>
