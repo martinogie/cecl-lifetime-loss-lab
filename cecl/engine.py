@@ -70,7 +70,7 @@ def quarters(el: np.ndarray, p_def: np.ndarray, outstanding: np.ndarray) -> dict
 
 def price(book: Any, p_def: np.ndarray, p_pre: np.ndarray, macro: multistate.Macro, reserve_ym: str,
           lgd_model: Any, curtail: dict[int, float], long_run_growth: dict[str, float],
-          forecast_months: int = 24, quarterly: bool = False) -> dict[str, np.ndarray]:  # fmt: skip
+          forecast_months: int = 24, quarterly: bool = False, monthly: bool = False) -> dict[str, np.ndarray]:  # fmt: skip
     """Each loan's lifetime expected loss under one scenario. `p_def`, `p_pre`: loans x MONTHLY (months 1..36
     after the reserve month). `long_run_growth`: each state's annual log house-price growth (and "US").
     `forecast_months` only splits the reported loss into forecast and the rest (ADR-003 default 24); the
@@ -78,7 +78,9 @@ def price(book: Any, p_def: np.ndarray, p_pre: np.ndarray, macro: multistate.Mac
 
     `quarterly` (Phase 5): also return, for each of the K / 3 quarters after the reserve date, each loan's
     expected loss (`q_el`), expected defaults (`q_pd`) and expected balance still outstanding at the end of
-    each month, summed over the quarter's months (`q_bal`; divide by 3 for the quarter's average)."""
+    each month, summed over the quarter's months (`q_bal`; divide by 3 for the quarter's average).
+    `monthly` (Phase 6): also return each loan's expected loss for each of the K months (`el_monthly`), so a
+    backtest can count only the months whose outcome is known."""
     n, K = p_def.shape
     outstanding = np.zeros((n, K))
     alive = 1.0 - np.cumsum(p_def + p_pre, axis=1)  # chance the loan is still open at the end of month k
@@ -120,4 +122,4 @@ def price(book: Any, p_def: np.ndarray, p_pre: np.ndarray, macro: multistate.Mac
         s_start = np.where(live, s_start * (1.0 - p_year_exit), s_start)
     return {"forecast": el[:, :forecast_months].sum(axis=1), "reversion": el[:, forecast_months:].sum(axis=1), "tail": tail_el,
             "total": el.sum(axis=1) + tail_el, "lifetime_pd": p_def.sum(axis=1) + tail_pd,
-            "pd_36": p_def.sum(axis=1), "ead_at_default": ead_sum} | (quarters(el, p_def, outstanding) if quarterly else {})  # fmt: skip
+            "pd_36": p_def.sum(axis=1), "ead_at_default": ead_sum} | (quarters(el, p_def, outstanding) if quarterly else {}) | ({"el_monthly": el} if monthly else {})  # fmt: skip
