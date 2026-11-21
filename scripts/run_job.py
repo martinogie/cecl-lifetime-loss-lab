@@ -33,19 +33,24 @@ TAKES_CODE_VERSION = ("cecl_lab_train_family_dev", "cecl_lab_oot_test_dev", "cec
                       "cecl_lab_walk_forward_v2_dev", "cecl_lab_downturn_check_v2_dev",
                       "cecl_lab_history_drift_v2_dev", "cecl_lab_overlay_inputs_v2_dev",
                       "cecl_lab_l039_remeasure_dev", "cecl_lab_reserve_projection_dev",
-                      "cecl_lab_backtests_dev")  # fmt: skip
+                      "cecl_lab_backtests_dev", "cecl_lab_clone_to_prod_prod")  # fmt: skip
 
 
 def git(*args: str) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout.strip()
 
 
-def deploy() -> None:
+def target_of(job: str) -> str:
+    """The bundle target a job belongs to, from its name: ..._prod runs in prod, everything else in dev."""
+    return "prod" if job.endswith("_prod") else "dev"
+
+
+def deploy(target: str = "dev") -> None:
     """Deploy the bundle from the clean working tree (the wheel is built with the project's Python)."""
     env = os.environ | {
         "PATH": os.path.abspath(os.path.join(".venv", "Scripts")) + os.pathsep + os.environ["PATH"]
     }
-    out = subprocess.run(["databricks", "bundle", "deploy", "-t", "dev", "--profile", PROFILE], cwd="databricks",
+    out = subprocess.run(["databricks", "bundle", "deploy", "-t", target, "--profile", PROFILE], cwd="databricks",
                          env=env, capture_output=True, text=True)  # fmt: skip
     if out.returncode != 0:
         raise SystemExit("bundle deploy failed: " + (out.stdout + out.stderr)[-1500:])
@@ -71,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
             "uncommitted changes to tracked files: commit first, so the run points to an exact commit"
         )
     commit = git("rev-parse", "HEAD")
-    deploy()
+    deploy(target_of(args.job))
     params = dict(p.split("=", 1) for p in args.param)
     if args.job in TAKES_CODE_VERSION:
         params["code_version"] = commit
