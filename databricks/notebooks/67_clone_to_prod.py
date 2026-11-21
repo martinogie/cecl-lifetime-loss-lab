@@ -1,14 +1,14 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC ### 67 Prod starting point: clone the checked dev data and models into the prod catalog (cutover, once)
+# MAGIC ### 67 Prod starting point: clone the checked dev data into the prod catalog (cutover, once)
 # MAGIC Martins's decision (21 November 2026, option A): prod starts from the same, already checked data as dev, so
 # MAGIC the dry-run close reproduces the 30 June 2026 reserve to the cent. Every later quarter is built by the prod
 # MAGIC pipeline itself.
 # MAGIC - every bronze, silver and gold table: `DEEP CLONE` from `cecl_lab_dev`, then a row-count tie-out per table
 # MAGIC   (a mismatch stops the job);
 # MAGIC - the volume's **inputs** only (Freddie zips, the economic tables); dev job outputs are not copied;
-# MAGIC - the v2 transition models: their registered versions copied into the prod registry with their tags, still
-# MAGIC   `@challenger` (v2 failed its holdout and is not champion);
+# MAGIC - the v2 transition models are copied separately from the PC (`scripts/copy_models_to_prod.py`): serverless
+# MAGIC   compute may not write model files to Unity Catalog here. They stay `@challenger` (v2 failed its holdout);
 # MAGIC - the prod run log starts empty (not cloned).
 # MAGIC Bank Health's catalog is never read or written. Refuses to run unless CECL_ENV=prod.
 # MAGIC
@@ -29,9 +29,6 @@ for name, default in (
 os.environ["CECL_ENV"] = dbutils.widgets.get("env")
 os.environ["CECL_DATABRICKS_LAYOUT"] = dbutils.widgets.get("layout")
 
-import mlflow
-from mlflow import MlflowClient
-
 from cecl import environment
 
 if environment.current_env() != "prod":
@@ -42,8 +39,7 @@ if SRC == DST or "bank_health" in (SRC + DST):
     raise ValueError(f"refusing to clone {SRC} -> {DST}")
 SCHEMAS = ("bronze", "silver", "gold")
 INPUTS = ("freddie", "macro_silver")  # volume folders that are pipeline inputs; results/ etc. are dev outputs
-MODELS = ("pd_v2_transition_current", "pd_v2_transition_30", "pd_v2_transition_60")
-summary = {"source": SRC, "target": DST, "tables": {}, "volume": {}, "models": {}}
+summary = {"source": SRC, "target": DST, "tables": {}, "volume": {}}
 
 # COMMAND ----------
 
@@ -105,27 +101,8 @@ for folder in INPUTS:
 
 # COMMAND ----------
 
-mlflow.set_registry_uri("databricks-uc")
-client = MlflowClient()
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS {DST}.ml")
-for m in MODELS:
-    src_name, dst_name = f"{SRC}.ml.{m}", f"{DST}.ml.{m}"
-    src = client.get_model_version_by_alias(src_name, "challenger")
-    # Register from the same training run the dev version came from (as scripts/register_v2.py did), so prod
-    # holds the identical model files. copy_model_version cannot fetch a models:/ source in this workspace.
-    new = mlflow.register_model(f"runs:/{src.run_id}/model", dst_name)
-    if new.run_id != src.run_id:
-        raise RuntimeError(f"{dst_name} v{new.version} is not from run {src.run_id}")
-    for k, v in (src.tags or {}).items():
-        client.set_model_version_tag(dst_name, new.version, k, v)
-    client.set_model_version_tag(dst_name, new.version, "copied_from", f"{src_name} v{src.version}")
-    client.set_registered_model_alias(dst_name, "challenger", new.version)
-    summary["models"][m] = {
-        "version": new.version,
-        "from": f"{src_name} v{src.version}",
-        "run_id": src.run_id,
-    }
-    print(f"model {dst_name} v{new.version} @challenger (from {src_name} v{src.version})")
+# The v2 models are NOT copied here: serverless compute is denied writes to Unity Catalog's model storage on
+# this workspace, so they are registered from the PC with scripts/copy_models_to_prod.py (as dev's were).
 
 summary["code_version"] = dbutils.widgets.get("code_version")
 dbutils.notebook.exit(json.dumps(summary, default=str))
