@@ -262,7 +262,7 @@ def run_forbearance(con: Any, inp: dict[str, Any]) -> dict[str, Any]:
     con.register("ex", extra[["loan_id", "b_ym"]])
     cured = con.sql(f"""select count(distinct p.loan_id) from {PANEL} p join ex using (loan_id)
                         where p.period_ym > ex.b_ym and p.period_ym <= strftime(strptime(ex.b_ym, '%Y%m') + interval 12 month, '%Y%m')
-                          and p.status = 'current' and coalesce(p.reported_months_late, 0) = 0""").fetchone()[0]  # fmt: skip
+                          and p.status = 'current' and coalesce(p.reported_months_late, 0) = 0""").fetchall()[0][0]  # fmt: skip
     con.unregister("ex")
     ev = inp["events"]
     later_loss = int(extra.merge(ev[ev.severity > 0][["loan_id"]].drop_duplicates(), on="loan_id").shape[0])
