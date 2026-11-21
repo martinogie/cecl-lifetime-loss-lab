@@ -7,9 +7,10 @@ How it works, per reporting period:
 1. `RetrievePanelOfReporters`: every institution expected to file for the period.
 2. RI-C filers: institutions with $1 billion or more in total assets on 30 June of the previous year
    (the RI-C instructions), taken from the FDIC's public API and matched on the FDIC certificate number.
-3. `RetrieveFacsimile` (SDF) for each filer. Only six numbers per bank are kept: the RI-C residential
-   real estate allowance and amortized cost (item 1.c), the RI-C total allowance (item 6), the Schedule
-   RC allowance (item 4.c, MDRM 3123) and total assets (MDRM 2170). Each bank-period is cached as a small
+3. `RetrieveFacsimile` (SDF) for each filer. Only a few numbers per bank are kept, by item code: the RI-C
+   residential real estate allowance and amortized cost (item 1.c), the RI-C total allowance (item 6), the
+   Schedule RC allowance (item 4.c, code 3123), total assets (code 2170), and which RI-C layout (CECL or
+   the older incurred-loss one) the bank filed. Each bank-period is cached as a small
    JSON file, so a re-run skips everything already done (resumable, idempotent).
 4. The data contract (`contracts/ffiec_call.yml`) checks every bank-period (types, signs, and RI-C item 6
    = RC item 4.c) and every period (share of filers without a usable RI-C block); a failure stops the load.
@@ -285,71 +286,52 @@ def _number(text: str) -> float | None:
         return None
 
 
-def _schedule(text: str) -> str:
-    return text.upper().replace("-", "").replace(" ", "")
-
-
-def _line(text: str) -> str:
-    return text.strip().lower().rstrip(".")
+def codes(rows: Iterable[Mapping[str, str]]) -> dict[str, float]:
+    """Item values by code without its prefix ("RCFDJJ14" -> "JJ14"); RCFD wins over RCON."""
+    out: dict[str, tuple[int, float]] = {}
+    rank = {"RCFD": 0, "RCON": 1}
+    for r in rows:
+        mdrm = r["mdrm"].strip().upper()
+        prefix, item = mdrm[:4], mdrm[4:]
+        v = _number(r["value"])
+        if v is None or prefix not in rank:
+            continue
+        if item not in out or rank[prefix] < out[item][0]:
+            out[item] = (rank[prefix], v)
+    return {k: v for k, (_, v) in out.items()}
 
 
 def extract(text: str, contract: Mapping[str, Any]) -> dict[str, Any]:
     """The kept items of one bank's report, or a status saying why there are none.
 
-    RI-C items are chosen by schedule and line, not by item code, so the older (2020-2023) and current
-    layouts both work. If the report has more than one RI-C block (for example Parts I and II), the block
-    whose item-6 allowance ties to Schedule RC item 4.c is used."""
-    rows = parse_sdf(text)
-    items = contract["items"]
-    by_code: dict[str, float] = {}
-    blocks: dict[str, list[dict[str, str]]] = {}
-    for r in rows:
-        v = _number(r["value"])
-        if v is not None:
-            by_code[r["mdrm"].upper()[-4:]] = by_code.get(r["mdrm"].upper()[-4:], v)
-        s = _schedule(r["schedule"])
-        if s.startswith(items["residential_allowance"]["schedule"]):
-            blocks.setdefault(s, []).append(r)
-    out: dict[str, Any] = {
-        "rc_total_allowance": by_code.get(items["rc_total_allowance"]["mdrm_suffix"]),
-        "total_assets": by_code.get(items["total_assets"]["mdrm_suffix"]),
-    }
-
-    def pick(block: list[dict[str, str]], spec: Mapping[str, Any]) -> float | None:
-        found = [_number(r["value"]) for r in block if _line(r["line"]) == _line(spec["line"])
-                 and any(k in r["definition"].upper() for k in spec["definition_has"])
-                 and not any(k in r["definition"].upper() for k in spec.get("definition_not", []))]  # fmt: skip
-        vals = [v for v in found if v is not None]
-        return float(sum(vals)) if vals else None
-
+    Two RI-C layouts (CECL and the older incurred-loss one) are named by item code in the contract; the
+    layout whose total allowance ties to Schedule RC item 4.c is used, and recorded as `method`."""
+    found = codes(parse_sdf(text))
+    out: dict[str, Any] = {"rc_total_allowance": found.get(contract["rc_total_allowance"]),
+                           "total_assets": found.get(contract["total_assets"])}  # fmt: skip
     tol = float(contract["tie_out_tolerance_thousands"])
-    chosen = None
-    for name, block in sorted(blocks.items()):
-        total = pick(block, items["ric_total_allowance"])
-        if pick(block, items["residential_allowance"]) is None:
+    candidates = []
+    for method, items in contract["layouts"].items():
+        if not all(any(c in found for c in items[k]) for k in items):
             continue
-        if (
-            total is not None
-            and out["rc_total_allowance"] is not None
-            and abs(total - out["rc_total_allowance"]) <= tol
-        ):
-            chosen = name
-            break
-        chosen = chosen or name
-    if chosen is None:
+        rec = {k: float(sum(found.get(c, 0.0) for c in items[k])) for k in items}
+        ties = (
+            out["rc_total_allowance"] is not None
+            and abs(rec["ric_total_allowance"] - out["rc_total_allowance"]) <= tol
+        )
+        candidates.append((not ties, method, rec))
+    if not candidates:
         return out | {"status": "no_ric"}
-    block = blocks[chosen]
-    for key in ("residential_allowance", "residential_loans", "ric_total_allowance"):
-        out[key] = pick(block, items[key])
-    out["ric_block"] = chosen
+    _, method, rec = sorted(candidates, key=lambda c: (c[0], c[1]))[0]
+    out |= rec | {"method": method}
     return out | {"status": check_bank(out, contract)}
 
 
 def check_bank(rec: Mapping[str, Any], contract: Mapping[str, Any]) -> str:
     """Contract on one bank-period: required numbers present and not negative; RI-C total = RC 4.c."""
-    for key, spec in contract["items"].items():
+    for key in contract["required_items"]:
         v = rec.get(key)
-        if v is None or not isinstance(v, int | float) or v < float(spec.get("min", 0)):
+        if v is None or not isinstance(v, int | float) or v < 0:
             return f"contract_failed: {key}"
     if abs(rec["ric_total_allowance"] - rec["rc_total_allowance"]) > float(
         contract["tie_out_tolerance_thousands"]
@@ -482,10 +464,13 @@ def aggregates(rows: Iterable[Mapping[str, Any]], contract: Mapping[str, Any]) -
     floor = float(contract["min_residential_loans_thousands"])
     groups: dict[tuple[str, str], list[tuple[float, float]]] = {}
     left_out: dict[str, int] = {}
+    methods: dict[str, dict[str, int]] = {}
     for r in rows:
         if r["residential_loans"] < floor:
             left_out[r["period"]] = left_out.get(r["period"], 0) + 1
             continue
+        methods.setdefault(r["period"], {}).setdefault(str(r.get("method", "unknown")), 0)
+        methods[r["period"]][str(r.get("method", "unknown"))] += 1
         g = size_group(r["total_assets"], contract)
         for key in ((r["period"], g or "other"), (r["period"], "All banks $1bn+")):
             groups.setdefault(key, []).append((r["residential_allowance"], r["residential_loans"]))
@@ -496,7 +481,8 @@ def aggregates(rows: Iterable[Mapping[str, Any]], contract: Mapping[str, Any]) -
                     "median": statistics.median(ratios), "p25": _quantile(ratios, 0.25), "p75": _quantile(ratios, 0.75),
                     "p10": _quantile(ratios, 0.10), "p90": _quantile(ratios, 0.90),
                     "pooled": sum(a for a, _ in pairs) / sum(loans for _, loans in pairs),
-                    "left_out_small_residential_books": left_out.get(period, 0) if group == "All banks $1bn+" else None})  # fmt: skip
+                    "left_out_small_residential_books": left_out.get(period, 0) if group == "All banks $1bn+" else None,
+                    "banks_by_method": methods.get(period, {}) if group == "All banks $1bn+" else None})  # fmt: skip
     return out
 
 

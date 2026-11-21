@@ -28,23 +28,23 @@ def jwt(exp: date) -> str:
 
 
 def sdf(res_allow: float = 120, res_loans: float = 60000, total: float = 900, rc: float = 900,
-        assets: float = 5_000_000, extra_block: bool = False) -> str:  # fmt: skip
+        assets: float = 5_000_000, incurred: bool = False, prefix: str = "RCON") -> str:  # fmt: skip
+    """A made-up report in the real SDF layout (verified on live reports, 20 November 2026)."""
     lines = [
         "Call Date;Bank RSSD Identifier;MDRM #;Value;Last Update;Short Definition;Call Schedule;Line Number"
     ]
-    rows = [
-        ("RCONJJ01", res_loans, "RESIDENTIAL REAL ESTATE LOANS - AMORTIZED COST", "RIC", "1.c"),
-        ("RCONJJ02", res_allow, "RESIDENTIAL REAL ESTATE LOANS - ALLOWANCE BALANCE", "RIC", "1.c"),
-        ("RCONJJ03", 50000, "COMMERCIAL REAL ESTATE - AMORTIZED COST", "RIC", "1.b"),
-        ("RCONJJ09", total, "TOTAL - ALLOWANCE BALANCE", "RIC", "6"),
-        ("RCON3123", rc, "ALLOWANCE FOR CREDIT LOSSES ON LOANS AND LEASES", "RC", "4.c"),
-        ("RCON2170", assets, "TOTAL ASSETS", "RC", "12"),
-    ]
-    if extra_block:  # an older second RI-C block whose total does not tie (must not be chosen)
-        rows += [("RCONXX02", 999, "RESIDENTIAL - ALLOWANCE (OLD BASIS)", "RI-C II", "1.c"),
-                 ("RCONXX09", 5, "TOTAL ALLOWANCE (OLD BASIS)", "RI-C II", "6")]  # fmt: skip
-    for code, v, d, s, ln in rows:
-        lines.append(f"12/31/2025;111;{code};{v};2026-01-30;{d};{s};{ln}")
+    if incurred:  # older RI-C Part I: three columns per item, by impairment method
+        rows = [("M721", res_loans * 0.1, "RICI", "1c"), ("M722", res_allow * 0.5, "RICI", "1c"),
+                ("M723", res_loans * 0.9, "RICI", "1c"), ("M724", res_allow * 0.5, "RICI", "1c"),
+                ("M725", 0, "RICI", "1c"), ("M726", 0, "RICI", "1c"),
+                ("M747", total / 2, "RICI", "6"), ("M749", total / 2, "RICI", "6"), ("M751", 0, "RICI", "6")]  # fmt: skip
+    else:
+        rows = [("JJ06", res_loans, "RIC", "1c"), ("JJ14", res_allow, "RIC", "1c"), ("JJ11", 9e5, "RIC", "6"),
+                ("JJ19", total, "RIC", "6")]  # fmt: skip
+    rows += [("3123", rc, "RCRII", "6"), ("2170", assets, "RCRII", "11")]
+    for code, v, sched, ln in rows:
+        lines.append(f"20251231;111;{prefix}{code};{v};20260130;Residential real estate loans;{sched};{ln}")
+    lines.append("20251231;111;RCOA7204;10.35%;20260130;Leverage ratio;RCRI;31")  # not a number: ignored
     return "\n".join(lines)
 
 
@@ -130,14 +130,21 @@ def test_token_expiry_and_warnings() -> None:
     assert ffiec.token_warning(today, {}) is None  # not set up yet: nothing to say
 
 
-def test_extract_picks_the_block_that_ties_out() -> None:
-    rec = ffiec.extract(sdf(extra_block=True), CONTRACT)
-    assert rec["status"] == "ok" and rec["ric_block"] == "RIC"
+def test_extract_both_layouts_by_item_code() -> None:
+    rec = ffiec.extract(sdf(), CONTRACT)
+    assert rec["status"] == "ok" and rec["method"] == "cecl"
     assert rec["residential_allowance"] == 120 and rec["residential_loans"] == 60000
-    assert rec["total_assets"] == 5_000_000
+    assert rec["total_assets"] == 5_000_000 and rec["rc_total_allowance"] == 900
+    old = ffiec.extract(sdf(incurred=True), CONTRACT)
+    assert old["status"] == "ok" and old["method"] == "incurred"
+    assert old["residential_allowance"] == pytest.approx(120) and old["residential_loans"] == pytest.approx(
+        60000
+    )
     assert ffiec.extract(sdf(rc=800), CONTRACT)["status"].startswith("contract_failed")  # item 6 != RC 4.c
     no_ric = "\n".join(line for line in sdf().splitlines() if ";RIC;" not in line)
     assert ffiec.extract(no_ric, CONTRACT)["status"] == "no_ric"
+    both = sdf(prefix="RCFD") + "\n" + "\n".join(sdf(res_allow=1).splitlines()[1:])  # RCFD wins over RCON
+    assert ffiec.extract(both, CONTRACT)["residential_allowance"] == 120
 
 
 def test_decode_facsimile_formats() -> None:
@@ -207,6 +214,7 @@ def test_aggregates_by_size_group() -> None:
             "residential_allowance": 2.0,
             "residential_loans": 1000.0,
             "total_assets": 2e6,
+            "method": "incurred",
         },
         {
             "period": "2025-12-31",
@@ -235,6 +243,7 @@ def test_aggregates_by_size_group() -> None:
         and out["All banks $1bn+"]["left_out_small_residential_books"] == 1
     )
     assert out["All banks $1bn+"]["pooled"] == pytest.approx(36 / 12000)
+    assert out["All banks $1bn+"]["banks_by_method"] == {"incurred": 1, "unknown": 2}
 
 
 def test_periods_and_filers() -> None:
