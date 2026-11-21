@@ -16,7 +16,7 @@ triggered by hand (`cecl/scheduling.py`).
 | Task | What it does | Why a re-run is safe |
 |---|---|---|
 | `check_environment` | logs which environment, catalog and dbt target this stack uses; with the manual-run option `simulate_failure` (dev only) it fails on purpose, to test the failure alert | read-only |
-| `check_freshness` | reads the run log: weekly pipelines that haven't succeeded in 8 days, latest runs that failed, stale sources; sends the run's alert (OK, or WARNING listing the problems) and writes its own run-log record | read-only, apart from its own record |
+| `check_freshness` | reads the run log: weekly pipelines that haven't succeeded in 8 days, latest runs that failed, stale sources; checks the FFIEC PWS token's expiry (WARNING from 14 days before); sends the run's alert (OK, or WARNING listing the problems) and writes its own run-log record | read-only, apart from its own record |
 
 Every run ends with one alert: OK or WARNING from `check_freshness`, or FAILED from whichever task
 failed (`on_failure_callback`). Problems are reported as WARNING, not raised: the check's job is to
@@ -86,6 +86,13 @@ def cecl_health_check() -> None:
         if started is not None:
             record.started_at = started.astimezone(UTC).replace(microsecond=0).isoformat()
         found = health.problems(run_log.read_all(DATA_ROOT), datetime.now(UTC))
+        # FFIEC PWS token (Phase 6 peer data): warn 14 days before it expires, and once it has expired
+        from cecl.scheduling import TZ
+        from ingestion import ffiec
+
+        token = ffiec.token_warning(datetime.now(TZ).date())
+        if token:
+            found.append(token)
         record.details = {"problems": found}
         # Every Airflow run ends with one alert: OK, or WARNING listing what was found.
         run_log.finish(record)

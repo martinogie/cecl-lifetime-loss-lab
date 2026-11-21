@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "files.schema.json",
+  "title": "CECL site data files (site/public/data)",
+  "$defs": {
+    "header": {
+      "type": "object",
+      "required": ["dataAsOf", "status"],
+      "properties": {
+        "dataAsOf": {
+          "type": "object",
+          "required": ["reserveDate", "updated"],
+          "properties": {
+            "reserveDate": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+            "updated": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"}
+          }
+        },
+        "status": {
+          "type": "object",
+          "required": ["model", "holdout", "overlay", "framing"],
+          "properties": {
+            "model": {"type": "string"}, "holdout": {"type": "string"},
+            "overlay": {"type": "string"}, "framing": {"type": "string", "pattern": "Educational model"}
+          }
+        }
+      }
+    },
+    "money": {"type": "number"},
+    "ratio": {"type": "number", "minimum": 0, "maximum": 1},
+    "overview": {
+      "allOf": [{"$ref": "#/$defs/header"}],
+      "type": "object",
+      "required": ["dates", "scenarios", "weights", "components", "benchmarks", "ratios", "stress", "peers"],
+      "properties": {
+        "dates": {
+          "type": "object", "required": ["202512", "202603", "202606"],
+          "additionalProperties": {
+            "type": "object",
+            "required": ["label", "loans", "balanceM", "performingM", "defaultedM", "totalM", "ratio", "totalWithUpliftM", "fedScenarioYear"],
+            "properties": {"loans": {"type": "integer", "minimum": 1}, "ratio": {"$ref": "#/$defs/ratio"}}
+          }
+        },
+        "scenarios": {"type": "object", "required": ["baseline", "adverse", "severely_adverse"]},
+        "peers": {"type": "array", "items": {"type": "object", "required": ["group", "banks", "median", "p25", "p75"]}}
+      }
+    },
+    "explorer": {
+      "allOf": [{"$ref": "#/$defs/header"}],
+      "type": "object",
+      "required": ["minLoansPerGroup", "dimensions", "totals"],
+      "properties": {
+        "minLoansPerGroup": {"type": "integer", "minimum": 50},
+        "dimensions": {
+          "type": "object", "required": ["vintage", "creditScore", "currentLtv", "state"],
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["group", "loans", "balanceM", "reserveM", "ratio", "lifetimePd", "shareOfReserve"],
+              "properties": {"loans": {"type": "integer", "minimum": 50}}
+            }
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "allOf": [{"$ref": "#/$defs/header"}],
+      "type": "object",
+      "required": ["fed", "shocks", "sensitivity", "tornado", "booked", "benchmark"],
+      "properties": {
+        "fed": {"type": "object", "required": ["baseline", "adverse", "severely_adverse"]},
+        "shocks": {"type": "array", "minItems": 10},
+        "tornado": {"type": "array", "minItems": 7}
+      }
+    },
+    "disclosures": {
+      "allOf": [{"$ref": "#/$defs/header"}],
+      "type": "object",
+      "required": ["rollforward", "bridge", "creditQualityFico", "creditQualityLtv", "writeOffsQ2", "writeOffsYtd"],
+      "properties": {
+        "rollforward": {
+          "type": "object", "required": ["q1_2026", "q2_2026"],
+          "additionalProperties": {"type": "object", "required": ["rows", "total", "reconciles", "totalCents"],
+                                   "properties": {"reconciles": {"const": true}}}
+        }
+      }
+    },
+    "methods": {
+      "allOf": [{"$ref": "#/$defs/header"}],
+      "type": "object",
+      "required": ["models", "exams", "backtests", "limits", "definitionOfDefault"]
+    },
+    "pipeline": {
+      "allOf": [{"$ref": "#/$defs/header"}],
+      "type": "object",
+      "required": ["steps", "controls", "stack"]
+    }
+  }
+}

@@ -1,0 +1,118 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+<Layout title="Scenario lab" description="The mortgage book under the Fed's 2026 stress scenarios and custom shocks, quarter by quarter, and which assumption moves the reserve most." current="scenarios">
+  <div class="wrap page">
+    <aside class="toc stack small">
+      <span class="eyebrow">On this page</span>
+      <a href="#fed">The Fed's scenarios</a><a href="#shocks">Custom shocks</a><a href="#sensitivity">What moves the reserve</a><a href="#benchmark">Against the Fed's stress test</a>
+    </aside>
+    <article class="stack" style="gap:64px;min-width:0">
+      <header class="stack" style="gap:14px">
+        <span class="eyebrow accent">Stress testing and sensitivity · 30 June 2026 book</span>
+        <h1 class="h1" style="font-size:clamp(36px,4.8vw,60px);line-height:1.05">What if things go badly?</h1>
+        <p class="lede">The same loss engine run under the Federal Reserve's 2026 scenarios and under custom shocks to house prices, unemployment and mortgage rates. The credit-loss part of a stress test, for a mortgage book.</p>
+      </header>
+
+      <section id="fed" class="sec stack" style="gap:18px">
+        <div class="head-row rule-top" style="padding-top:12px">
+          <h2 class="h2" style="font-size:30px">The Fed's scenarios, quarter by quarter</h2>
+          <div role="group" aria-label="Scenario" class="toggles" data-fed-toggle>
+            <button type="button" class="btn" data-s="baseline" aria-pressed="false">Baseline</button>
+            <button type="button" class="btn" data-s="adverse" aria-pressed="false">Adverse (halfway)</button>
+            <button type="button" class="btn" data-s="severely_adverse" aria-pressed="true">Severely adverse</button>
+          </div>
+        </div>
+        <p style="color:var(--ink-2)" data-fed-summary></p>
+        <figure class="stack" style="margin:0;gap:8px">
+          <figcaption class="small muted">Expected loss by quarter after the reserve date</figcaption>
+          <div role="img" class="bars" data-fed-bars></div>
+          <div class="bar-years" data-fed-years aria-hidden="true"></div>
+        </figure>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="The scenario by quarter (scrolls sideways on small screens)" style="border-top:2px solid var(--ink)">
+          <table style="min-width:720px;font-size:14px">
+            <thead><tr><th scope="col">Quarter</th><th scope="col" class="r">Unemployment</th><th scope="col" class="r">House prices vs June 2026</th><th scope="col" class="r">Mortgage rate</th><th scope="col" class="r">Expected defaults</th><th scope="col" class="r">Expected loss</th><th scope="col" class="r">Loss rate</th></tr></thead>
+            <tbody data-fed-rows><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="shocks" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">Custom shocks on top of the Fed baseline</h2>
+        <p style="color:var(--ink-2)">Each shock builds up over a year, stays in place to the end of the two-year forecast, then the usual reversion runs. House prices drive the losses: falling prices raise both the chance of default and the loss per default.</p>
+        <div class="stack" style="gap:10px" data-shock-bars><p class="loading">Loading…</p></div>
+      </section>
+
+      <section id="sensitivity" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">Which assumption moves the reserve most</h2>
+        <p style="color:var(--ink-2)" data-sens-intro></p>
+        <div class="stack" style="gap:12px" data-tornado></div>
+        <div class="legend small"><span><span class="sw" style="background:var(--sc-baseline)"></span>lowers the reserve</span><span><span class="sw" style="background:var(--sc-severe)"></span>raises the reserve</span></div>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Sensitivity table (scrolls sideways on small screens)" style="border-top:2px solid var(--ink)">
+          <table style="min-width:640px;font-size:14px">
+            <thead><tr><th scope="col">Assumption</th><th scope="col">Setting</th><th scope="col" class="r">Performing reserve</th><th scope="col" class="r">Change</th><th scope="col" class="r">Total allowance</th></tr></thead>
+            <tbody data-sens-rows></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="benchmark" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">Against the Fed's own stress test</h2>
+        <div class="callouts" data-bench></div>
+        <p class="small muted" data-bench-note></p>
+        <div class="status-box" data-status></div>
+      </section>
+    </article>
+  </div>
+</Layout>
+
+<script>
+  import { loadJson, fmtInt, pct, money, signedMoney, hbar, statusBox, quarterLabel, esc } from "../../lib/site";
+  loadJson("scenarios.json").then((x) => {
+    const fedNames: Record<string, string> = { baseline: "Baseline", adverse: "Adverse (halfway)", severely_adverse: "Severely adverse" };
+    const drawFed = (s: string) => {
+      const f = x.fed[s];
+      const qs = f.quarters as any[];
+      document.querySelector("[data-fed-summary]")!.textContent =
+        `${fedNames[s]}: losses over the first 9 quarters ${money(f.loss9qM)} (${pct(f.lossRate9q)} of the average balance); lifetime reserve ${money(f.lifetimeM)}; lifetime chance of default ${pct(f.lifetimePd)}.`;
+      const max = Math.max(...qs.map((q) => q.expectedLossM));
+      const bars = document.querySelector<HTMLElement>("[data-fed-bars]")!;
+      bars.setAttribute("aria-label", `Expected loss by quarter, ${fedNames[s]}: ` + qs.map((q) => `${quarterLabel(q.quarterEnd)} ${money(q.expectedLossM)}`).join(", "));
+      bars.innerHTML = qs.map((q) => `<div class="bar-col"><div class="bar-b" style="height:${(100 * q.expectedLossM / max).toFixed(1)}%;background:var(--accent)"></div></div>`).join("");
+      document.querySelector("[data-fed-years]")!.innerHTML = qs.map((q) => `<span>${quarterLabel(q.quarterEnd).replace(" ", "<br>")}</span>`).join("");
+      document.querySelector("[data-fed-rows]")!.innerHTML = qs.map((q) =>
+        `<tr><td>${quarterLabel(q.quarterEnd)}</td><td class="r num">${q.unemployment.toFixed(1)}%</td><td class="r num">${pct(q.hpiChange, 1)}</td><td class="r num">${q.mortgageRate.toFixed(2)}%</td><td class="r num">${fmtInt(q.expectedDefaults)}</td><td class="r num">${money(q.expectedLossM)}</td><td class="r num">${pct(q.lossRate, 3)}</td></tr>`).join("");
+    };
+    document.querySelectorAll<HTMLButtonElement>("[data-fed-toggle] button").forEach((b) => b.addEventListener("click", () => {
+      document.querySelectorAll("[data-fed-toggle] button").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+      drawFed(b.dataset.s!);
+    }));
+    drawFed("severely_adverse");
+
+    const base = x.fed.baseline.lifetimeM;
+    const shocks = [{ label: "Fed baseline (no shock)", reserveM: base, multiple: 1, informationOnly: false }, ...x.shocks];
+    const maxS = Math.max(...shocks.map((s: any) => s.reserveM));
+    document.querySelector("[data-shock-bars]")!.innerHTML = shocks.map((s: any) =>
+      hbar(s.label, s.reserveM, maxS, `${money(s.reserveM)} · ${s.multiple.toFixed(1)}x`, s.informationOnly ? "var(--muted-dark)" : "var(--accent)")).join("") +
+      `<p class="small muted">Lifetime reserve under the Fed baseline with each shock (no weighting). The immediate fall is shown for information only.</p>`;
+
+    document.querySelector("[data-sens-intro]")!.textContent = `The booked performing reserve (${money(x.booked.performingM)}) recomputed with one assumption changed at a time. The scenario weights matter most; the reversion speed hardly at all.`;
+    const t = x.tornado as any[];
+    const span = Math.max(...t.map((r) => Math.max(Math.abs(r.lowM), Math.abs(r.highM))));
+    document.querySelector("[data-tornado]")!.innerHTML = t.map((r) => {
+      const lo = (50 * Math.abs(r.lowM) / span).toFixed(1), hi = (50 * Math.abs(r.highM) / span).toFixed(1);
+      return `<div class="tornado-row"><span>${esc(r.assumption)}</span><div class="tornado-track" role="img" aria-label="${esc(r.assumption)}: from ${signedMoney(r.lowM)} to ${signedMoney(r.highM)}"><div class="tornado-lo" style="right:50%;width:${lo}%"></div><div class="tornado-hi" style="left:50%;width:${hi}%"></div><div class="tornado-mid" style="left:calc(50% - 1px)"></div></div></div>`;
+    }).join("");
+    document.querySelector("[data-sens-rows]")!.innerHTML = (x.sensitivity as any[]).map((r) =>
+      `<tr><td>${esc(r.assumption)}</td><td>${r.booked ? `<strong>${esc(r.setting)}</strong>` : esc(r.setting)}</td><td class="r num">${money(r.reserveM)}</td><td class="r num">${r.changeM === 0 ? "–" : `${signedMoney(r.changeM)} (${pct(r.changePct, 1)})`}</td><td class="r num">${money(r.totalM)}</td></tr>`).join("");
+
+    const b = x.benchmark;
+    document.querySelector("[data-bench]")!.innerHTML = [
+      ["Our book", pct(b.ours), "9-quarter loss rate under the Fed's 2026 severely adverse path, as a share of the average balance"],
+      ["Fed stress test, 32 banks", pct(b.dfastAggregate, 1), "domestic first-lien mortgages, same scenario, 9 quarters"],
+      ["Range across the banks", `${pct(b.dfastRange[0], 1)} to ${pct(b.dfastRange[1], 1)}`, "from the Fed's published results"],
+    ].map(([h, n, l]) => `<div class="callout stack" style="gap:6px"><span class="eyebrow">${h}</span><span class="serif" style="font-size:36px">${n}</span><span class="small muted">${l}</span></div>`).join("");
+    document.querySelector("[data-bench-note]")!.textContent = `Ours sits inside the banks' range and below their aggregate, as expected for conforming loans with mortgage insurance. Differences: we count a loss when a loan defaults, banks when they charge it off; bank books are riskier and more mixed; our loss-given-default model is conservative. Source: ${b.source}.`;
+    document.querySelector("[data-status]")!.innerHTML = statusBox(x.status);
+  });
+</script>

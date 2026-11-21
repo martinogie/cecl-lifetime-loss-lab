@@ -1,0 +1,115 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+<Layout title="Disclosures" description="10-Q style disclosure tables for the mortgage allowance: rollforward to the cent, reserve bridge, credit quality and write-offs by origination year." current="disclosures">
+  <div class="wrap page">
+    <aside class="toc stack small">
+      <span class="eyebrow">On this page</span>
+      <a href="#rollforward">Rollforward</a><a href="#bridge">Reserve bridge</a><a href="#quality">Credit quality</a><a href="#writeoffs">Write-offs</a>
+    </aside>
+    <article class="stack" style="gap:64px;min-width:0">
+      <header class="stack" style="gap:14px">
+        <span class="eyebrow accent">Aggregates only · Q1 and Q2 2026</span>
+        <h1 class="h1" style="font-size:clamp(36px,4.8vw,60px);line-height:1.05">The allowance, the way a bank discloses it</h1>
+        <p class="lede">The tables a bank's quarterly report carries for its credit-loss allowance: what changed it, why it changed, the credit quality of the loans behind it, and what was written off.</p>
+      </header>
+
+      <section id="rollforward" class="sec stack" style="gap:18px">
+        <div class="head-row rule-top" style="padding-top:12px">
+          <h2 class="h2" style="font-size:30px">Rollforward by loan group</h2>
+          <div role="group" aria-label="Quarter" class="toggles" data-q>
+            <button type="button" class="btn" data-k="q1_2026" aria-pressed="false">Q1 2026</button>
+            <button type="button" class="btn" data-k="q2_2026" aria-pressed="true">Q2 2026</button>
+          </div>
+        </div>
+        <p style="color:var(--ink-2)">Start + provision − gross write-offs + recoveries = end, on the total allowance. The provision is the balancing figure, as in a bank's books.</p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Rollforward (scrolls sideways on small screens)" style="border-top:2px solid var(--ink)">
+          <table style="min-width:720px;font-size:14px">
+            <thead><tr><th scope="col">Origination year</th><th scope="col" class="r">Start</th><th scope="col" class="r">Provision</th><th scope="col" class="r">Gross write-offs</th><th scope="col" class="r">Recoveries</th><th scope="col" class="r">End</th></tr></thead>
+            <tbody data-rf></tbody>
+          </table>
+        </div>
+        <p class="small muted" data-rf-note></p>
+      </section>
+
+      <section id="bridge" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">Reserve bridge: why it changed</h2>
+        <div class="grid-auto" style="gap:32px" data-bridge></div>
+      </section>
+
+      <section id="quality" class="sec stack" style="gap:18px">
+        <div class="head-row rule-top" style="padding-top:12px">
+          <h2 class="h2" style="font-size:30px">Credit quality by origination year, 30 June 2026</h2>
+          <div role="group" aria-label="Measure" class="toggles" data-cq>
+            <button type="button" class="btn" data-k="creditQualityFico" aria-pressed="true">Credit score</button>
+            <button type="button" class="btn" data-k="creditQualityLtv" aria-pressed="false">Loan-to-value today</button>
+          </div>
+        </div>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Credit quality by origination year (scrolls sideways)" style="border-top:2px solid var(--ink)">
+          <table style="font-size:13px" data-cq-table></table>
+        </div>
+        <p class="small muted">Balance of performing loans, in $ millions, by band and origination year.</p>
+      </section>
+
+      <section id="writeoffs" class="sec stack" style="gap:18px">
+        <h2 class="h2 rule-top" style="font-size:30px">Gross write-offs by origination year</h2>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Gross write-offs (scrolls sideways)" style="border-top:2px solid var(--ink)">
+          <table style="min-width:420px;font-size:14px">
+            <thead><tr><th scope="col">Origination year</th><th scope="col" class="r">Q2 2026</th><th scope="col" class="r">January - June 2026</th></tr></thead>
+            <tbody data-wo></tbody>
+          </table>
+        </div>
+        <p class="small muted">Freddie Mac reports losses about three months after a property is sold, so Q2 2026 write-offs not yet reported are estimated and trued up at the next close.</p>
+        <div class="status-box" data-status></div>
+      </section>
+    </article>
+  </div>
+</Layout>
+
+<script>
+  import { loadJson, money, signedMoney, statusBox, esc } from "../../lib/site";
+  loadJson("disclosures.json").then((x) => {
+    const cents = (v: string) => `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const drawRf = (k: string) => {
+      const rf = x.rollforward[k];
+      const row = (r: any, strong = false) => {
+        const w = (v: number) => (strong ? `<strong>${money(v)}</strong>` : money(v));
+        return `<tr><th scope="row">${esc(r.group)}</th><td class="r num">${w(r.start)}</td><td class="r num">${w(r.provision)}</td><td class="r num">${w(r.write_offs)}</td><td class="r num">${w(r.recoveries)}</td><td class="r num">${w(r.end)}</td></tr>`;
+      };
+      document.querySelector("[data-rf]")!.innerHTML = rf.rows.map((r: any) => row(r)).join("") + row(rf.total, true);
+      const t = rf.totalCents;
+      document.querySelector("[data-rf-note]")!.textContent =
+        `To the cent: ${cents(t.start)} + ${cents(t.provision)} − ${cents(String(-Number(t.write_offs)))} + ${cents(t.recoveries)} = ${cents(t.end)}. Reconciles: ${rf.reconciles ? "yes" : "no"}. Loss dispositions in the quarter: ${rf.writeOffEvents}, of which ${rf.estimatedWriteOffEvents} estimated.`;
+    };
+    document.querySelectorAll<HTMLButtonElement>("[data-q] button").forEach((b) => b.addEventListener("click", () => {
+      document.querySelectorAll("[data-q] button").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+      drawRf(b.dataset.k!);
+    }));
+    drawRf("q2_2026");
+
+    const names: Record<string, string> = { start: "Start", exits: "Loans that left", new_loans: "New loans", credit_quality_and_ageing: "Credit quality and ageing", economic_forecast: "Economic forecast", model_changes: "Model changes", overlays: "Overlays", defaulted_loan_reserve_change: "Defaulted-loan reserve", end: "End" };
+    document.querySelector("[data-bridge]")!.innerHTML = [["q1_2026", "31 Dec 2025 to 31 Mar 2026"], ["q2_2026", "31 Mar to 30 Jun 2026"]].map(([k, title]) => {
+      const b = x.bridge[k];
+      return `<div class="stack" style="gap:8px"><h3 style="font-size:18px">${title}</h3><table style="font-size:14px"><tbody>${b.steps.map((s: any) =>
+        `<tr><th scope="row">${names[s.step] ?? esc(s.step)}</th><td class="r num">${s.step === "start" || s.step === "end" ? `<strong>${money(s.amountM)}</strong>` : signedMoney(s.amountM)}</td></tr>`).join("")}</tbody></table><span class="small muted">Reconciles: ${b.reconciles ? "yes" : "no"}; ties to the booked allowance: ${b.tiesToTotalAllowance ? "yes" : "no"}.</span></div>`;
+    }).join("");
+
+    const drawCq = (k: string) => {
+      const t = x[k] as Record<string, Record<string, number>>;
+      const years = [...new Set(Object.values(t).flatMap((r) => Object.keys(r)))].sort();
+      document.querySelector("[data-cq-table]")!.innerHTML =
+        `<thead><tr><th scope="col">Band</th>${years.map((y) => `<th scope="col" class="r">${y}</th>`).join("")}</tr></thead><tbody>` +
+        Object.entries(t).map(([band, r]) => `<tr><th scope="row">${esc(band)}</th>${years.map((y) => `<td class="r num">${r[y] ? Math.round(r[y]).toLocaleString("en-US") : "–"}</td>`).join("")}</tr>`).join("") + "</tbody>";
+    };
+    document.querySelectorAll<HTMLButtonElement>("[data-cq] button").forEach((b) => b.addEventListener("click", () => {
+      document.querySelectorAll("[data-cq] button").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+      drawCq(b.dataset.k!);
+    }));
+    drawCq("creditQualityFico");
+
+    const years = [...new Set([...Object.keys(x.writeOffsQ2), ...Object.keys(x.writeOffsYtd)])].sort();
+    document.querySelector("[data-wo]")!.innerHTML = years.map((y) =>
+      `<tr><th scope="row">${y}</th><td class="r num">${money(x.writeOffsQ2[y] ?? 0)}</td><td class="r num">${money(x.writeOffsYtd[y] ?? 0)}</td></tr>`).join("");
+    document.querySelector("[data-status]")!.innerHTML = statusBox(x.status);
+  });
+</script>

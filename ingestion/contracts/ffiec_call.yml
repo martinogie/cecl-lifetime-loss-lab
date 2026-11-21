@@ -1,0 +1,65 @@
+# Data contract: FFIEC call reports, Schedule RI-C (Phase 6 peer comparison; Martins, 20 November 2026).
+# Source: the FFIEC CDR Public Web Service (REST), SIS611 v1.10. Credentials FFIEC_PWS_USERNAME and
+# FFIEC_PWS_TOKEN come from .env (Martins adds them; never read, printed or logged).
+# A contract failure stops the load before anything is written to bronze.
+
+base_url: https://ffieccdr.azure-api.us/public/
+data_series: Call
+facsimile_format: SDF        # semicolon-delimited; each item carries its schedule and line number
+initial_periods: ["2020-12-31", "2021-12-31", "2022-12-31", "2023-12-31", "2024-12-31", "2025-12-31", "2026-06-30"]
+
+# Who files Schedule RI-C: institutions with $1 billion or more in total assets, measured as of
+# 30 June of the previous calendar year (FFIEC 031/041 instructions, RI-C, footnote 1). Total assets
+# for that test come from the FDIC's public API (no key), matched on the FDIC certificate number.
+ric_asset_threshold_thousands: 1000000
+# COVID-era relief (2020 interagency rule on reporting thresholds): for reports in 2021, a bank could
+# measure the $1bn test on the lesser of its assets at the usual date and at 31 December 2019, because
+# PPP loans and deposit inflows had pushed many banks over thresholds. Checked on the live 2021 data
+# (20 November 2026): 111 of the 112 banks above $1bn in June 2020 that filed no RI-C were under $1bn at
+# 31 December 2019. This corrects who must file; the filer-share checks below are unchanged.
+asset_relief:
+  years: [2021]
+  lesser_of_date: "2019-12-31"
+fdic_api: https://api.fdic.gov/banks/financials
+
+# The items kept per bank and period (amounts in thousands of dollars, as reported), by item code.
+# Verified on live reports (20 November 2026). A code may carry the RCFD (consolidated, FFIEC 031) or
+# RCON (domestic, FFIEC 041/051) prefix; RCFD is used when both are present. Two RI-C layouts exist:
+#   cecl:     banks on CECL. Schedule "RICII" (2020-2023) or "RIC" (2024 on), two columns:
+#             JJ04-JJ11 amortized cost, JJ12-JJ19 allowance; item 1.c = JJ06 / JJ14; item 6 total = JJ19
+#   incurred: banks not yet on CECL (most banks under $10bn until 2023). Schedule "RICI", six columns by
+#             impairment method: residential 1.c = M721 + M723 + M725 (recorded investment) and
+#             M722 + M724 + M726 (allowance); item 6 total allowance = M747 + M749 + M751
+# The layout used for a bank is the one whose total allowance equals Schedule RC item 4.c (code 3123).
+layouts:
+  cecl:
+    residential_loans: [JJ06]
+    residential_allowance: [JJ14]
+    ric_total_allowance: [JJ19]
+  incurred:
+    residential_loans: [M721, M723, M725]
+    residential_allowance: [M722, M724, M726]
+    ric_total_allowance: [M747, M749, M751]
+rc_total_allowance: "3123"   # Schedule RC item 4.c, allowance for loan and lease losses / credit losses
+total_assets: "2170"         # total assets
+required_items: [residential_loans, residential_allowance, ric_total_allowance, rc_total_allowance, total_assets]
+
+# Checks on every bank-period (a failure marks the bank-period "contract_failed").
+tie_out_tolerance_thousands: 1       # RI-C item 6 allowance = Schedule RC item 4.c
+# Checks on every period (a failure stops the load).
+max_share_without_ric: 0.05          # RI-C candidates whose report has no usable RI-C block
+max_share_contract_failed: 0.02
+
+# Aggregates published (nothing per bank leaves the PC or the VM).
+min_residential_loans_thousands: 1000    # ratios need at least $1m of residential loans
+size_groups_thousands:                   # by total assets at the reporting date
+  "$1-10bn": [1000000, 10000000]
+  "$10-100bn": [10000000, 100000000]
+  "$100bn+": [100000000, null]
+
+# Politeness (the API allows about 2,500 calls an hour per user).
+min_seconds_between_calls: 2.0
+retries: 5
+backoff_seconds: 5.0
+token_lifetime_days: 90
+token_warning_days: 14

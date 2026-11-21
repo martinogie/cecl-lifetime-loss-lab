@@ -1,0 +1,75 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+<Layout title="Loss explorer" description="Where the expected lifetime loss sits in the mortgage book: by vintage, credit score, loan-to-value and state." current="explorer">
+  <div class="wrap page">
+    <aside class="toc stack small">
+      <span class="eyebrow">On this page</span>
+      <a href="#groups">By loan group</a><a href="#read">How to read it</a>
+    </aside>
+    <article class="stack" style="gap:56px;min-width:0">
+      <header class="stack" style="gap:14px">
+        <span class="eyebrow accent" data-eyebrow>&nbsp;</span>
+        <h1 class="h1" style="font-size:clamp(36px,4.8vw,60px);line-height:1.05">Where the expected loss sits</h1>
+        <p class="lede">The reserve is not spread evenly. Choose how to cut the book and which economy to read it under. Each row shows the loans in the group, their balance, their reserve and the reserve as a share of the balance.</p>
+      </header>
+
+      <section id="groups" class="sec stack" style="gap:18px">
+        <div class="head-row rule-top" style="padding-top:12px">
+          <div role="group" aria-label="Cut the book by" class="toggles" data-dim>
+            <button type="button" class="btn" data-d="vintage" aria-pressed="true">Vintage</button>
+            <button type="button" class="btn" data-d="creditScore" aria-pressed="false">Credit score</button>
+            <button type="button" class="btn" data-d="currentLtv" aria-pressed="false">Loan-to-value today</button>
+            <button type="button" class="btn" data-d="state" aria-pressed="false">State</button>
+          </div>
+          <div role="group" aria-label="Economy" class="toggles" data-sc>
+            <button type="button" class="btn" data-s="weighted" aria-pressed="true">Weighted (booked)</button>
+            <button type="button" class="btn" data-s="baseline" aria-pressed="false">Baseline</button>
+            <button type="button" class="btn" data-s="severely_adverse" aria-pressed="false">Severely adverse</button>
+          </div>
+        </div>
+        <div class="stack" style="gap:10px" data-bars-out aria-live="polite"><p class="loading">Loading…</p></div>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Reserve by loan group (scrolls sideways on small screens)" style="border-top:2px solid var(--ink)">
+          <table style="min-width:720px;font-size:14px">
+            <thead><tr><th scope="col">Group</th><th scope="col" class="r">Loans</th><th scope="col" class="r">Balance</th><th scope="col" class="r">Reserve</th><th scope="col" class="r">Reserve / balance</th><th scope="col" class="r">Share of the reserve</th><th scope="col" class="r">Lifetime chance of default</th></tr></thead>
+            <tbody data-rows><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <p class="small muted" data-note></p>
+      </section>
+
+      <section id="read" class="sec stack" style="gap:14px">
+        <h2 class="h2 rule-top" style="font-size:30px">How to read it</h2>
+        <p style="color:var(--ink-2)"><strong>Reserve / balance</strong> is the expected lifetime loss as a share of what the loans owe today. <strong>Lifetime chance of default</strong> is the balance-weighted chance that a loan defaults before it is repaid, under the weighted economy. Newer loans and loans with little equity carry most of the reserve: a fall in house prices hits them first, and the loss per default rises with the loan-to-value.</p>
+        <div class="status-box" data-status></div>
+      </section>
+    </article>
+  </div>
+</Layout>
+
+<script>
+  import { loadJson, fmtInt, pct, money, hbar, statusBox } from "../../lib/site";
+  loadJson("explorer.json").then((x) => {
+    let dim = "vintage", sc = "weighted";
+    document.querySelector("[data-eyebrow]")!.textContent = `30 June 2026 · ${fmtInt(x.totals.loans)} loans · reserve ${money(x.totals.reserveM.weighted)} (weighted)`;
+    document.querySelector("[data-status]")!.innerHTML = statusBox(x.status);
+    document.querySelector("[data-note]")!.textContent = `Groups with fewer than ${x.minLoansPerGroup} loans are shown together as "Other"; states outside the top 15 by reserve are grouped too. Performing loans only.`;
+    const draw = () => {
+      const rows = x.dimensions[dim] as any[];
+      const total = x.totals.reserveM[sc];
+      const max = Math.max(...rows.map((r) => r.reserveM[sc]));
+      document.querySelector("[data-bars-out]")!.innerHTML = rows.map((r) => hbar(r.group, r.reserveM[sc], max, money(r.reserveM[sc]))).join("");
+      document.querySelector("[data-rows]")!.innerHTML = rows.map((r) =>
+        `<tr><th scope="row">${r.group}</th><td class="r num">${fmtInt(r.loans)}</td><td class="r num">${money(r.balanceM)}</td><td class="r num">${money(r.reserveM[sc])}</td><td class="r num">${pct(r.reserveM[sc] / r.balanceM)}</td><td class="r num">${pct(r.reserveM[sc] / total, 1)}</td><td class="r num">${pct(r.lifetimePd)}</td></tr>`).join("");
+    };
+    const wire = (sel: string, attr: string, set: (v: string) => void) => {
+      document.querySelectorAll<HTMLButtonElement>(`${sel} button`).forEach((b) => b.addEventListener("click", () => {
+        document.querySelectorAll(`${sel} button`).forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+        set(b.dataset[attr]!); draw();
+      }));
+    };
+    wire("[data-dim]", "d", (v) => (dim = v));
+    wire("[data-sc]", "s", (v) => (sc = v));
+    draw();
+  });
+</script>

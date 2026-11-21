@@ -1,0 +1,58 @@
+{
+ "dataAsOf": {
+  "reserveDate": "2026-06-30",
+  "updated": "2026-11-20"
+ },
+ "status": {
+  "model": "Model v2 (challenger)",
+  "holdout": "v2 failed its holdout (July 2024 - June 2026, run once): 0.81 of actual defaults under the recorded check, 0.92 counted correctly (L-038, L-039).",
+  "overlay": "No overlay (Option B): the LGD model's conservatism (1.64x the real loss per default, L-033) more than offsets the default shortfall (0.74 in loss terms). The +34% default uplift is shown as a sensitivity.",
+  "framing": "Educational model on Freddie Mac conforming mortgages (sample book). Not an audited bank reserve and not accounting advice."
+ },
+ "steps": [
+  {
+   "step": "Freddie Mac files",
+   "what": "Origination and monthly performance files, read from the zips; data contracts per file version"
+  },
+  {
+   "step": "Bronze / silver / gold",
+   "what": "Delta tables on Databricks, DuckDB and Parquet on the PC; one row per loan per month in the panel"
+  },
+  {
+   "step": "Economic data",
+   "what": "FRED, FHFA house prices, BLS state unemployment, the Fed's scenarios; Airflow downloads, contracts and freshness checks"
+  },
+  {
+   "step": "Models",
+   "what": "PD and payoff transition models (MLflow), LGD and EAD; selection rules committed before each test"
+  },
+  {
+   "step": "Engine",
+   "what": "Each loan's lifetime expected loss under three scenarios, weighted; overlays only under ADR-006"
+  },
+  {
+   "step": "Close",
+   "what": "Rollforward to the cent, reserve bridge, disclosure tables, allowance memo with maker and checker sign-off"
+  },
+  {
+   "step": "Publish",
+   "what": "Aggregates only, after every check passes; no loan rows ever"
+  }
+ ],
+ "controls": [
+  "Tie-outs on every run: loan counts and balances match the source; the book reserve equals the sum of loan reserves",
+  "Data contracts per Freddie file version, per economic source and for the call reports; a failure stops the load",
+  "Quarter-end snapshots: data (Delta time travel), model (MLflow) and code (git tag)",
+  "Every test's rules committed before it runs; run-once tests never re-run without written approval",
+  "Change log and limitations log with an owner and a fix date for every item",
+  "No run on a Monday before 13:00 or between 02:30 and 04:00 (shared server); checked in CI and at every start"
+ ],
+ "stack": [
+  "Airflow",
+  "Databricks (Delta, PySpark, MLflow)",
+  "dbt",
+  "DuckDB and Parquet",
+  "Python package cecl",
+  "GitHub Actions CI"
+ ]
+}

@@ -32,7 +32,8 @@ TAKES_CODE_VERSION = ("cecl_lab_train_family_dev", "cecl_lab_oot_test_dev", "cec
                       "cecl_lab_projection_check_dev", "cecl_lab_train_transition_v2_dev",
                       "cecl_lab_walk_forward_v2_dev", "cecl_lab_downturn_check_v2_dev",
                       "cecl_lab_history_drift_v2_dev", "cecl_lab_overlay_inputs_v2_dev",
-                      "cecl_lab_l039_remeasure_dev", "cecl_lab_reserve_projection_dev")  # fmt: skip
+                      "cecl_lab_l039_remeasure_dev", "cecl_lab_reserve_projection_dev",
+                      "cecl_lab_backtests_dev")  # fmt: skip
 
 
 def git(*args: str) -> str:

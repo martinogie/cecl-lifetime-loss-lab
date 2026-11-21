@@ -3,6 +3,23 @@
 Draft, built up phase by phase. Educational model on Freddie Mac conforming mortgages; not an
 audited bank reserve and not accounting advice.
 
+## Current status (20 November 2026, Phase 6)
+
+| Model | What it does | Status | Main evidence | Main limits |
+|---|---|---|---|---|
+| M-01 PD and prepayment (v2) | Monthly chance of default and payoff per loan, by delinquency state (current, 30, 60 days late), path simulation | `@challenger` in dev; **holdout failed** (July 2024 - June 2026: defaults 0.81 under the recorded check, 0.92 counted correctly) | Walk-forward exams, downturn check, holdout, Phase 6 backtests | Over-projects in calm years (L-039); short in 2024-2026 (L-038); crisis exam failed (L-035) |
+| M-02 LGD | Chance of any loss once defaulted, then its size; rises as house prices fall | Built (Phase 3) | Check on 2017-2021 resolved defaults | Predicts 1.64x the real loss per default (L-033) |
+| M-03 EAD | Balance owed each month: schedule plus partial prepayment | Built (Phase 3) | Held-out balances within 2% | L-034 |
+| M-04 Engine | PD x LGD x EAD per loan and month to maturity; Fed scenarios (point in time), 24-month forecast, 12-month reversion, weights 60/30/10 | Built (Phase 4); reserves at 31 Dec 2025 ($328.2m), 31 Mar 2026 ($290.1m), 30 Jun 2026 ($297.5m, 0.35%) | Tie-outs, rollforwards to the cent, bridges, Phase 5 stress | Tail after year 3 simplified (L-040); defaulted-loan reserve and estimated write-offs (L-041); December reserve built after the fact (L-042) |
+| M-05 / M-06 Benchmarks | Loss-rate ($841m) and vintage ($681m) checks | Built | Range check | Through-the-cycle (L-041) |
+| M-07 Adverse path | Halfway between the Fed's baseline and severely adverse | Built | B4b check every run | Not a Fed scenario (ADR-005) |
+
+**Overlay:** none booked (Option B, Martins, 19 November 2026, confirmed for all three dates on 20 November):
+the LGD's conservatism (1.64x) more than offsets the default shortfall (0.74 in loss terms). Every reserve is
+also shown with the +34% default uplift. **Stress (Phase 5):** the severely adverse 9-quarter loss rate is 1.19%,
+against 1.5% for the 32 banks in the Fed's 2026 stress test (range 0.9-2.8%). **Validation (Phase 6):**
+`docs/phase6/validation_results.md` and the validation pack `docs/phase6/validation_pack.md`.
+
 ## M-01 Lifetime PD and prepayment (Phase 2, in development)
 
 - **What it predicts:** for each loan-month, the probability that the loan **defaults** (ADR-002:
@@ -69,8 +86,8 @@ audited bank reserve and not accounting advice.
   (8 cells outside, L-028). Log loss better than v1 at every step; the current-loan roll to 30 days late is
   1.06 at one month, but the projection falls behind each year (1.02, 0.81, 0.59).
 - **Status:** `@challenger` in dev (19 November 2026), **holdout failed**; not champion. v1's alias retired
-  (v1's runs and its out-of-time failure, L-032, stay on record). Phase 4 uses a documented ADR-006 overlay for
-  the default shortfall (L-038). Two of v2's validation rules were changed after their results (Amendments 4
+  (v1's runs and its out-of-time failure, L-032, stay on record). Phase 4 books no overlay (Option B: the LGD's
+  conservatism offsets the default shortfall, L-038 and L-033). Two of v2's validation rules were changed after their results (Amendments 4
   and 5); the original failures stay on record (L-035, L-037). Other limitations: L-028 (payoffs), L-036
   (household-stress inputs).
 - Full results: validation report, "Model v2". Educational model on Freddie Mac conforming mortgages; not

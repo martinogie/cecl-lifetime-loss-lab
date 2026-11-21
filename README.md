@@ -10,8 +10,13 @@ the Federal Reserve's 2026 stress scenarios.
 > **Educational model, not an audited bank reserve and not accounting advice.** It uses Freddie
 > Mac's conforming mortgages only. Every output states its date, scenario and limits.
 
-**Status (November 2026): Phase 0, foundations.** The repository skeleton, checks, data contracts
-and environment set-up exist. No data has been loaded and no model has been built yet.
+**Status (20 November 2026): Phases 0-5 done; Phase 6 (validation) and Phase 7 (website) in progress.**
+Total allowance at 30 June 2026: $297.5m (0.35% of a $84.6bn sample book), with rollforwards to the cent
+for Q1 and Q2 2026. The default model (v2) is a challenger and failed its holdout; no overlay is booked
+(Option B). Stress, sensitivity and the Fed-stress-test comparison: `docs/phase5/stress_report.md`.
+Website (preview, not published): `site/`.
+
+Built with AI-assisted coding; the design, analysis and review are my own.
 
 ## Questions it will answer
 

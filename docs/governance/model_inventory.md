@@ -70,3 +70,37 @@ checker, in writing; there is no separate validation team, which is itself a lim
   registered `@challenger` in dev, v1's alias retired. Last rule change: the holdout rules are locked.
   Holdout (July 2024 - June 2026, run once 19 November 2026): **failed**, total 0.81 but 5 of 8 judged default
   cells outside 0.80-1.25 (L-038). v2 stays `@challenger`; Phase 4 uses a documented ADR-006 overlay.
+  _Correction (20 November 2026): Phase 4 books **no** overlay. Martins chose Option B on 19 November 2026,
+  confirmed for all three reserve dates on 20 November (L-033 netting decision, `docs/governance/overlay_log.json`)._
+
+## Completed entries (Phase 6, 20 November 2026)
+
+Owner, developer and checker for every model: Martins Ogiekpolor. There is no independent validation team
+(L-011). The checker review is a separate written review on a different day, and the validation pack
+(`docs/phase6/validation_pack.md`) is written for an outside reviewer. The tiers are the proposed ones above;
+Martins confirms them in the validation pack's sign-off.
+
+| Field | M-01 PD and prepayment | M-02 LGD | M-03 EAD | M-04 CECL engine |
+|---|---|---|---|---|
+| Purpose | Monthly chance of default and of payoff per loan, from its delinquency state | Loss per $ defaulted: chance of any loss, then its size | Balance owed at each future month | Combines M-01 to M-03 into each loan's and the book's lifetime expected loss, with scenarios, reversion and weights |
+| Used for | reserve, stress testing | reserve, stress testing | reserve, stress testing | reserve, stress testing |
+| Tier and reason | 1: the main driver of the reserve; complex (path simulation) | 1: multiplies the reserve directly; tied to house prices | 2: mostly mechanical for fixed-rate loans | 1: produces the reported reserve |
+| Status | v2 `@challenger` (dev); **holdout failed** (L-038); not champion | built, not registered; conservative (L-033) | built | built; first reserves at 31 Dec 2025, 31 Mar and 30 Jun 2026 |
+| Current version | `cecl_lab_dev.ml.pd_v2_transition_{current,30,60}` v1 (runs `d0e07d92`, `995197d8`, `aafd64ee`) | `data/local/phase3/lgd_model.pkl` (Phase 3, code in `cecl/lgd.py`) | `cecl/ead.py`, rates `data/local/phase3/ead_rates.json` | `cecl/engine.py`, `cecl/scenarios.py`, `scripts/build_reserve.py` |
+| Inputs | 28 loan, history and economic inputs (`cecl/features.py`) | LTV at default, house-price change, MI, judicial state, loan size, credit score, investor | note rate, remaining term, loan age, partial-prepayment rates | M-01 to M-03, the Fed scenarios (point in time), ADR-003/005/008 settings |
+| Key assumptions | ADR-002, ADR-009 (Amendments 1-5), ADR-011 | Severity capped at 150% for fitting; ADR-002 | Scheduled amortisation plus curtailment by loan age | ADR-003 (24 + 12 months, settings), ADR-005 (60/30/10), ADR-006 (overlays, none booked), ADR-008 B4b |
+| Known limitations | L-028, L-031, L-032, L-035, L-036, L-037, L-038, L-039, L-043 | L-033 | L-034 | L-040, L-041, L-042 |
+| Validation | Phase 2 exams and holdout (validation report); Phase 6 backtests (`docs/phase6/validation_results.md`) | Phase 3 check 2017-2021; Phase 6 refits per date | Phase 3 held-out balances within 2% | Tie-outs every run; rollforwards to the cent; Phase 5 stress; Phase 6 backtests |
+| Monitoring | default and payoff calibration by vintage each quarter; holdout-style check on each new Freddie quarter | predicted vs actual loss per $ on resolved defaults each quarter | balance tracking each quarter | rollforward, bridge and tie-outs each quarter; peer range each quarter |
+| Last / next review | 20 Nov 2026 / at model v3, or by 20 Nov 2027 | 20 Nov 2026 / by 20 Nov 2027 | 20 Nov 2026 / by 20 Nov 2028 | 20 Nov 2026 / by 20 Nov 2027 |
+
+| Field | M-05 Loss-rate benchmark | M-06 Vintage benchmark | M-07 Adverse path |
+|---|---|---|---|
+| Purpose | Simple reserve check: average annual net loss rate x balance x remaining life | Simple reserve check: remaining part of the average loss curve of mature vintages | The middle economic path, halfway between the Fed's baseline and severely adverse |
+| Used for | benchmark | benchmark | reserve (through the weights), stress testing |
+| Tier and reason | 3: a range check only | 3: a range check only | 2: feeds M-04 through the 30% weight |
+| Status | built | built | built |
+| Version | `scripts/build_reserve.py` (`benchmarks`) | same | `cecl/macro.py` (`fed_paths`), `cecl/scenarios.py` |
+| Known limitations | L-041 (through-the-cycle, far above the engine) | L-041 | ADR-005 (halfway, not a Fed scenario) |
+| Validation | Reproduced from Freddie's loss fields | same | B4b check every run (book-weighted state change = national) |
+| Last / next review | 20 Nov 2026 / by 20 Nov 2028 | 20 Nov 2026 / by 20 Nov 2028 | 20 Nov 2026 / each February, with the Fed's new scenarios |

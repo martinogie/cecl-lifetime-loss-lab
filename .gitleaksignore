@@ -1,0 +1,13 @@
+# Reviewed false positives (20 Nov 2026): the shock names in the site's aggregate scenario data at
+# commit 1a2fab5 (field since renamed to shock), and this file's first comment line at 559b660. Not secrets.
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:364
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:374
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:384
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:394
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:404
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:414
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:424
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:434
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:444
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:454
+559b660565d77408c492fcaa8a9a344afc7f1602:.gitleaksignore:generic-api-key:1
