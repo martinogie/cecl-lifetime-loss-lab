@@ -361,7 +361,7 @@
  },
  "shocks": [
   {
-   "key": "hpi_m10",
+   "shock": "hpi_m10",
    "label": "House prices -10%",
    "reserveM": 238.005,
    "multiple": 2.491885938526089,
@@ -371,7 +371,7 @@
    "informationOnly": false
   },
   {
-   "key": "hpi_m20",
+   "shock": "hpi_m20",
    "label": "House prices -20%",
    "reserveM": 461.341,
    "multiple": 4.830190105615621,
@@ -381,7 +381,7 @@
    "informationOnly": false
   },
   {
-   "key": "hpi_m30",
+   "shock": "hpi_m30",
    "label": "House prices -30%",
    "reserveM": 815.357,
    "multiple": 8.536699988737734,
@@ -391,7 +391,7 @@
    "informationOnly": false
   },
   {
-   "key": "unemployment_p2",
+   "shock": "unemployment_p2",
    "label": "Unemployment +2 points",
    "reserveM": 108.673,
    "multiple": 1.1377990772953825,
@@ -401,7 +401,7 @@
    "informationOnly": false
   },
   {
-   "key": "unemployment_p4",
+   "shock": "unemployment_p4",
    "label": "Unemployment +4 points",
    "reserveM": 124.286,
    "multiple": 1.3012629257963986,
@@ -411,7 +411,7 @@
    "informationOnly": false
   },
   {
-   "key": "rates_up2",
+   "shock": "rates_up2",
    "label": "Mortgage rate +2 points",
    "reserveM": 93.789,
    "multiple": 0.981957918021699,
@@ -421,7 +421,7 @@
    "informationOnly": false
   },
   {
-   "key": "rates_down2",
+   "shock": "rates_down2",
    "label": "Mortgage rate -2 points",
    "reserveM": 92.77,
    "multiple": 0.9712952357030731,
@@ -431,7 +431,7 @@
    "informationOnly": false
   },
   {
-   "key": "hpi_m20_unemployment_p2",
+   "shock": "hpi_m20_unemployment_p2",
    "label": "House prices -20% and unemployment +2",
    "reserveM": 531.691,
    "multiple": 5.566746835548105,
@@ -441,7 +441,7 @@
    "informationOnly": false
   },
   {
-   "key": "hpi_m30_unemployment_p4",
+   "shock": "hpi_m30_unemployment_p4",
    "label": "House prices -30% and unemployment +4",
    "reserveM": 1046.968,
    "multiple": 10.961644426781875,
@@ -451,7 +451,7 @@
    "informationOnly": false
   },
   {
-   "key": "hpi_m30_immediate",
+   "shock": "hpi_m30_immediate",
    "label": "House prices -30% at once (information only)",
    "reserveM": 936.014,
    "multiple": 9.799964309573475,

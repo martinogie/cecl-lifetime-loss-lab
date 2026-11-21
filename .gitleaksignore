@@ -1,0 +1,12 @@
+# Reviewed false positives (20 Nov 2026): shock names ("key": "hpi_m30_unemployment_p4" etc.) in the site's
+# aggregate data at commit 1a2fab5; the field is now called "shock". Not secrets.
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:364
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:374
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:384
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:394
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:404
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:414
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:424
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:434
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:444
+1a2fab5528dbdecea90c19278ad2245ba12186ef:site/public/data/scenarios.json:generic-api-key:454

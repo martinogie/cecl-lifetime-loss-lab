@@ -1,0 +1,134 @@
+{
+ "note": "Aggregates only. Educational model on Freddie Mac conforming mortgages (sample files); not an audited reserve. Model v2 @challenger failed its holdout (L-038); the holdout check was biased (L-039); no L-038 overlay (Option B). Information for the validator: no booked figure changes.",
+ "crisis": {
+  "as_of": "200612",
+  "months": 48,
+  "loans": 188320,
+  "balance": 26752831515.27,
+  "projected_defaults": 5564.301629710021,
+  "actual_defaults": 10698,
+  "projected_loss": 55373605.81590128,
+  "actual_loss": 538929648.6833528,
+  "defaults_ratio": 0.520125409395216,
+  "loss_ratio": 0.10274737333747237,
+  "lifetime_reserve": 57111353.80152556,
+  "share_of_actual_loss_from_unresolved": 0.17067164606376214,
+  "actual_defaults_matched_to_loss_events": 10698,
+  "by_year": {
+   "2007": {
+    "projected_defaults": 1086.4474131040365,
+    "actual_defaults": 1403.0,
+    "projected_loss": 8896992.44489554,
+    "actual_loss": 51004955.88782451
+   },
+   "2008": {
+    "projected_defaults": 1308.4550881411328,
+    "actual_defaults": 2204.0,
+    "projected_loss": 13346538.852428915,
+    "actual_loss": 126282559.22742009
+   },
+   "2009": {
+    "projected_defaults": 1771.7368221379177,
+    "actual_defaults": 3962.0,
+    "projected_loss": 18905421.17696964,
+    "actual_loss": 214533134.35885212
+   },
+   "2010": {
+    "projected_defaults": 1397.6623063269274,
+    "actual_defaults": 3129.0,
+    "projected_loss": 14224653.34160715,
+    "actual_loss": 147108999.20925617
+   }
+  },
+  "lgd_refit": {
+   "resolved_defaults": 3359,
+   "with_loss": 890,
+   "loss_per_dollar": 0.05399836285443226
+  },
+  "by_vintage": {
+   "1999": {
+    "projected_defaults": 146.52397365808744,
+    "actual_defaults": 201,
+    "projected_loss": 219980.241603015,
+    "actual_loss": 2258325.056920927
+   },
+   "2000": {
+    "projected_defaults": 137.5712655425568,
+    "actual_defaults": 179,
+    "projected_loss": 487688.32669640955,
+    "actual_loss": 3700165.029294233
+   },
+   "2001": {
+    "projected_defaults": 231.23639104482535,
+    "actual_defaults": 325,
+    "projected_loss": 805435.3229674798,
+    "actual_loss": 6538637.128776172
+   },
+   "2002": {
+    "projected_defaults": 430.8578550675868,
+    "actual_defaults": 493,
+    "projected_loss": 1824896.8941853535,
+    "actual_loss": 9693254.947968751
+   },
+   "2003": {
+    "projected_defaults": 646.1949145477699,
+    "actual_defaults": 808,
+    "projected_loss": 3134386.956373097,
+    "actual_loss": 17292459.64799817
+   },
+   "2004": {
+    "projected_defaults": 1136.7375859838562,
+    "actual_defaults": 1682,
+    "projected_loss": 9444216.660499103,
+    "actual_loss": 57074247.69878551
+   },
+   "2005": {
+    "projected_defaults": 1491.0447601709338,
+    "actual_defaults": 3111,
+    "projected_loss": 18714096.35067247,
+    "actual_loss": 167776575.66863072
+   },
+   "2006": {
+    "projected_defaults": 1344.1348836944048,
+    "actual_defaults": 3899,
+    "projected_loss": 20742905.062904343,
+    "actual_loss": 274595983.5049784
+   }
+  },
+  "by_starting_state": {
+   "0": {
+    "projected_defaults": 4710.387811688992,
+    "actual_defaults": 9523,
+    "projected_loss": 47671821.26633267,
+    "actual_loss": 502860286.0970376
+   },
+   "1": {
+    "projected_defaults": 652.1951877046848,
+    "actual_defaults": 926,
+    "projected_loss": 6050577.695417022,
+    "actual_loss": 29655177.52112299
+   },
+   "2": {
+    "projected_defaults": 201.71863031634447,
+    "actual_defaults": 249,
+    "projected_loss": 1651206.8541515702,
+    "actual_loss": 6414185.065192277
+   }
+  },
+  "benchmark": {
+   "projected_defaults": 4822.677997432205,
+   "projected_loss": 33939540.86701769,
+   "loss_per_dollar_pre2007": 0.05399836285443226
+  },
+  "verdict": {
+   "defaults_ratio": 0.520125409395216,
+   "loss_ratio": 0.10274737333747237,
+   "benchmark_defaults_ratio": 0.4508018318781272,
+   "benchmark_loss_ratio": 0.06297582801379481,
+   "defaults_in_bar": false,
+   "loss_in_bar": false,
+   "closer_than_benchmark": true,
+   "passes": false
+  }
+ }
+}

@@ -152,7 +152,7 @@ def scenarios(stress: dict[str, Any]) -> dict[str, Any]:
                              "mortgageRate": x["mortgage_rate"], "expectedDefaults": x["expected_defaults"],
                              "expectedLossM": m(x["expected_loss"]), "lossRate": x["loss_rate_of_start_balance"]}
                             for x in q["quarters"]]} for s, q in stress["fed_quarterly"].items()}  # fmt: skip
-    shocks = [{"key": k, "label": names[k], "reserveM": m(v["reserve"]), "multiple": v["multiple_of_baseline"],
+    shocks = [{"shock": k, "label": names[k], "reserveM": m(v["reserve"]), "multiple": v["multiple_of_baseline"],
                "lossRate9q": v["loss_rate_9q_of_average_balance"], "worstHpiChange": v["worst_hpi_change"],
                "peakUnemployment": v["peak_unemployment"], "informationOnly": v["information_only"]}
               for k, v in stress["shocks"].items()]  # fmt: skip

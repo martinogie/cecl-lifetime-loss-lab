@@ -74,7 +74,15 @@
    "corrected": 0.92
   }
  ],
- "backtests": {},
+ "backtests": {
+  "crisis": {
+   "defaultsRatio": 0.520125409395216,
+   "lossRatio": 0.10274737333747237,
+   "passes": false,
+   "benchmarkDefaultsRatio": 0.4508018318781272,
+   "benchmarkLossRatio": 0.06297582801379481
+  }
+ },
  "limits": [
   {
    "id": "L-038",
@@ -106,5 +114,5 @@
   }
  ],
  "definitionOfDefault": "90+ days late, a real-estate-owned acquisition, or a loss-event payoff; payment pauses for disasters and COVID stop the delinquency clock.",
- "l043": false
+ "l043": true
 }
