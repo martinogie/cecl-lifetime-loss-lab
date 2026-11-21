@@ -55,3 +55,7 @@ article { flex: 999 1 640px; }
   .section { padding-top: 48px; }
   .hbar-row { grid-template-columns: 90px 1fr 64px; }
 }
+/* Home bar: back to the portfolio home from every page (same as the Bank Health site). */
+.home-bar { border-bottom: 1px solid var(--rule); font-size: 13px; }
+.home-bar a { display: inline-flex; align-items: center; gap: 6px; padding: 8px 0; color: var(--ink-2); text-decoration: none; }
+.home-bar a:hover { color: var(--ink); text-decoration: underline; }
