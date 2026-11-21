@@ -47,11 +47,11 @@ accounting advice.
 | LGD check, EAD check | Phase 3 | LGD conservative 1.64x (L-033); EAD within 2% | `docs/phase3/` |
 | Reserve tie-outs, rollforwards to the cent, bridges | Phase 4 | pass (Q1 and Q2 2026) | allowance memo |
 | Stress and sensitivity | Phase 5 plan and decisions | severely adverse 9-quarter loss rate 1.19% vs DFAST 1.5% (0.9-2.8%); scenario weights move the reserve most | `docs/phase5/stress_report.md` |
-| **Crisis backtest** (run once) | `docs/phase6/test_designs.md` CB | see results | `docs/phase6/validation_results.md` §1 |
-| **Rolling backtest** (run once) | RB | see results | §2 |
-| **Forbearance test** (run once) | FT | see results | §3 |
-| **Peer comparison** | Peer rule (a range, not a target) | see results | §4 |
-| **L-043 rate-shock breakdown** | L-043 rule | see results | §5 |
+| **Crisis backtest** (run once) | `docs/phase6/test_designs.md` CB | **fail**: defaults 0.52, losses 0.10; beat the benchmark (L-044) | `docs/phase6/validation_results.md` §1 |
+| **Rolling backtest** (run once) | RB | **fail, high side**: pooled 1.42, 6 of 11 dates in band (L-045) | §2 |
+| **Forbearance test** (run once) | FT | **pass**: 60% of the extra defaults cured within 12 months; booked rule closer | §3 |
+| **Peer comparison** | Peer rule (a range, not a target) | 949 banks $1bn+ (FFIEC RI-C, 30 Jun 2026): middle 50% 0.59-1.20%, median 0.88%; ours 0.35%, below, level with the $100bn+ banks' pooled 0.35% | §4 |
+| **L-043 rate-shock breakdown** | L-043 rule | closed: timing and LTV explain both directions | §5 |
 
 Martins's written expectations for the Phase 6 tests were committed before they ran:
 `docs/phase6/backtest_expectations.md`. The results page sets each result next to its expectation.
@@ -70,7 +70,8 @@ fix date. The ones that matter most for the booked figure:
 | L-040 | The tail after year 3 is simplified | Small (8% of the baseline reserve is tail) | v3 |
 | L-041 | Defaulted-loan reserve, estimated write-offs, benchmark gap | Small | Q3 true-up |
 | L-042 | December 2025 reserve built after the fact | Small | Quarter-end snapshots from the first live close |
-| L-043 | Rate shocks lower the reserve in both directions | Small (under 3%) | See the breakdown |
+| L-044 | Crisis backtest: a pre-2007 LGD cannot extrapolate to a national price fall (losses 0.10 of actual) | Understates badly in an unseen kind of crisis | v3: LGD challenger with a house-price term; severity floor in stress |
+| L-045 | Rolling backtest: projections 1.42x actual, worst 2017-2019 | Overstates in calm and recovering markets | v3: LGD recalibration, PD cure and lingering fix |
 | L-011 | No independent validation team | Governance | Outside reviewer using this pack |
 
 ## 5. Reviewer's checklist
@@ -85,7 +86,27 @@ fix date. The ones that matter most for the booked figure:
 
 ## 6. Developer's conclusion (for the reviewer to challenge)
 
-_Written after the Phase 6 results; see below._
+The **controls and the engine** are sound: tie-outs on every run, rollforwards to the cent for two quarters,
+bridges that tie to the booked allowance, reproducible runs, and every test's rules committed before it ran
+(rules, then expectations, then results in the git history).
+
+The **models** are fit for an educational reserve in **calm and recovering markets, where they err on the high
+side**: the rolling backtest (1.42x, worst 2017-2019), the corrected walk-forward exams (1.27-1.37x) and the LGD
+check (1.64x) all point the same way. That is why Option B (no L-038 overlay) is defensible: the default
+shortfall seen in 2024-2026 is smaller than the LGD's conservatism.
+
+They are **not fit to forecast losses in an unseen kind of crisis**: fitted before 2007 they caught half the
+crisis defaults and a tenth of the losses (L-035, L-044). The Fed severely adverse and custom-shock results show
+how the model responds to stress, not a validated crisis forecast; a bank would hold a crisis overlay or a
+stressed LGD floor for that use.
+
+The reserve ratio (0.35%) sits below the banks' range (median 0.88%) and level with the largest banks, which is
+expected for conforming loans with mortgage insurance; it is a sanity range, not a target.
+
+**Recommendation:** keep v2 as `@challenger`; build v3 (LGD recalibration and the simple LGD challenger, the
+cure-rate and 60-day lingering fix); re-run the holdout-style check on the next clean Freddie quarter (late
+January 2027) and the rolling backtest after v3. The reviewer should challenge especially: the Option B netting
+(L-033 against L-038), and whether the stress results are presented clearly enough as responses, not forecasts.
 
 ## 7. Sign-off
 

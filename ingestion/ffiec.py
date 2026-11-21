@@ -369,12 +369,18 @@ def fdic_assets(
 
 
 def ric_filers(
-    panel: Iterable[Mapping[str, Any]], assets: Mapping[int, float], threshold: float
+    panel: Iterable[Mapping[str, Any]],
+    assets: Mapping[int, float],
+    threshold: float,
+    skip_forms: Iterable[str] = (),
 ) -> list[int]:
     """RSSD IDs of institutions that filed for the period and had at least `threshold` total assets on
-    30 June of the previous year."""
+    30 June of the previous year, leaving out filers of the forms in `skip_forms` (FFIEC 051 in March and
+    September: that form collects RI-C only in June and December)."""
+    skip = {str(f).zfill(3) for f in skip_forms}
     return sorted(int(p["ID_RSSD"]) for p in panel
-                  if p.get("HasFiledForReportingPeriod") and assets.get(int(p.get("FDICCertNumber") or 0), 0.0) >= threshold)  # fmt: skip
+                  if p.get("HasFiledForReportingPeriod") and str(p.get("FilingType", "")).zfill(3) not in skip
+                  and assets.get(int(p.get("FDICCertNumber") or 0), 0.0) >= threshold)  # fmt: skip
 
 
 def cache_path(root: Path, period: date, rssd: int) -> Path:
@@ -398,7 +404,9 @@ def load_period(root: Path, period: date, client: Client, contract: Mapping[str,
     if period.year in relief.get("years", []):  # COVID-era relief: the lesser of the two dates' assets
         alt = fdic_assets(date.fromisoformat(relief["lesser_of_date"]), fetch, contract)
         assets = {c: min(a, alt.get(c, a)) for c, a in assets.items()}
-    filers = ric_filers(panel, assets, float(contract["ric_asset_threshold_thousands"]))
+    semi = contract.get("semiannual_ric") or {}
+    skip = semi.get("forms", []) if period.month not in semi.get("months", [6, 12]) else []
+    filers = ric_filers(panel, assets, float(contract["ric_asset_threshold_thousands"]), skip)
     counts = {"panel": len(panel), "ric_filers": len(filers), "cached": 0, "fetched": 0}
     for i, rssd in enumerate(filers, 1):
         path = cache_path(root, period, rssd)
@@ -476,7 +484,10 @@ def aggregates(rows: Iterable[Mapping[str, Any]], contract: Mapping[str, Any]) -
         methods.setdefault(r["period"], {}).setdefault(str(r.get("method", "unknown")), 0)
         methods[r["period"]][str(r.get("method", "unknown"))] += 1
         g = size_group(r["total_assets"], contract)
-        for key in ((r["period"], g or "other"), (r["period"], "All banks $1bn+")):
+        for key in (
+            (r["period"], g or "Under $1bn now (filing on last year's assets)"),
+            (r["period"], "All banks $1bn+"),
+        ):
             groups.setdefault(key, []).append((r["residential_allowance"], r["residential_loans"]))
     out = []
     for (period, group), pairs in sorted(groups.items()):

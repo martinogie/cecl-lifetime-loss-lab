@@ -1,6 +1,6 @@
 # Phase 6 plan: validation
 
-**Status (20 November 2026): decisions taken (end of this file); final test designs and pass/fail rules in `docs/phase6/test_designs.md`; waiting for Martins's written expectations (`docs/phase6/backtest_expectations.md`). Nothing run.**
+**Status (21 November 2026): complete.** Results: `docs/phase6/validation_results.md`; validation pack: `docs/phase6/validation_pack.md` (reviewer sign-off pending); validation report, Phase 6 section. The text below is the original plan.
 
 Educational model on Freddie Mac conforming mortgages (sample book); not an audited reserve and not
 accounting advice. Model v2 is `@challenger`. It failed its holdout (L-038), and the check that measured

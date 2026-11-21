@@ -736,3 +736,28 @@ Payoffs, recorded -> corrected (L-028): F2 0.65 -> 0.90, F3 0.97 -> 1.20, F4 0.7
 - The v2 holdout ran once on 19 November 2026 and **failed** (total 0.81, 5 default cells outside the bar);
   v2 stays `@challenger`; Phase 4 uses a documented ADR-006 overlay (L-038).
 - Registration of the @challenger, model card and model inventory entries (step M9).
+- _Update (21 November 2026): Phase 4 books **no** overlay (Option B, confirmed for all three reserve dates); the
+  registration, model card and model inventory entries are done (Phase 6 below)._
+
+## Phase 6: validation (20-21 November 2026)
+
+Rules, pass/fail tests and designs were committed first (`docs/phase6/test_designs.md`), then Martins's written
+expectations (`docs/phase6/backtest_expectations.md`), then each test ran **once**. Full tables:
+`docs/phase6/validation_results.md` (generated from `docs/phase6/backtests.json`, `peer_ratios.json`,
+`l043_breakdown.json`). Databricks: about 66 minutes for all Phase 6 projections. These are information for the
+validator: no booked figure, model status or overlay decision changed.
+
+| Test | Result | Martins's expectation | Read |
+|---|---|---|---|
+| **Crisis backtest** (PD and LGD refitted on data to Dec 2006; 2007-2010 on the actual economy) | **FAIL**: defaults 0.52, losses **0.10**; closer than the simple benchmark (0.45 / 0.06) | fail; defaults 0.35-0.55 (met); losses 0.25-0.50 (far lower); benchmark a coin flip (beaten) | The default side behaves as the v2 crisis exam did. The loss side collapses: the 2006 LGD (890 losses, 5.4 cents per $) cannot extrapolate to a national price fall (L-044) |
+| **Rolling backtest** (11 year-ends 2012-2022, logistic PD and LGD refitted at each date) | **FAIL, high side**: pooled 1.42; 6 of 11 dates within 0.67-1.50 (flat economy: 1.74, 2 of 11) | fail on the high side, 1.5-2.5x (1.42, just under); fewer than 8 dates (met); early dates worst (opposite) | 2012-2014 close (1.07-1.19); 2017-2019 2.6-5.5x: tiny real losses while each refitted LGD still carried about 30 cents per $ from the crisis, and PD over-projected 2-3x. Reserves would have been more than enough (L-045) |
+| **Forbearance test** (2020-2021) | **PASS**: 2,353 defaults only without the stop-the-clock rule; 60% current again within 12 months, 2% ever had a loss; 30 June 2020 book: booked rule 5.32 vs 17.98 flag ignored | supported (met) | ADR-002's rule stands. Both ratios are high: the booked models over-project 2020-2023, when prices boomed and forbearance cured most cases |
+| **L-043 rate shocks** | **closed**: timing and LTV explain both directions | — | `docs/phase6/l043_breakdown.json` |
+| **Peer comparison** | see the results page, section 4 | — | FFIEC call reports, Schedule RI-C (not Bank Health's data, which has no allowance fields) |
+
+**Validator's view of fitness for use (developer's conclusion, for challenge):** the engine, the controls and
+the reporting are sound (tie-outs, rollforwards to the cent, bridges, reproducible runs, rules before tests).
+The models are **fit for an educational reserve in calm and recovering markets, where they err on the high
+side** (rolling backtest, L-039, L-033), and **not fit to forecast losses in an unseen kind of crisis** (crisis
+backtest, L-035, L-044): the stress results show how the model responds, not a validated crisis forecast. v2
+stays `@challenger`; v3 (LGD recalibration and challenger, cure and lingering fix) is the path to champion.
