@@ -105,3 +105,12 @@ def test_credentials_are_required(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("boto3")
     with pytest.raises(sp.PublishRefused, match="R2_ACCESS_KEY_ID is not set"):
         sp.client()
+
+
+def test_build_needs_no_loan_level_files(tmp_path: Path) -> None:
+    """On the VM there are no priced loan files: the explorer comes from the saved group totals."""
+    from ingestion import site_export
+
+    docs = site_export.build(tmp_path / "no-data-here")
+    assert set(docs) == set(sp.DEFS) and sp.validate(docs) == []
+    assert docs["explorer.json"]["totals"]["loans"] > 0

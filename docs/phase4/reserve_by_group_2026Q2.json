@@ -1,0 +1,761 @@
+{
+ "dataAsOf": {
+  "reserveDate": "2026-06-30",
+  "updated": "2026-11-21"
+ },
+ "status": {
+  "model": "Model v2 (challenger)",
+  "holdout": "v2 failed its holdout (July 2024 - June 2026, run once): 0.81 of actual defaults under the recorded check, 0.92 counted correctly (L-038, L-039).",
+  "overlay": "No overlay (Option B): the LGD model's conservatism (1.64x the real loss per default, L-033) more than offsets the default shortfall (0.74 in loss terms). The +34% default uplift is shown as a sensitivity.",
+  "framing": "Educational model on Freddie Mac conforming mortgages (sample book). Not an audited bank reserve and not accounting advice."
+ },
+ "minLoansPerGroup": 50,
+ "dimensions": {
+  "vintage": [
+   {
+    "group": "1999",
+    "loans": 131,
+    "balanceM": 2.045,
+    "reserveM": {
+     "weighted": 0.001,
+     "baseline": 0.001,
+     "adverse": 0.002,
+     "severely_adverse": 0.003
+    },
+    "ratio": 0.0005530577001171699,
+    "lifetimePd": 0.039564419887908764,
+    "shareOfReserve": 4.2148748184923345e-06
+   },
+   {
+    "group": "2000",
+    "loans": 80,
+    "balanceM": 1.452,
+    "reserveM": {
+     "weighted": 0.003,
+     "baseline": 0.002,
+     "adverse": 0.005,
+     "severely_adverse": 0.008
+    },
+    "ratio": 0.0023098479003083256,
+    "lifetimePd": 0.07130105121788041,
+    "shareOfReserve": 1.249662379735916e-05
+   },
+   {
+    "group": "2001",
+    "loans": 137,
+    "balanceM": 3.465,
+    "reserveM": {
+     "weighted": 0.005,
+     "baseline": 0.004,
+     "adverse": 0.006,
+     "severely_adverse": 0.012
+    },
+    "ratio": 0.0015097704766641373,
+    "lifetimePd": 0.06155415808298686,
+    "shareOfReserve": 1.9497475402374632e-05
+   },
+   {
+    "group": "2002",
+    "loans": 229,
+    "balanceM": 7.664,
+    "reserveM": {
+     "weighted": 0.008,
+     "baseline": 0.005,
+     "adverse": 0.011,
+     "severely_adverse": 0.02
+    },
+    "ratio": 0.0011009119940235152,
+    "lifetimePd": 0.047874300032662534,
+    "shareOfReserve": 3.144700076505241e-05
+   },
+   {
+    "group": "2003",
+    "loans": 573,
+    "balanceM": 23.713,
+    "reserveM": {
+     "weighted": 0.013,
+     "baseline": 0.006,
+     "adverse": 0.019,
+     "severely_adverse": 0.037
+    },
+    "ratio": 0.0005597760885121398,
+    "lifetimePd": 0.034387056912152415,
+    "shareOfReserve": 4.9470419191627826e-05
+   },
+   {
+    "group": "2004",
+    "loans": 771,
+    "balanceM": 37.442,
+    "reserveM": {
+     "weighted": 0.024,
+     "baseline": 0.015,
+     "adverse": 0.032,
+     "severely_adverse": 0.063
+    },
+    "ratio": 0.00065392834805873,
+    "lifetimePd": 0.036609775907162086,
+    "shareOfReserve": 9.124982624708089e-05
+   },
+   {
+    "group": "2005",
+    "loans": 892,
+    "balanceM": 51.971,
+    "reserveM": {
+     "weighted": 0.036,
+     "baseline": 0.021,
+     "adverse": 0.048,
+     "severely_adverse": 0.088
+    },
+    "ratio": 0.0006839295648018059,
+    "lifetimePd": 0.0412188941759519,
+    "shareOfReserve": 0.0001324703013272315
+   },
+   {
+    "group": "2006",
+    "loans": 757,
+    "balanceM": 46.314,
+    "reserveM": {
+     "weighted": 0.045,
+     "baseline": 0.028,
+     "adverse": 0.052,
+     "severely_adverse": 0.129
+    },
+    "ratio": 0.0009800729666516834,
+    "lifetimePd": 0.04745715412515219,
+    "shareOfReserve": 0.00016916661858229959
+   },
+   {
+    "group": "2007",
+    "loans": 902,
+    "balanceM": 56.172,
+    "reserveM": {
+     "weighted": 0.075,
+     "baseline": 0.043,
+     "adverse": 0.101,
+     "severely_adverse": 0.186
+    },
+    "ratio": 0.0013314080214823923,
+    "lifetimePd": 0.05596318778335853,
+    "shareOfReserve": 0.0002787239211215297
+   },
+   {
+    "group": "2008",
+    "loans": 868,
+    "balanceM": 68.286,
+    "reserveM": {
+     "weighted": 0.057,
+     "baseline": 0.038,
+     "adverse": 0.068,
+     "severely_adverse": 0.14
+    },
+    "ratio": 0.0008416810676578724,
+    "lifetimePd": 0.03668196941794825,
+    "shareOfReserve": 0.00021420266343419062
+   },
+   {
+    "group": "2009",
+    "loans": 2126,
+    "balanceM": 191.255,
+    "reserveM": {
+     "weighted": 0.061,
+     "baseline": 0.033,
+     "adverse": 0.077,
+     "severely_adverse": 0.181
+    },
+    "ratio": 0.0003189729287508012,
+    "lifetimePd": 0.02182369453731467,
+    "shareOfReserve": 0.00022735820084081974
+   },
+   {
+    "group": "2010",
+    "loans": 2956,
+    "balanceM": 282.505,
+    "reserveM": {
+     "weighted": 0.097,
+     "baseline": 0.051,
+     "adverse": 0.138,
+     "severely_adverse": 0.249
+    },
+    "ratio": 0.00034225278400014565,
+    "lifetimePd": 0.025540784541248255,
+    "shareOfReserve": 0.0003603427218032734
+   },
+   {
+    "group": "2011",
+    "loans": 4283,
+    "balanceM": 385.717,
+    "reserveM": {
+     "weighted": 0.135,
+     "baseline": 0.075,
+     "adverse": 0.19,
+     "severely_adverse": 0.332
+    },
+    "ratio": 0.00035050078830972426,
+    "lifetimePd": 0.02549722120881762,
+    "shareOfReserve": 0.0005038494722044454
+   },
+   {
+    "group": "2012",
+    "loans": 9094,
+    "balanceM": 870.25,
+    "reserveM": {
+     "weighted": 0.327,
+     "baseline": 0.159,
+     "adverse": 0.449,
+     "severely_adverse": 0.974
+    },
+    "ratio": 0.0003758549175395899,
+    "lifetimePd": 0.022322164338692368,
+    "shareOfReserve": 0.0012190105056625092
+   },
+   {
+    "group": "2013",
+    "loans": 9967,
+    "balanceM": 983.979,
+    "reserveM": {
+     "weighted": 0.425,
+     "baseline": 0.224,
+     "adverse": 0.589,
+     "severely_adverse": 1.138
+    },
+    "ratio": 0.00043184557794574826,
+    "lifetimePd": 0.02039766187112737,
+    "shareOfReserve": 0.0015836440542609659
+   },
+   {
+    "group": "2014",
+    "loans": 8246,
+    "balanceM": 844.047,
+    "reserveM": {
+     "weighted": 0.354,
+     "baseline": 0.182,
+     "adverse": 0.46,
+     "severely_adverse": 1.071
+    },
+    "ratio": 0.0004199082054114338,
+    "lifetimePd": 0.022680862850471637,
+    "shareOfReserve": 0.0013208819109370756
+   },
+   {
+    "group": "2015",
+    "loans": 10965,
+    "balanceM": 1334.508,
+    "reserveM": {
+     "weighted": 0.416,
+     "baseline": 0.191,
+     "adverse": 0.558,
+     "severely_adverse": 1.338
+    },
+    "ratio": 0.00031155274947050875,
+    "lifetimePd": 0.019164119904535634,
+    "shareOfReserve": 0.0015495163596020449
+   },
+   {
+    "group": "2016",
+    "loans": 13443,
+    "balanceM": 1862.836,
+    "reserveM": {
+     "weighted": 0.679,
+     "baseline": 0.276,
+     "adverse": 0.931,
+     "severely_adverse": 2.338
+    },
+    "ratio": 0.00036439090199516527,
+    "lifetimePd": 0.021356026450620867,
+    "shareOfReserve": 0.002529796040862196
+   },
+   {
+    "group": "2017",
+    "loans": 11656,
+    "balanceM": 1642.34,
+    "reserveM": {
+     "weighted": 1.046,
+     "baseline": 0.429,
+     "adverse": 1.402,
+     "severely_adverse": 3.685
+    },
+    "ratio": 0.0006371623381870455,
+    "lifetimePd": 0.024257776949169665,
+    "shareOfReserve": 0.003899926150709013
+   },
+   {
+    "group": "2018",
+    "loans": 9312,
+    "balanceM": 1318.684,
+    "reserveM": {
+     "weighted": 1.277,
+     "baseline": 0.569,
+     "adverse": 1.642,
+     "severely_adverse": 4.428
+    },
+    "ratio": 0.000968307868481894,
+    "lifetimePd": 0.025873769862982933,
+    "shareOfReserve": 0.004758798616446365
+   },
+   {
+    "group": "2019",
+    "loans": 13570,
+    "balanceM": 2359.754,
+    "reserveM": {
+     "weighted": 1.96,
+     "baseline": 0.809,
+     "adverse": 2.475,
+     "severely_adverse": 7.323
+    },
+    "ratio": 0.0008307664471197533,
+    "lifetimePd": 0.02424445452643852,
+    "shareOfReserve": 0.007306154505922888
+   },
+   {
+    "group": "2020",
+    "loans": 29776,
+    "balanceM": 6804.477,
+    "reserveM": {
+     "weighted": 3.076,
+     "baseline": 0.906,
+     "adverse": 3.614,
+     "severely_adverse": 14.483
+    },
+    "ratio": 0.00045205094379274454,
+    "lifetimePd": 0.01634943799585415,
+    "shareOfReserve": 0.011463714150914765
+   },
+   {
+    "group": "2021",
+    "loans": 39078,
+    "balanceM": 9649.127,
+    "reserveM": {
+     "weighted": 11.351,
+     "baseline": 3.346,
+     "adverse": 13.667,
+     "severely_adverse": 52.426
+    },
+    "ratio": 0.001176327862084213,
+    "lifetimePd": 0.02329755509820388,
+    "shareOfReserve": 0.0423018806463335
+   },
+   {
+    "group": "2022",
+    "loans": 37917,
+    "balanceM": 10424.579,
+    "reserveM": {
+     "weighted": 34.72,
+     "baseline": 11.532,
+     "adverse": 47.303,
+     "severely_adverse": 136.095
+    },
+    "ratio": 0.003330557281980122,
+    "lifetimePd": 0.03465686031340489,
+    "shareOfReserve": 0.12939534983163756
+   },
+   {
+    "group": "2023",
+    "loans": 34436,
+    "balanceM": 9716.248,
+    "reserveM": {
+     "weighted": 44.616,
+     "baseline": 16.121,
+     "adverse": 63.162,
+     "severely_adverse": 159.949
+    },
+    "ratio": 0.004591890147027192,
+    "lifetimePd": 0.03592707188075468,
+    "shareOfReserve": 0.1662774456192684
+   },
+   {
+    "group": "2024",
+    "loans": 38609,
+    "balanceM": 12012.269,
+    "reserveM": {
+     "weighted": 62.898,
+     "baseline": 23.18,
+     "adverse": 91.472,
+     "severely_adverse": 215.489
+    },
+    "ratio": 0.005236174655197803,
+    "lifetimePd": 0.03818301849707986,
+    "shareOfReserve": 0.23441338566632572
+   },
+   {
+    "group": "2025",
+    "loans": 44874,
+    "balanceM": 14848.954,
+    "reserveM": {
+     "weighted": 69.425,
+     "baseline": 24.742,
+     "adverse": 102.955,
+     "severely_adverse": 236.927
+    },
+    "ratio": 0.00467538271313539,
+    "lifetimePd": 0.03334460716982265,
+    "shareOfReserve": 0.2587356515559896
+   },
+   {
+    "group": "2026",
+    "loans": 24847,
+    "balanceM": 8793.51,
+    "reserveM": {
+     "weighted": 35.191,
+     "baseline": 12.525,
+     "adverse": 52.481,
+     "severely_adverse": 119.311
+    },
+    "ratio": 0.004001879049096124,
+    "lifetimePd": 0.028611918474466265,
+    "shareOfReserve": 0.13115035426559168
+   }
+  ],
+  "creditScore": [
+   {
+    "group": "620-679",
+    "loans": 27212,
+    "balanceM": 5156.018,
+    "reserveM": {
+     "weighted": 55.086,
+     "baseline": 23.358,
+     "adverse": 78.18,
+     "severely_adverse": 176.174
+    },
+    "ratio": 0.010683849527426658,
+    "lifetimePd": 0.09371156449507909,
+    "shareOfReserve": 0.20529832205009846
+   },
+   {
+    "group": "680-739",
+    "loans": 94179,
+    "balanceM": 21738.852,
+    "reserveM": {
+     "weighted": 114.642,
+     "baseline": 41.257,
+     "adverse": 164.976,
+     "severely_adverse": 403.948
+    },
+    "ratio": 0.005273586417562009,
+    "lifetimePd": 0.049528054246437185,
+    "shareOfReserve": 0.42725378720115914
+   },
+   {
+    "group": "740 and over",
+    "loans": 227238,
+    "balanceM": 57487.002,
+    "reserveM": {
+     "weighted": 96.561,
+     "baseline": 30.002,
+     "adverse": 137.922,
+     "severely_adverse": 371.823
+    },
+    "ratio": 0.0016796930902775677,
+    "lifetimePd": 0.016715680927103675,
+    "shareOfReserve": 0.3598676825749731
+   },
+   {
+    "group": "Under 620",
+    "loans": 1866,
+    "balanceM": 241.691,
+    "reserveM": {
+     "weighted": 2.034,
+     "baseline": 0.895,
+     "adverse": 2.831,
+     "severely_adverse": 6.476
+    },
+    "ratio": 0.008415455367256833,
+    "lifetimePd": 0.08416333289840648,
+    "shareOfReserve": 0.007580208173769389
+   }
+  ],
+  "currentLtv": [
+   {
+    "group": "60% or less",
+    "loans": 223068,
+    "balanceM": 41070.256,
+    "reserveM": {
+     "weighted": 40.061,
+     "baseline": 13.94,
+     "adverse": 50.515,
+     "severely_adverse": 165.421
+    },
+    "ratio": 0.0009754218439091179,
+    "lifetimePd": 0.020711138928851167,
+    "shareOfReserve": 0.14930114453609725
+   },
+   {
+    "group": "60-80%",
+    "loans": 82493,
+    "balanceM": 27444.493,
+    "reserveM": {
+     "weighted": 128.515,
+     "baseline": 46.514,
+     "adverse": 178.183,
+     "severely_adverse": 471.518
+    },
+    "ratio": 0.004682721780314212,
+    "lifetimePd": 0.03087172251250279,
+    "shareOfReserve": 0.47895732271804753
+   },
+   {
+    "group": "80-90%",
+    "loans": 29242,
+    "balanceM": 10445.903,
+    "reserveM": {
+     "weighted": 63.136,
+     "baseline": 21.611,
+     "adverse": 97.537,
+     "severely_adverse": 209.083
+    },
+    "ratio": 0.006044085321211009,
+    "lifetimePd": 0.04970497262692073,
+    "shareOfReserve": 0.2352988524743155
+   },
+   {
+    "group": "Over 90%",
+    "loans": 15692,
+    "balanceM": 5662.911,
+    "reserveM": {
+     "weighted": 36.611,
+     "baseline": 13.447,
+     "adverse": 57.675,
+     "severely_adverse": 112.399
+    },
+    "ratio": 0.006464981198653009,
+    "lifetimePd": 0.05722384772055845,
+    "shareOfReserve": 0.13644268027153983
+   }
+  ],
+  "state": [
+   {
+    "group": "FL",
+    "loans": 25074,
+    "balanceM": 6262.45,
+    "reserveM": {
+     "weighted": 52.536,
+     "baseline": 13.668,
+     "adverse": 78.752,
+     "severely_adverse": 207.094
+    },
+    "ratio": 0.008388990705037605,
+    "lifetimePd": 0.043216856544046924,
+    "shareOfReserve": 0.19579302681664923
+   },
+   {
+    "group": "CA",
+    "loans": 34204,
+    "balanceM": 11292.885,
+    "reserveM": {
+     "weighted": 31.909,
+     "baseline": 5.181,
+     "adverse": 44.283,
+     "severely_adverse": 155.154
+    },
+    "ratio": 0.0028255737666239944,
+    "lifetimePd": 0.030653168174246424,
+    "shareOfReserve": 0.11891996902830765
+   },
+   {
+    "group": "TX",
+    "loans": 28377,
+    "balanceM": 6966.651,
+    "reserveM": {
+     "weighted": 18.163,
+     "baseline": 8.631,
+     "adverse": 25.688,
+     "severely_adverse": 52.776
+    },
+    "ratio": 0.0026070723957811555,
+    "lifetimePd": 0.0336140299133903,
+    "shareOfReserve": 0.06768935609563646
+   },
+   {
+    "group": "AZ",
+    "loans": 9448,
+    "balanceM": 2432.576,
+    "reserveM": {
+     "weighted": 10.839,
+     "baseline": 2.179,
+     "adverse": 15.31,
+     "severely_adverse": 49.389
+    },
+    "ratio": 0.004455889917460851,
+    "lifetimePd": 0.03591480856974691,
+    "shareOfReserve": 0.040396543230151974
+   },
+   {
+    "group": "IL",
+    "loans": 16085,
+    "balanceM": 3168.575,
+    "reserveM": {
+     "weighted": 10.724,
+     "baseline": 4.693,
+     "adverse": 15.281,
+     "severely_adverse": 33.243
+    },
+    "ratio": 0.003384641330275208,
+    "lifetimePd": 0.0260746430677012,
+    "shareOfReserve": 0.039968685135991014
+   },
+   {
+    "group": "NY",
+    "loans": 14722,
+    "balanceM": 3834.801,
+    "reserveM": {
+     "weighted": 10.337,
+     "baseline": 4.317,
+     "adverse": 14.648,
+     "severely_adverse": 33.52
+    },
+    "ratio": 0.0026955256119232636,
+    "lifetimePd": 0.027437966625801197,
+    "shareOfReserve": 0.038523837745159835
+   },
+   {
+    "group": "OH",
+    "loans": 14433,
+    "balanceM": 2410.701,
+    "reserveM": {
+     "weighted": 8.79,
+     "baseline": 4.932,
+     "adverse": 11.769,
+     "severely_adverse": 23.006
+    },
+    "ratio": 0.003646434266498186,
+    "lifetimePd": 0.026153974478983627,
+    "shareOfReserve": 0.032760836849667144
+   },
+   {
+    "group": "PA",
+    "loans": 13119,
+    "balanceM": 2603.964,
+    "reserveM": {
+     "weighted": 8.583,
+     "baseline": 4.503,
+     "adverse": 11.21,
+     "severely_adverse": 25.181
+    },
+    "ratio": 0.003296070517600335,
+    "lifetimePd": 0.025184884985593067,
+    "shareOfReserve": 0.03198708944888568
+   },
+   {
+    "group": "NJ",
+    "loans": 10092,
+    "balanceM": 2830.836,
+    "reserveM": {
+     "weighted": 7.845,
+     "baseline": 2.751,
+     "adverse": 11.286,
+     "severely_adverse": 28.089
+    },
+    "ratio": 0.0027714050104980822,
+    "lifetimePd": 0.024851028179846888,
+    "shareOfReserve": 0.029238688268983147
+   },
+   {
+    "group": "GA",
+    "loans": 11316,
+    "balanceM": 2683.045,
+    "reserveM": {
+     "weighted": 7.5,
+     "baseline": 2.692,
+     "adverse": 11.299,
+     "severely_adverse": 24.952
+    },
+    "ratio": 0.0027953918073666296,
+    "lifetimePd": 0.033795595683695535,
+    "shareOfReserve": 0.027952061312913935
+   },
+   {
+    "group": "WA",
+    "loans": 8972,
+    "balanceM": 2875.808,
+    "reserveM": {
+     "weighted": 6.379,
+     "baseline": 1.688,
+     "adverse": 9.668,
+     "severely_adverse": 24.66
+    },
+    "ratio": 0.0022182614700734546,
+    "lifetimePd": 0.028581384103425148,
+    "shareOfReserve": 0.023774747774360908
+   },
+   {
+    "group": "IN",
+    "loans": 8773,
+    "balanceM": 1493.215,
+    "reserveM": {
+     "weighted": 5.973,
+     "baseline": 3.797,
+     "adverse": 7.547,
+     "severely_adverse": 14.307
+    },
+    "ratio": 0.0040002722089451884,
+    "lifetimePd": 0.029953276817445418,
+    "shareOfReserve": 0.022261543234768186
+   },
+   {
+    "group": "MI",
+    "loans": 12450,
+    "balanceM": 2120.113,
+    "reserveM": {
+     "weighted": 5.665,
+     "baseline": 2.152,
+     "adverse": 8.456,
+     "severely_adverse": 18.374
+    },
+    "ratio": 0.0026721268158309422,
+    "lifetimePd": 0.029671280925926483,
+    "shareOfReserve": 0.021113459480117402
+   },
+   {
+    "group": "NC",
+    "loans": 11641,
+    "balanceM": 2653.756,
+    "reserveM": {
+     "weighted": 5.646,
+     "baseline": 2.267,
+     "adverse": 8.397,
+     "severely_adverse": 17.668
+    },
+    "ratio": 0.0021275774406632913,
+    "lifetimePd": 0.027906761561672426,
+    "shareOfReserve": 0.021042123597387205
+   },
+   {
+    "group": "CO",
+    "loans": 8176,
+    "balanceM": 2599.722,
+    "reserveM": {
+     "weighted": 5.296,
+     "baseline": 2.354,
+     "adverse": 7.68,
+     "severely_adverse": 15.797
+    },
+    "ratio": 0.0020371111405245216,
+    "lifetimePd": 0.03090714426193121,
+    "shareOfReserve": 0.019737173244760663
+   },
+   {
+    "group": "Other",
+    "loans": 123613,
+    "balanceM": 28394.465,
+    "reserveM": {
+     "weighted": 72.136,
+     "baseline": 29.708,
+     "adverse": 102.635,
+     "severely_adverse": 235.21
+    },
+    "ratio": 0.0025404949635872134,
+    "lifetimePd": 0.02750748469537029,
+    "shareOfReserve": 0.26884085873625957
+   }
+  ]
+ },
+ "totals": {
+  "loans": 350495,
+  "balanceM": 84623.563,
+  "reserveM": {
+   "baseline": 95.512,
+   "adverse": 383.91,
+   "severely_adverse": 958.421,
+   "weighted": 268.322
+  }
+ }
+}
