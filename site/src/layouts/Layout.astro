@@ -33,12 +33,17 @@ const nav = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title} · CECL Lifetime Loss Lab</title>
     <meta name="description" content={description} />
-    <meta name="robots" content="noindex" />
     <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
   </head>
   <body data-base={base}>
     <a class="skip" href="#main">Skip to content</a>
     <header class="site-header">
+      <!-- Back to Martins' portfolio home (bio and all projects) from any CECL page, as on Bank Health. -->
+      <div class="home-bar">
+        <div class="wrap"><a href="https://martinsogiekpolor.com/" data-home>
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 11h3v9h6v-6h2v6h6v-9h3z" fill="currentColor"></path></svg>
+          Home<span class="home-who"> · Martins Ogiekpolor</span></a></div>
+      </div>
       <div class="wrap header-row">
         <a class="brand" href={`${base}/`}>
           <span class="brand-name">CECL Lifetime Loss Lab</span>
@@ -76,12 +81,13 @@ const nav = [
         </div>
         <div class="stack" style="gap:8px">
           <span class="foot-label">Built by</span>
-          <span>Martins Ogiekpolor</span>
+          <a href="https://martinsogiekpolor.com/">Martins Ogiekpolor</a>
           <a href="https://github.com/martinogie/cecl-lifetime-loss-lab">Code on GitHub</a>
           <a href={`${base}/pipeline/`}>How the pipeline works</a>
         </div>
       </div>
-      <div class="wrap small" style="padding-bottom:28px;color:var(--muted-dark)">© 2026 Martins Ogiekpolor</div>
+      <!-- Standard footer line on every page (Martins' rule): the copyright notice, nothing else. -->
+      <div class="wrap small" style="padding-bottom:28px;color:var(--muted-dark)" data-copyright>© 2026 Martins Ogiekpolor. All rights reserved.</div>
     </footer>
     <script>
       import { loadJson, asOfText } from "../lib/site";

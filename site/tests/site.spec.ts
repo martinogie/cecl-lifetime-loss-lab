@@ -42,7 +42,9 @@ for (const [name, path] of PAGES) {
       expect(serious.map((v) => `${v.id}: ${v.nodes.length}`), "serious accessibility violations").toEqual([]);
       // every page states the model status and the educational framing (Martins's rule: on every output)
       await expect(page.locator("text=Educational model").first()).toBeAttached();
-      await expect(page.locator(".site-footer")).toContainText("© 2026 Martins Ogiekpolor");
+      await expect(page.locator(".site-footer")).toContainText("© 2026 Martins Ogiekpolor. All rights reserved.");
+      await expect(page.locator("[data-home]")).toHaveAttribute("href", "https://martinsogiekpolor.com/");
+      await expect(page.locator("[data-home]")).toContainText("Home");
       await expect(page.locator("body")).not.toContainText(/AI-assisted|No tracking, no cookies/);
       await page.screenshot({ path: `../docs/images/site/${name}-${width}.png`, fullPage: true });
     });
@@ -85,6 +87,14 @@ test("disclosures: the rollforward reconciles to the cent in both quarters", asy
   await page.getByRole("button", { name: "Q1 2026" }).click();
   await expect(page.locator("[data-rf-note]")).toContainText("$290,087,623.96");
   await expect(page.locator("[data-rf-note]")).toContainText("Reconciles: yes");
+});
+
+test("indexable pages (the router marks only the preview hosts noindex) and a real 404 page", async ({ page }) => {
+  await page.goto(`${B}/`);
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+  const res = await page.goto(`${B}/no-such-page/`);
+  expect(res?.status()).toBe(404);
+  await expect(page.locator("h1")).toHaveText("This page does not exist");
 });
 
 test("data files: aggregates only, no identifiers or loan ids", async () => {

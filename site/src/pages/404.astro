@@ -1,0 +1,14 @@
+---
+// Page not found. Its presence makes Cloudflare Pages answer unknown paths with status 404 (without a
+// 404.html, Pages serves the home page with 200). On the public domain the finance router replaces it
+// with the sector's friendly 404 page, as for Bank Health.
+import Layout from "../layouts/Layout.astro";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+<Layout title="Page not found" description="This page does not exist." current="overview">
+  <section class="wrap section stack" style="gap:18px;padding-bottom:88px">
+    <span class="eyebrow accent">404</span>
+    <h1 class="h1" style="font-size:clamp(36px,4.8vw,60px)">This page does not exist</h1>
+    <p class="lede">It may have moved. Start again from the <a href={`${base}/`}>overview</a>.</p>
+  </section>
+</Layout>
