@@ -49,10 +49,15 @@ sudo apt-get update && sudo apt-get install -y uidmap dbus-user-session docker-c
 grep cecl /etc/subuid /etc/subgid                       # both must list cecl (useradd adds them)
 ```
 
-Then, **as cecl** (a fresh login so the delegation applies):
+Then, **as cecl** (a fresh login so the delegation applies). `machinectl` comes with `systemd-container`,
+which Ubuntu does not install by default; without it the commands below would run as your admin user instead
+(21 Nov 2026: that happened once and was undone with `dockerd-rootless-setuptool.sh uninstall` and
+`docker context use default`). Check the prompt says `cecl@` before going on:
 
 ```sh
-sudo machinectl shell cecl@                             # or: sudo -iu cecl
+sudo apt-get install -y systemd-container
+sudo machinectl shell cecl@
+whoami                                                   # must print cecl
 dockerd-rootless-setuptool.sh install
 systemctl --user enable --now docker
 echo 'export DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock' >> ~/.bashrc && source ~/.bashrc
@@ -101,6 +106,11 @@ Build and start (check the clock first: 15-25 minutes, never into 02:30):
 ```sh
 cd /srv/cecl/app/airflow
 docker compose build
+# Rootless Docker maps the containers' user (1004) to an unprivileged id on the VM, not to cecl, so the
+# containers cannot write to folders cecl owns. Hand the log and data folders to that user with a throwaway
+# container running as its own root (= cecl under rootless Docker). Without this the DAG processor cannot
+# open its first log file, restarts in a loop and the UI shows "No DAGs found" (21 Nov 2026).
+docker run --rm --user 0 --entrypoint chown -v /srv/cecl/var:/v cecl-airflow:3.3.2 -R 1004:0 /v/logs /v/data
 docker compose up airflow-init          # first time: database and admin user; ends with exit code 0
 docker compose up -d
 docker compose ps                       # all healthy after 2-3 minutes
