@@ -235,3 +235,23 @@ February, May, August and November at 14:00 Chicago). Bank Health is never touch
    equal to Schedule RC item 4.c for more than 2%), the load stops before bronze. Look at the cached
    `status` values in `data/raw/ffiec/<period>/` and fix the contract or the parser. Never loosen a check
    just to make it pass.
+
+## Website data refresh (automatic, after each successful prod run)
+
+The site's numbers come from `/cecl/data/*.json`. After every successful prod run the `cecl_publish_site`
+DAG (triggered by the quarterly close, or by hand) builds the six files (`ingestion/site_export.py`), checks
+them against `site/data/schemas/`, scans them for loan ids and identifiers, uploads them to a new run folder
+in the **private** R2 bucket `cecl-data`, checks every object, and switches `current.json`. The finance router
+reads that pointer, so the site refreshes **without a rebuild or deploy**. Until the first publish (or if a
+file is ever missing) the router serves the copy built into the Pages site.
+
+- **One-off set-up (Martins):** create the R2 bucket `cecl-data` (Cloudflare → R2 → Create bucket); create an
+  R2 API token with **Object Read & Write on `cecl-data` only**; put `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
+  and `R2_ENDPOINT` (`https://<account id>.r2.cloudflarestorage.com`) in the CECL stack's secrets on the VM
+  (`/srv/cecl/secrets`) and, for dev runs, in `.env`. Then merge the router change in portfolio-site and run its
+  Deploy (target `worker`), which adds the `CECL_DATA` binding.
+- **Prod only:** `CECL_ENV=prod` publishes at the bucket's root (what the site serves); dev writes under
+  `dev/` (never served); local never publishes.
+- **Rollback:** `python -m ingestion.site_publish list`, then `python -m ingestion.site_publish rollback <run key>`.
+  The newest 5 runs are kept.
+- **Code changes** to the pages still go through a PR and the manual **Deploy site** workflow; data does not.

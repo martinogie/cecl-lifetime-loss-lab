@@ -43,8 +43,8 @@ current rule: no AI-assisted or no-tracking lines in the footer).
 reserve by loan group (sums only). Schemas: `site/data/schemas/files.schema.json`; CI checks every file and
 that no file holds a loan id, email, IP address or workspace host.
 
-**Refresh (proposal for Martins):** the data changes once a quarter, after the close. Simplest: re-export and
-redeploy the `cecl` Pages project (one build a quarter, far inside the free tier). Alternative, as Bank
-Health: a private R2 bucket with a `current.json` pointer, read by the router (needs an R2 token and a
-router change). Publishing in either form runs only from `CECL_ENV=prod` and after every check of the
-close passes.
+**Refresh (automatic; Martins, 21 November 2026):** as on Bank Health, the data is published to the private R2
+bucket `cecl-data` by the `cecl_publish_site` DAG after each successful prod run (`ingestion/site_publish.py`:
+schemas, identifier scan, new run folder, `current.json` switch, newest 5 kept). The finance router serves
+`/cecl/data/*` from the current run and falls back to the Pages copy until the first publish. No rebuild or
+deploy is needed for a data refresh. Runbook: "Website data refresh".
