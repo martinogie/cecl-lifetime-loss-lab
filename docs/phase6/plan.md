@@ -1,6 +1,6 @@
 # Phase 6 plan: validation
 
-**Status (20 November 2026): proposed, waiting for Martins's decisions (end of this file). Nothing built.**
+**Status (20 November 2026): decisions taken (end of this file); final test designs and pass/fail rules in `docs/phase6/test_designs.md`; waiting for Martins's written expectations (`docs/phase6/backtest_expectations.md`). Nothing run.**
 
 Educational model on Freddie Mac conforming mortgages (sample book); not an audited reserve and not
 accounting advice. Model v2 is `@challenger`. It failed its holdout (L-038), and the check that measured
@@ -150,3 +150,20 @@ Bank Health. Never on a Monday before 13:00 or between 02:30 and 04:00.
    the comparison uses total loan allowance ratios only. That last option is a weaker comparison.
 5. **Expectations:** Martins writes his expectations for the crisis and rolling backtests (as for the
    holdout) before they run, or delegates the wording.
+
+## Decisions (Martins, 20 November 2026)
+
+1. **Crisis backtest:** approved as proposed.
+2. **Rolling backtest:** every year-end 2012-2022 (11 dates); both economies (as it happened, and flat
+   then reverted). Use refits, not the booked models: refit the logistic PD models and the LGD model for
+   each date using only data available at that date (logistic only, no LightGBM). Report the
+   Databricks minutes first; if 11 refits exceed about 120 minutes, propose every other year instead.
+   (Estimate: about 75 minutes for the rolling backtest, about 90 for Phase 6, so all 11 dates.)
+3. **Forbearance test:** approved as proposed.
+4. **Peer data:** check (read-only) whether Bank Health's call-report data includes Schedule RI-C and
+   where it lives; do not modify Bank Health. If RI-C is missing, CECL downloads the public FFIEC / FDIC
+   call-report data itself, in its own pipeline (aggregates only, read-only use). No fallback to
+   total-loan ratios. (Result: RI-C is missing from Bank Health, and the FDIC API lacks it; see
+   `docs/phase6/test_designs.md`.)
+5. **Expectations:** Martins writes his expectations for the crisis and rolling backtests before they
+   run. The final test designs and pass/fail rules are committed first, then the work stops.
