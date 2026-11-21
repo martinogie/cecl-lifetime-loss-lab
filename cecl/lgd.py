@@ -152,6 +152,18 @@ class TwoStepLGD:
         return self.p_loss(X) * self.severity(X)
 
 
+@dataclass
+class FlooredLGD:
+    """Phase 5 sensitivity: the booked two-step LGD with a floor on the severity of loans that lose
+    (P(any loss) x max(severity, floor)). The booked model has no floor."""
+
+    model: Any
+    floor: float
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        return self.model.p_loss(X) * np.maximum(self.model.severity(X), self.floor)
+
+
 def evaluate(model: TwoStepLGD, frame: Any, groups: dict[str, Any]) -> dict[str, Any]:
     """Predicted vs actual loss in money (balance-weighted, as a reserve is) overall and by group, plus
     the share of events with any loss, predicted vs actual."""

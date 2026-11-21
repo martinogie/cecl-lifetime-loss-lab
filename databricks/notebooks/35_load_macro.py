@@ -28,7 +28,11 @@ SILVER = environment.databricks_schema("silver")
 environment.assert_can_write(SILVER)
 FILES = "/Volumes/" + environment.databricks_schema("bronze").replace(".", "/") + "/raw/macro_silver"
 DEFAULT_TABLES = ("state_monthly", "national_monthly", "long_run_averages", "fed_paths")
-KNOWN = DEFAULT_TABLES + ("household_monthly", "fed_paths_2025")  # v2 stress inputs; 2025 Fed paths
+KNOWN = DEFAULT_TABLES + (
+    "household_monthly",
+    "fed_paths_2025",
+    "fed_paths_calendar",
+)  # v2 stress inputs; 2025 Fed paths
 chosen = [t.strip() for t in dbutils.widgets.get("tables").split(",") if t.strip()]
 TABLES = tuple(chosen) or DEFAULT_TABLES
 if set(TABLES) - set(KNOWN):

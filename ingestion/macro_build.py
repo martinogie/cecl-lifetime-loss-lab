@@ -404,10 +404,13 @@ def build_fed_paths(
     reserve_month: date,
     contract: dict[str, Any] | None = None,
     timing: str = FED_TIMING,
+    table: str = "",
 ) -> dict[str, Any]:
     """An earlier year's Fed paths for an earlier reserve date -> silver fed_paths_<year> (same columns as
     fed_paths). Anchored on our real national values in `reserve_month` (silver national_monthly must
-    already exist); Fed quarter 1 lands on the quarter after it, as for the current year (ADR-003)."""
+    already exist); Fed quarter 1 lands on the quarter after it, as for the current year (ADR-003).
+    Also builds the current year's paths with the `calendar` timing for the Phase 5 sensitivity
+    (`key="fed"`, `timing="calendar"`, `table="fed_paths_calendar"`)."""
     contract = contract or mc.load_contract()
     year = int(contract[key]["year"])
     national = pq.read_table(silver_path(root, "national_monthly")).to_pylist()
@@ -425,7 +428,7 @@ def build_fed_paths(
         }
         for p in paths
     ]
-    table = f"fed_paths_{year}"
+    table = table or f"fed_paths_{year}"
     n = write_table(_table(rows), silver_path(root, table))
     return {"table": table, "rows": n, "reserve_month": reserve_month.isoformat(), "fed_timing": timing,
             "fed_start_quarter": f"{start_quarter[0]} Q{start_quarter[1]}",
