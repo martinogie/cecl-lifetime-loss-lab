@@ -903,6 +903,37 @@ resources:
           timeout_seconds: 0
           max_retries: 0
 
+    clone_to_prod:
+      name: cecl_lab_clone_to_prod_${var.env}
+      description: "Cutover, once (prod only): deep-clone the checked dev tables and model versions into the prod catalog, with tie-outs"
+      timeout_seconds: 0
+      max_concurrent_runs: 1
+      tags:
+        project: cecl_lab
+        env: ${var.env}
+      environments:
+        - environment_key: ml
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+      parameters:
+        - name: env
+          default: ${var.env}
+        - name: layout
+          default: ${var.layout}
+        - name: source_catalog
+          default: cecl_lab_dev
+        - name: code_version
+          default: unknown
+      tasks:
+        - task_key: clone_to_prod
+          notebook_task:
+            notebook_path: ./notebooks/67_clone_to_prod.py
+          environment_key: ml
+          timeout_seconds: 0
+          max_retries: 0
+
     load_macro_tables:
       name: cecl_lab_load_macro_tables_${var.env}
       description: "Load named silver economic tables from the volume (e.g. fed_paths_2025), nothing else; tie-out rows"
