@@ -10,3 +10,5 @@ pre-commit>=4.0.0
 openpyxl==3.1.5  # step 6: reads Freddie's Clarity summary exports (.xlsx)
 build>=1.2.2      # builds the wheel the Databricks bundle deploys (databricks/databricks.yml)
 numpy==2.4.6      # cecl/metrics.py (weighted measures; tested in CI)
+jsonschema==4.25.1  # site publish: files checked against site/data/schemas (ingestion/site_publish.py)
+boto3==1.42.35      # site publish to R2 (ingestion/site_publish.py; tests use a fake bucket)
