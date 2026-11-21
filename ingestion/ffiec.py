@@ -394,6 +394,10 @@ def load_period(root: Path, period: date, client: Client, contract: Mapping[str,
     breaks the contract; nothing is written to bronze then."""
     panel = client.panel(period)
     assets = fdic_assets(prior_june(period), fetch, contract)
+    relief = contract.get("asset_relief") or {}
+    if period.year in relief.get("years", []):  # COVID-era relief: the lesser of the two dates' assets
+        alt = fdic_assets(date.fromisoformat(relief["lesser_of_date"]), fetch, contract)
+        assets = {c: min(a, alt.get(c, a)) for c, a in assets.items()}
     filers = ric_filers(panel, assets, float(contract["ric_asset_threshold_thousands"]))
     counts = {"panel": len(panel), "ric_filers": len(filers), "cached": 0, "fetched": 0}
     for i, rssd in enumerate(filers, 1):

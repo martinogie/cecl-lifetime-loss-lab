@@ -207,6 +207,21 @@ def test_load_is_resumable_and_checks_the_contract(tmp_path: Path) -> None:
                           sleep=lambda s: None), CONTRACT, fetch=fdic_fetch(ASSETS), log=lambda m: None)  # fmt: skip
 
 
+def test_covid_relief_uses_the_lesser_assets(tmp_path: Path) -> None:
+    """2021 reports: the $1bn test on the lesser of June 2020 and December 2019 assets."""
+    period = date(2021, 12, 31)
+
+    def fetch(url: str) -> bytes:
+        assets = {1: 2_000_000, 2: 150_000_000} if "20200630" in url else {1: 900_000, 2: 150_000_000}
+        rows = [{"data": {"CERT": c, "ASSET": a}} for c, a in assets.items()]
+        return json.dumps({"meta": {"total": len(rows)}, "data": rows if "offset=0" in url else []}).encode()
+
+    api = FakeApi(PANEL, {222: sdf()})
+    client = ffiec.Client(ffiec.credentials(ENV), CONTRACT, opener=api, sleep=lambda s: None)
+    counts = ffiec.load_period(tmp_path, period, client, CONTRACT, fetch=fetch, log=lambda m: None)
+    assert counts["ric_filers"] == 1 and counts["ok"] == 1  # bank 111 was under $1bn at 31 Dec 2019
+
+
 def test_aggregates_by_size_group() -> None:
     rows = [
         {

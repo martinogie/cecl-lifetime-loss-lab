@@ -12,6 +12,14 @@ initial_periods: ["2020-12-31", "2021-12-31", "2022-12-31", "2023-12-31", "2024-
 # 30 June of the previous calendar year (FFIEC 031/041 instructions, RI-C, footnote 1). Total assets
 # for that test come from the FDIC's public API (no key), matched on the FDIC certificate number.
 ric_asset_threshold_thousands: 1000000
+# COVID-era relief (2020 interagency rule on reporting thresholds): for reports in 2021, a bank could
+# measure the $1bn test on the lesser of its assets at the usual date and at 31 December 2019, because
+# PPP loans and deposit inflows had pushed many banks over thresholds. Checked on the live 2021 data
+# (20 November 2026): 111 of the 112 banks above $1bn in June 2020 that filed no RI-C were under $1bn at
+# 31 December 2019. This corrects who must file; the filer-share checks below are unchanged.
+asset_relief:
+  years: [2021]
+  lesser_of_date: "2019-12-31"
 fdic_api: https://api.fdic.gov/banks/financials
 
 # The items kept per bank and period (amounts in thousands of dollars, as reported), by item code.
