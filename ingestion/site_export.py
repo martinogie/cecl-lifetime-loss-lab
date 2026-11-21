@@ -28,6 +28,9 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]  # the repository (committed aggregates under docs/)
 OUT = ROOT / "site" / "public" / "data"
 DATA_ROOT = ROOT / "data"  # the data folder (git-ignored); /opt/airflow/data in the Airflow containers
+# The Loss explorer's group totals (aggregates only), saved when the data is exported on the PC so the VM's
+# publish step never needs the loan-level priced files (only code, logs and small outputs live on the VM).
+BY_GROUP = "docs/phase4/reserve_by_group_2026Q2.json"
 FILES = (
     "overview.json",
     "explorer.json",
@@ -295,13 +298,22 @@ def build(data_root: Path = DATA_ROOT) -> dict[str, dict[str, Any]]:
         read("docs/phase6/backtests.json"),
         read("docs/phase6/l043_breakdown.json"),
     )
-    return {"overview.json": overview(r, comp, stress, peer), "explorer.json": explorer(data_root),
+    saved = read(BY_GROUP)
+    expl = (
+        (header() | {k: v for k, v in saved.items() if k not in ("dataAsOf", "status")})
+        if saved
+        else explorer(data_root)
+    )
+    return {"overview.json": overview(r, comp, stress, peer), "explorer.json": expl,
             "scenarios.json": scenarios(stress), "disclosures.json": disclosures(r), "methods.json": methods(bt, l043),
             "pipeline.json": pipeline()}  # fmt: skip
 
 
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
+    groups = explorer()  # recomputed from the priced files on the PC, then saved for the VM
+    (ROOT / BY_GROUP).write_text(json.dumps(groups, indent=1), encoding="utf-8")
+    print(f"written {BY_GROUP}")
     for name, data in build().items():
         (OUT / name).write_text(json.dumps(data, indent=1), encoding="utf-8")
         print(f"written site/public/data/{name}")

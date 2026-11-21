@@ -73,6 +73,8 @@ x-airflow-common:
     - ${AIRFLOW_LOGS_DIR:-./logs}:/opt/airflow/logs
     - ../cecl:/opt/airflow/cecl:ro
     - ../ingestion:/opt/airflow/ingestion:ro
+    - ../docs:/opt/airflow/docs:ro            # committed aggregate results (the site publish reads them)
+    - ../site/data:/opt/airflow/site/data:ro  # the site's data schemas (checked before every publish)
     - ../dbt:/opt/airflow/dbt
     - ${CECL_DATA_DIR:-../data}:/opt/airflow/data   # small outputs and short-lived temp files only
   user: "${AIRFLOW_UID:-50000}:0"
