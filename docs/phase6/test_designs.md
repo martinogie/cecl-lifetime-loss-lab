@@ -101,6 +101,8 @@ So CECL loads the FFIEC call-report data (Schedule RI-C, the allowance by loan c
 institutions with $1bn or more in assets) in its own pipeline, with a data contract. Only aggregates are
 kept: the median and middle 50% by bank-size group.
 
+Built as the official FFIEC Public Web Service pipeline (`ingestion/ffiec.py`; Martins, 20 November 2026). The measure is RI-C item 1.c, residential real estate loans as each bank segments its allowance: 1-4 family first and junior liens and home-equity lines, with multifamily at some banks. It is the closest public measure to a 1-4 family mortgage reserve ratio, and the memo says so.
+
 Comparison rule (no pass/fail; a sanity range): our ratios are shown against the bank distribution and
 Freddie's 0.19%. The memo says "inside", "below" or "above" the middle 50%, with the reasons.
 

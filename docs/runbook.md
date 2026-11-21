@@ -211,3 +211,27 @@ docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down      # sto
 DAGs start paused. `cecl_health_check` (Wednesdays 07:00) reads the run log and alerts if the
 economic data hasn't refreshed in 8 days, the latest run of a pipeline failed, or a source is
 stale. `cecl_macro_data` (Wednesdays 08:00) loads the economic data and writes its run-log record.
+
+## FFIEC call reports (Phase 6 peer comparison)
+
+Source: the FFIEC Central Data Repository Public Web Service (REST API, SIS611 v1.10), Schedule RI-C
+for every institution with $1bn or more in assets. Code: `ingestion/ffiec.py`, contract
+`ingestion/contracts/ffiec_call.yml`, Airflow DAG `cecl_ffiec_call_reports` (quarterly, 15th of
+February, May, August and November at 14:00 Chicago). Bank Health is never touched.
+
+1. **Secrets (Martins):** create the PWS account at cdr.ffiec.gov, generate a token, and add
+   `FFIEC_PWS_USERNAME` and `FFIEC_PWS_TOKEN` to `.env` on the PC and in the CECL stack's `.env` on the VM
+   (`/srv/cecl/secrets`). Never in git, never printed.
+2. **Initial load (PC):** `CECL_ENV=local python -m scripts.load_ffiec`. It covers year-ends 2020-2025,
+   30 June 2026 and the latest public quarter: about 1,100 banks per period, one call every 2 seconds, so
+   about 4-5 hours. It is resumable: stop and re-run at any time, and finished bank-periods are skipped
+   (cache in `data/raw/ffiec/`). It refuses to start on a Monday before 13:00 or between 02:30 and 04:00.
+3. **Output:** aggregates only, in `docs/phase6/peer_ratios.json`: the median, middle 50% and 10th-90th
+   percentile of the residential allowance ratio by bank size, and the pooled ratio.
+4. **Token renewal (every 90 days):** the Wednesday health check warns in the [CECL] channels from 14 days
+   before expiry. Loads stop with "The FFIEC PWS token expired ..." once it has expired. Generate a new
+   token in the PWS account and replace `FFIEC_PWS_TOKEN` in both `.env` files.
+5. **If the contract fails** (for example RI-C missing for more than 5% of filers, or RI-C item 6 not
+   equal to Schedule RC item 4.c for more than 2%), the load stops before bronze. Look at the cached
+   `status` values in `data/raw/ffiec/<period>/` and fix the contract or the parser. Never loosen a check
+   just to make it pass.

@@ -16,7 +16,11 @@ from typing import Any
 WEEKLY = ("macro",)  # pipelines with a weekly schedule (Freddie loads are quarterly, by hand)
 MAX_AGE_DAYS = 8  # one weekly run may be late by a day before it counts as missing
 # Early failure records (16 Nov 2026, before the callback named its pipeline) used the DAG id.
-ALIASES = {"cecl_macro_data": "macro", "cecl_health_check": "health_check"}
+ALIASES = {
+    "cecl_macro_data": "macro",
+    "cecl_health_check": "health_check",
+    "cecl_ffiec_call_reports": "ffiec",
+}
 
 
 def problems(
