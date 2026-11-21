@@ -18,6 +18,7 @@ is left alone (safe to re-run). @champion is never touched. API calls, no comput
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from typing import Any
@@ -64,6 +65,9 @@ def main(argv: list[str] | None = None) -> int:
     if environment.current_env() != "prod":
         raise SystemExit("copy_models_to_prod runs only with CECL_ENV=prod")
     target = environment.databricks_schema("ml").split(".")[0]
+    # Pin every Databricks login to CECL's profile: MLflow's file transfers otherwise use the CLI's default
+    # profile, which on Martins's PC is Bank Health's (same guard as cecl.tracking.configure).
+    os.environ["DATABRICKS_CONFIG_PROFILE"] = tracking.profile()
     import mlflow
 
     tracking_uri, registry_uri = tracking.tracking_uris()
