@@ -107,10 +107,15 @@ for folder in INPUTS:
 
 mlflow.set_registry_uri("databricks-uc")
 client = MlflowClient()
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS {DST}.ml")
 for m in MODELS:
     src_name, dst_name = f"{SRC}.ml.{m}", f"{DST}.ml.{m}"
     src = client.get_model_version_by_alias(src_name, "challenger")
-    new = client.copy_model_version(src_model_uri=f"models:/{src_name}/{src.version}", dst_name=dst_name)
+    # Register from the same training run the dev version came from (as scripts/register_v2.py did), so prod
+    # holds the identical model files. copy_model_version cannot fetch a models:/ source in this workspace.
+    new = mlflow.register_model(f"runs:/{src.run_id}/model", dst_name)
+    if new.run_id != src.run_id:
+        raise RuntimeError(f"{dst_name} v{new.version} is not from run {src.run_id}")
     for k, v in (src.tags or {}).items():
         client.set_model_version_tag(dst_name, new.version, k, v)
     client.set_model_version_tag(dst_name, new.version, "copied_from", f"{src_name} v{src.version}")
