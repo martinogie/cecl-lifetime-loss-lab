@@ -25,6 +25,7 @@ import hashlib
 import json
 import os
 import pickle
+from pathlib import Path
 
 for name, default in (("env", ""), ("layout", "catalogs"), ("reserve_ym", ""), ("code_version", "unknown")):
     dbutils.widgets.text(name, default)
@@ -79,15 +80,23 @@ inp = {"lgd": lgd_model, "curtail": curtail,
        "fed": {y: spark.table(f"{SILVER}.macro_{scenarios.FED_TABLES[y]}").toPandas() for y in years},
        "long_run": spark.table(f"{SILVER}.macro_long_run_averages").toPandas()}  # fmt: skip
 
+# Priced files are kept in a work folder and reused by a re-run while the projection file is unchanged (as the
+# PC caches them): a failure after the 15-minute pricing does not cost the pricing again.
+WORK = f"{CLOSE}/{R}/work"
+os.makedirs(WORK, exist_ok=True)
 runs = {}
 for s in SC:
     runs[(P, P, s)] = pd.read_parquet(f"{PRIOR}/priced_{P}_{P}_{s}.parquet")
     for E in (R, P):
-        src = f"{RES}/book_{R}_{E}_{s}.parquet"
-        book = pd.read_parquet(src)
-        close.check_settings(book, src)
-        weights = close.state_weights(book if E == R else runs[(P, P, s)])  # the E book's state mix
-        runs[(R, E, s)] = close.price(book, R, E, s, inp, weights)
+        src, cache = f"{RES}/book_{R}_{E}_{s}.parquet", f"{WORK}/priced_{R}_{E}_{s}.parquet"
+        if os.path.exists(cache) and os.path.getmtime(cache) > os.path.getmtime(src):
+            runs[(R, E, s)] = pd.read_parquet(cache)
+        else:
+            book = pd.read_parquet(src)
+            close.check_settings(book, src)
+            weights = close.state_weights(book if E == R else runs[(P, P, s)])  # the E book's state mix
+            runs[(R, E, s)] = close.price(book, R, E, s, inp, weights)
+            runs[(R, E, s)].to_parquet(cache, index=False)
         print(R, E, s, f"{runs[(R, E, s)]['total'].sum():,.2f}", flush=True)
 
 # COMMAND ----------
@@ -135,7 +144,7 @@ print(
 
 # COMMAND ----------
 
-log, assessed = overlays.load(OVERLAY_LOG)
+log, assessed = overlays.load(Path(OVERLAY_LOG))
 frames = {s: runs[(R, R, s)] for s in SC}
 modelled = close.weighted({s: float(f["total"].sum()) for s, f in frames.items()})
 pipe = close.defaulted_pipeline(con, rel, R, lgd_model)
