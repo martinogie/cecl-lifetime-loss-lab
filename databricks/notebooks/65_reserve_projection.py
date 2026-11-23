@@ -32,7 +32,7 @@ import pandas as pd
 from cecl import engine, environment, scenarios, stress
 from cecl import features as fx
 from cecl.models import simulate
-from ingestion import feature_build as fb
+from ingestion import reserve_book as rb
 
 environment.require_airflow_env()
 GOLD, SILVER = environment.databricks_schema("gold"), environment.databricks_schema("silver")
@@ -68,46 +68,8 @@ KEEP = ["loan_id", "vintage_year", "property_state", "credit_score", "loan_age",
 
 
 def reserve_book(R):
-    """Loans alive at the end of R: their start row for R, history, and actual state at the end of R."""
-    parts = [spark.sql(fb.v2_projection_starts_sql(v, fb.databricks_relations(environment.databricks_schema, v), "spark", starts=(R,), keep_censored=True))
-             for v in range(1999, int(R[:4]) + 1)]  # fmt: skip
-    df = parts[0]
-    for p in parts[1:]:
-        df = df.unionByName(p, allowMissingColumns=True)
-    start = df.toPandas()
-    end = spark.sql(f"select loan_id, status, least(effective_months_late, 2) as first_state, "
-                    f"case when flagged_pause then 1 else 0 end as first_pause from {GOLD}.loan_panel "
-                    f"where period_ym = '{R}'").toPandas()  # fmt: skip
-    last_month = spark.sql(f"select max(period_ym) from {GOLD}.loan_panel").collect()[0][0]
-    alive = end["status"].isin(["current", "delinquent"]) | (
-        (end["status"] == "censored") & (R == last_month)
-    )
-    print(
-        R,
-        "start rows",
-        len(start),
-        "| panel statuses",
-        end["status"].value_counts().to_dict(),
-        "| alive",
-        int(alive.sum()),
-    )
-    start = start.merge(end[alive][["loan_id", "first_state", "first_pause"]], on="loan_id", how="inner")
-    if start.empty:
-        raise ValueError(f"reserve book for {R} is empty: stopping")
-    print(
-        R,
-        "book",
-        len(start),
-        "balance",
-        float(start["upb_start"].sum()),
-        "states",
-        start["property_state"].nunique(),
-        "upb_start nulls",
-        int(start["upb_start"].isna().sum()),
-    )
-    start = start.sort_values("loan_id").reset_index(drop=True)
-    history = spark.sql(fb.v2_projection_history_sql(f"{GOLD}.loan_panel", starts=(R,))).toPandas()
-    return start, history
+    """The book at R (ingestion/reserve_book.py, moved there unchanged for the close and monitoring)."""
+    return rb.reserve_book(spark, R)
 
 
 results, books = {}, {}

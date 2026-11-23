@@ -75,6 +75,7 @@ x-airflow-common:
     - ../ingestion:/opt/airflow/ingestion:ro
     - ../docs:/opt/airflow/docs:ro            # committed aggregate results (the site publish reads them)
     - ../site/data:/opt/airflow/site/data:ro  # the site's data schemas (checked before every publish)
+    - ../.git:/opt/airflow/repo.git:ro        # the VM's commit: the close checks the prod jobs were deployed from it
     - ../dbt:/opt/airflow/dbt
     - ${CECL_DATA_DIR:-../data}:/opt/airflow/data   # small outputs and short-lived temp files only
   user: "${AIRFLOW_UID:-50000}:0"
