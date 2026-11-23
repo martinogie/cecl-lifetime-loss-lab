@@ -52,13 +52,16 @@ os.makedirs(f"{OUT}/quarterly", exist_ok=True)
 STEPS = ("current", "30", "60")
 mlflow.set_registry_uri("databricks-uc")
 models, versions = {}, {}
+client = mlflow.MlflowClient()
 for step in STEPS:
     name = environment.registered_model(f"pd_v2_transition_{step}")
-    uri = f"models:/{name}@{environment.CHALLENGER}"
-    models[fx.STATES.index(step)] = mlflow.pyfunc.load_model(uri).unwrap_python_model().inner.model
-    versions[name] = str(
-        mlflow.MlflowClient().get_model_version_by_alias(name, environment.CHALLENGER).version
+    v = client.get_model_version_by_alias(name, environment.CHALLENGER)
+    # Loaded from the version's training run, as the reserve projection does: serverless compute may not read
+    # model files from Unity Catalog storage here (found in the Phase 8 dev check, 23 Nov 2026).
+    models[fx.STATES.index(step)] = (
+        mlflow.pyfunc.load_model(f"runs:/{v.run_id}/model").unwrap_python_model().inner.model
     )
+    versions[name] = str(v.version)
 state_m = spark.table(f"{SILVER}.macro_state_monthly").toPandas()
 nat_m = spark.table(f"{SILVER}.macro_national_monthly").toPandas()
 long_run = spark.table(f"{SILVER}.macro_long_run_averages").toPandas()
