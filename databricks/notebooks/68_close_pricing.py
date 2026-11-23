@@ -93,21 +93,34 @@ for s in SC:
 # COMMAND ----------
 
 # Loss data: small frames from the prod tables, then the PC's SQL through DuckDB.
+
+
+def to_pandas(sdf):
+    """Spark -> pandas with exact decimals as doubles: DuckDB would otherwise guess a decimal width from the
+    first values and fail on larger ones (found in the Phase 8 dev check, 23 Nov 2026)."""
+    from pyspark.sql import functions as F
+    from pyspark.sql.types import DecimalType
+
+    cols = [F.col(f.name).cast("double").alias(f.name) if isinstance(f.dataType, DecimalType) else F.col(f.name)
+            for f in sdf.schema.fields]  # fmt: skip
+    return sdf.select(*cols).toPandas()
+
+
 codes = ", ".join(f"'{c}'" for c in close.LOSS_CODES)
 cols = ("loan_id, period, current_upb, delinquency_status, zero_balance_code, zero_balance_date, "
         "zero_balance_removal_upb, actual_loss, mi_recoveries, non_mi_recoveries")  # fmt: skip
-perf = spark.sql(f"""select {cols} from {BRONZE}.freddie_performance
+perf = to_pandas(spark.sql(f"""select {cols} from {BRONZE}.freddie_performance
     where zero_balance_code in ({codes})
        or (period in ('{P}', '{R}') and zero_balance_code is null
-           and (delinquency_status = 'RA' or try_cast(delinquency_status as int) >= 3))""").toPandas()  # fmt: skip
+           and (delinquency_status = 'RA' or try_cast(delinquency_status as int) >= 3))"""))  # fmt: skip
 spark.sql(f"select loan_id, period_ym, status, current_upb from {GOLD}.loan_panel where status = 'defaulted'"
           ).createOrReplaceTempView("cecl_close_defaults")  # fmt: skip
-panel_def = spark.table("cecl_close_defaults").toPandas()
-perf_def = spark.sql(f"""select p.loan_id, p.period, p.zero_balance_code, p.zero_balance_date, p.delinquency_status,
+panel_def = to_pandas(spark.table("cecl_close_defaults"))
+perf_def = to_pandas(spark.sql(f"""select p.loan_id, p.period, p.zero_balance_code, p.zero_balance_date, p.delinquency_status,
         p.actual_loss, p.zero_balance_removal_upb
-    from {BRONZE}.freddie_performance p left semi join cecl_close_defaults d on p.loan_id = d.loan_id""").toPandas()  # fmt: skip
-orig = spark.sql(f"""select loan_id, property_state, orig_upb, orig_ltv, mi_pct, credit_score, occupancy_status,
-        first_payment_date from {BRONZE}.freddie_origination""").toPandas()  # fmt: skip
+    from {BRONZE}.freddie_performance p left semi join cecl_close_defaults d on p.loan_id = d.loan_id"""))  # fmt: skip
+orig = to_pandas(spark.sql(f"""select loan_id, property_state, orig_upb, orig_ltv, mi_pct, credit_score, occupancy_status,
+        first_payment_date from {BRONZE}.freddie_origination"""))  # fmt: skip
 con = duckdb.connect()
 for name, frame in (("perf_close", perf), ("perf_def", perf_def), ("panel_def", panel_def), ("orig_t", orig),
                     ("state_m", inp["state"])):  # fmt: skip
@@ -146,8 +159,8 @@ br = close.finish_bridge(close.bridge(runs, P, R), dP, dR)
 
 year_before = f"{int(R[:4]) - 1}12"
 lev = close.losses(con, rel, "199901", year_before)
-bal = spark.sql(f"select substr(period_ym, 1, 4) as year, sum(current_upb) / 12.0 as avg_balance from {GOLD}.loan_panel "
-                f"where period_ym <= '{year_before}' group by 1").toPandas().set_index("year")["avg_balance"]  # fmt: skip
+bal = to_pandas(spark.sql(f"select substr(period_ym, 1, 4) as year, sum(current_upb) / 12.0 as avg_balance from {GOLD}.loan_panel "
+                f"where period_ym <= '{year_before}' group by 1")).set_index("year")["avg_balance"]  # fmt: skip
 ob = con.sql("select cast(substr(first_payment_date, 1, 4) as int) as vintage_year, sum(orig_upb) as orig_balance "
              "from orig_t group by 1").df().set_index("vintage_year")["orig_balance"]  # fmt: skip
 bench = close.benchmarks(lev, bal, orig_year, ob, pd.read_parquet(f"{RES}/book_{R}_{R}_baseline.parquet"), R)
