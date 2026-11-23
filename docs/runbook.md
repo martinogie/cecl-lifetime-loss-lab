@@ -255,3 +255,43 @@ file is ever missing) the router serves the copy built into the Pages site.
 - **Rollback:** `python -m ingestion.site_publish list`, then `python -m ingestion.site_publish rollback <run key>`.
   The newest 5 runs are kept.
 - **Code changes** to the pages still go through a PR and the manual **Deploy site** workflow; data does not.
+
+## Quarterly close (Phase 8, ADR-012)
+
+Once per environment, before the first live close (PC, `CECL_ENV=prod`): seed the Phase 4 closes the live
+close starts from, after a dry run that checks every booked frame against the committed totals:
+
+```sh
+CECL_ENV=prod python -m scripts.seed_close          # dry run: builds and checks, uploads nothing
+CECL_ENV=prod python -m scripts.seed_close --yes    # uploads results/close/<ym>/ and models/phase3/
+```
+
+Each quarter, after Freddie's release (never Monday before 13:00 or with 02:30 within 4 hours):
+
+1. **Freddie files** (Martins, ADR-001): download the new sample zips in the browser and upload them to
+   `/Volumes/cecl_lab/bronze/raw/freddie/sample/` (one `sample_<year>.zip` per origination year). If Freddie
+   changed the file layout, add the release's data contract first (a dev step with its own PR).
+2. **Overlay review** (Martins, ADR-006): add this quarter-end's review to `docs/governance/overlay_log.json`
+   (an overlay or an assessment with `reserve_ym`), maker and checker, merged to main.
+3. **Deploy** from main: on the VM pull and restart (as in `docs/vm_cutover.md`); from the PC
+   `databricks bundle deploy -t prod --profile cecl` at the same commit (the close refuses jobs deployed from
+   another commit).
+4. **Trigger** `cecl_quarterly_close` in the VM's Airflow with `reserve_ym` (e.g. `202609`) and Freddie's release
+   number. It takes about 2.5 to 3 hours; a failed step alerts and stops (heavy jobs never retry by themselves).
+5. **Review**: the VM holds `data/close/<R>/close.json`, `monitoring.json` and `committee_pack.md`. They go into
+   `docs/governance/committee_packs/<YYYYQn>/` through a PR; the maker and checker sign on different days;
+   the merge commit is tagged `cecl-<YYYYQn>-close`.
+6. **Publish** the site (`cecl_publish_site`) after the merge.
+
+A failed control leaves `results/close/<R>/controls_failed.json` in the volume and nothing booked. Fix the
+cause and trigger again (every step is safe to repeat). Re-running a *past* quarter is not done by this DAG:
+rebuild it from its snapshot (the close record's Delta versions, model versions and commit).
+
+## Model monitoring (Phase 8, ADR-012)
+
+`cecl_weekly_monitoring` runs on Wednesdays at 09:00. It reports each source's freshness from what the VM holds.
+When a new economic month has arrived, it scores the live book on Databricks and compares each transition's
+scores with the baseline by PSI: amber above 0.10, red above 0.25. The quarterly calibration runs inside the
+close. Retraining is due yearly, or when two quarters in a row show a judged default cell outside 0.80-1.25 or
+the same transition with PSI above 0.25 (`cecl.monitoring.retrain_due`); a retrain is a new model version with
+its own validation and Martins's approval.
