@@ -177,6 +177,7 @@ def test_committee_pack_renders_every_section() -> None:
     assert "**$300,000,000.00**" in md and "| Maker (prepared the close) | | | |" in md
     assert "DRAFT for review" in md and "not an audited bank reserve" in md
     assert committee_pack.quarter_folder("202609") == "2026Q3"
+    assert committee_pack.mill(-14.0e6) == "-$14.0m" and committee_pack.money(-865575) == "-$865,575.00"
 
 
 # ---------------------------------------------------------------- Databricks client
