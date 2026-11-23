@@ -164,6 +164,19 @@ class FlooredLGD:
         return self.model.p_loss(X) * np.maximum(self.model.severity(X), self.floor)
 
 
+def portable(model: Any) -> Any:
+    """A copy of a fitted LGD model that loads on Databricks: scikit-learn keeps a numpy random generator
+    (`_feature_subsample_rng`) used only while fitting, and a generator pickled by numpy 2 on the PC cannot be
+    rebuilt by an older numpy. Removing it changes no prediction (checked by the caller, `scripts/seed_close.py`)."""
+    import copy
+
+    out = copy.deepcopy(model)
+    for part in (getattr(out, "step1", None), getattr(out, "step2", None)):
+        if part is not None and hasattr(part, "_feature_subsample_rng"):
+            part._feature_subsample_rng = None
+    return out
+
+
 def evaluate(model: TwoStepLGD, frame: Any, groups: dict[str, Any]) -> dict[str, Any]:
     """Predicted vs actual loss in money (balance-weighted, as a reserve is) overall and by group, plus
     the share of events with any loss, predicted vs actual."""

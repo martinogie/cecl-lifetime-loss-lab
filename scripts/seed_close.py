@@ -21,13 +21,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import pickle
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
-from cecl import close, environment, scenarios
+import numpy as np
+
+from cecl import close, environment, lgd, scenarios
 from scripts import build_reserve as br
 
 PROFILE = "cecl"
@@ -114,8 +117,18 @@ def main(argv: list[str] | None = None) -> int:
                 (folder / "booked.parquet", f"{remote}/booked.parquet"),
                 (folder / "close.json", f"{remote}/close.json"),
             ]
-        for name in ("lgd_model.pkl", "ead_rates.json"):
-            plan.append((br.LOCAL / "phase3" / name, f"{vol}/models/phase3/{name}"))
+        # The LGD model as a portable copy (lgd.portable: no fit-time numpy generator, which Databricks' numpy
+        # cannot load), uploaded only if it predicts exactly the same on every LGD event.
+        events = pd.read_parquet(br.LOCAL / "phase3" / "lgd_events.parquet").dropna(
+            subset=["ltv_default", "hpi_change_12"]
+        )
+        light = lgd.portable(inp["lgd"])
+        if not np.array_equal(light.predict(lgd.matrix(events)), inp["lgd"].predict(lgd.matrix(events))):
+            raise SystemExit("the portable LGD model predicts differently: not uploaded")
+        print(f"portable LGD model: identical predictions on {len(events):,} default events")
+        (Path(tmp) / "lgd_model.pkl").write_bytes(pickle.dumps(light, protocol=4))
+        plan.append((Path(tmp) / "lgd_model.pkl", f"{vol}/models/phase3/lgd_model.pkl"))
+        plan.append((br.LOCAL / "phase3" / "ead_rates.json", f"{vol}/models/phase3/ead_rates.json"))
         for local, remote in plan:
             print(f"{'upload' if args.yes else 'would upload'} {local.name} -> {remote}")
             if args.yes:

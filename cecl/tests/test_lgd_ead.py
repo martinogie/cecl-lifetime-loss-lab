@@ -119,3 +119,12 @@ def test_event_sql_follows_every_default_to_its_outcome() -> None:
     # value 250,000 x 150/200 = 187,500 at default; 180,000 / 187,500 = 96%
     assert out.loc["L1", "ltv_default"] == pytest.approx(96.0)
     assert out.loc["L1", "hpi_change_12"] == pytest.approx(150 / 160 - 1) and out.loc["L1", "judicial"] == 1.0
+
+
+def test_portable_lgd_predicts_the_same_without_fit_time_generators() -> None:
+    f = _events()
+    model = lgd.TwoStepLGD(max_iter=40).fit(f)
+    p = lgd.portable(model)
+    assert np.array_equal(p.predict(lgd.matrix(f)), model.predict(lgd.matrix(f)))
+    for part in (p.step1, p.step2):
+        assert getattr(part, "_feature_subsample_rng", None) is None
