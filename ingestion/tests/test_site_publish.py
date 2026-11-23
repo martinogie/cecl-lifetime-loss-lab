@@ -114,3 +114,13 @@ def test_build_needs_no_loan_level_files(tmp_path: Path) -> None:
     docs = site_export.build(tmp_path / "no-data-here")
     assert set(docs) == set(sp.DEFS) and sp.validate(docs) == []
     assert docs["explorer.json"]["totals"]["loans"] > 0
+
+
+def test_written_date_is_chicago_not_utc() -> None:
+    # 22 Nov 2026 21:30 Chicago is already 23 Nov in UTC (the VM's containers): the site must say 22 Nov.
+    from datetime import UTC, datetime
+
+    from ingestion import site_export
+
+    assert site_export.written_on(datetime(2026, 11, 23, 3, 30, tzinfo=UTC)) == "2026-11-22"
+    assert site_export.written_on(datetime(2026, 11, 23, 15, 0, tzinfo=UTC)) == "2026-11-23"
