@@ -19,11 +19,13 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import date
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from cecl.scheduling import TZ
 
 ROOT = Path(__file__).resolve().parents[1]  # the repository (committed aggregates under docs/)
 OUT = ROOT / "site" / "public" / "data"
@@ -60,8 +62,14 @@ def m(x: float) -> float:
     return round(float(x) / 1e6, 3)
 
 
+def written_on(now: datetime | None = None) -> str:
+    """The date the files are written, in Chicago (the project's time zone). The VM's containers run on UTC,
+    so date.today() there showed tomorrow's date after 18:00 Chicago (first prod publish, 22 Nov 2026)."""
+    return (now or datetime.now(TZ)).astimezone(TZ).date().isoformat()
+
+
 def header() -> dict[str, Any]:
-    return {"dataAsOf": {"reserveDate": "2026-06-30", "updated": date.today().isoformat()}, "status": STATUS}
+    return {"dataAsOf": {"reserveDate": "2026-06-30", "updated": written_on()}, "status": STATUS}
 
 
 def overview(

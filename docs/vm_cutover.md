@@ -140,6 +140,28 @@ Health's containers unchanged.
 | G | Dry-run close: rebuild the 30 June 2026 reserve in prod, match dev to the cent ($297.5m), then trigger `cecl_publish_site` (the first prod publish; the site switches to the bucket within a minute) |
 | H | First live close on Freddie's next release (expected late January 2027), with the committee pack |
 
+## What happened (21-22 November 2026): Phases D to G done
+
+| Step | Result |
+|---|---|
+| D | Catalog `cecl_lab` created by Martins in the Databricks UI (the CLI cannot create a catalog on default storage); prod bundle deployed |
+| E | Option A (Martins, 21 Nov): prod starts from the checked dev data. Clone job `67_clone_to_prod`: every table deep-cloned with a row-count tie-out; dbt views recreated from their definitions (deep clone copies tables only); volume inputs (Freddie zips, economic tables) copied with file-count checks. The three v2 models copied from the PC with `scripts/copy_models_to_prod.py`: same training runs, all 9 files per model byte-identical to dev, tags kept, `@challenger` |
+| F | `cecl_macro_data`, `cecl_health_check`, `cecl_ffiec_call_reports` unpaused. First FFIEC run green: 6,834 bank-periods ok over 8 periods (token 89 days left) |
+| G | Prod projection (run 9368301392226, 21 minutes, 15 books) identical to dev loan by loan; priced on the PC: total allowance $328,199,079.68 / $290,087,623.96 / **$297,497,504.04** at 31 Dec 2025 / 31 Mar / 30 Jun 2026, both rollforwards reconcile to the cent, same as dev. First prod publish: `cecl_publish_site` green; the site serves its data from the R2 bucket, the six files equal to the committed site data |
+
+Lessons (kept for the next rebuild):
+- **Models cannot be registered from serverless compute here**: Unity Catalog's model storage denies writes from it
+  (S3 "explicit deny"). Register or copy models from the PC, with `DATABRICKS_CONFIG_PROFILE=cecl` pinned
+  (MLflow's file transfers otherwise use the CLI's default profile, Bank Health's on Martins's PC).
+- **Deploying an update** (as cecl: `sudo machinectl shell cecl@` from the `ubuntu` login):
+  `cd /srv/cecl/app && git pull --ff-only`, then `cd airflow && docker compose restart`. The code folders are
+  mounted, so no rebuild is needed unless `airflow/` (Dockerfile, compose) or the requirements changed; then
+  `docker compose build` and `up -d` (15-25 minutes; check the clock). The FFIEC run first failed because the VM
+  was still on PR #19, before the 051-form fix.
+- **Check the Chicago time with Python** (`zoneinfo`), not `TZ=... date` in Git Bash on Windows, which ignores
+  the zone and prints UTC.
+- **Dates written by the containers** use Chicago time (`site_export.written_on`): the containers run on UTC.
+
 ## Rollback
 
 The CECL stack can be stopped at any time without affecting Bank Health:
