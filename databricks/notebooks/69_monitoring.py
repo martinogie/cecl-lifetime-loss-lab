@@ -114,7 +114,11 @@ if MODE == "weekly":
         print("baseline saved from", b_ym)
     baseline = json.load(open(base_path))
     m0 = rb.latest_month(spark)
-    economy = str(nat_m["month"].max())[:7].replace("-", "")
+    # The latest month every economic input has (FHFA's state index lags FRED by months): the scenario needs
+    # each state's values at the economy month (found in the Phase 8 dev check, 23 Nov 2026).
+    lasts = [nat_m[nat_m["variable"] == v]["month"].max() for v in nat_m["variable"].unique()]
+    lasts += [state_m[state_m["variable"] == v]["month"].max() for v in state_m["variable"].unique()]
+    economy = min(str(x)[:7].replace("-", "") for x in lasts)
     _, got = scores(m0, economy if economy > m0 else None, paths=8)
     psis = {
         t: monitoring.psi(baseline["profiles"][t], v)
