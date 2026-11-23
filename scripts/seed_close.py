@@ -48,6 +48,9 @@ def exists(remote: str) -> bool:
 
 
 def upload(local: Path, remote: str) -> None:
+    # `fs cp` does not create missing folders in a volume
+    subprocess.run(["databricks", "fs", "mkdir", remote.rsplit("/", 1)[0], "--profile", PROFILE],
+                   check=True, capture_output=True)  # fmt: skip
     subprocess.run(["databricks", "fs", "cp", str(local), remote, "--profile", PROFILE, "--overwrite"],
                    check=True, capture_output=True)  # fmt: skip
 
