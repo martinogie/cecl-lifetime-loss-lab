@@ -79,8 +79,7 @@ control passing; the projection books were identical to Phase 4 loan by loan; bo
 
 ## Decision
 
-**Martins, 24 November 2026:** "My ADR-012 decision is automatic website publish just as it is currently. Every
-other thing you did I agree with."
+**Martins, 24 November 2026:** "Automatic website publish only."
 
 So:
 - **The website publishes automatically after every successful close**, as it does today: the close DAG triggers
