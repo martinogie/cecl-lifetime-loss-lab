@@ -8,7 +8,7 @@ Paused when first loaded.
 
 | Task | What it does | Why a re-run is safe |
 |---|---|---|
-| `preflight` | refuses if a blocked window falls within the next 4 hours; checks the quarter-end (next after the last close), the quarter's overlay review in the committed log, that every prod job was deployed from the VM's commit, and that every year's Freddie file is in the volume and newer than the last close | reads only |
+| `preflight` | (with `rehearsal`: re-closes the last booked quarter, the whole chain in prod, which must reproduce the booked allowance; the economic tables are uploaded but not reloaded) refuses if a blocked window falls within the next 4 hours; checks the quarter-end (next after the last close), the quarter's overlay review in the committed log, that every prod job was deployed from the VM's commit, and that every year's Freddie file is in the volume and newer than the last close | reads only |
 | `economic_tables` | uploads the VM's economic tables to the volume; job `load_macro_tables` loads them (row tie-outs) | tables replaced whole |
 | `freddie_bronze` | job `bronze_load`: Freddie zips -> bronze (data contracts, row tie-outs) | each vintage replaced |
 | `panel` | job `panel_build`: silver -> gold loan panel, then the C02 tie-outs | rebuilt whole |
@@ -76,6 +76,12 @@ def _job(name: str) -> str:
         "freddie_release": Param(
             "48", type="string", description="Freddie's release number (bronze lineage)"
         ),
+        "rehearsal": Param(
+            False,
+            type="boolean",
+            description="Re-close the last booked quarter to test the whole "
+            "chain in prod (must reproduce the booked allowance); the economy is not reloaded",
+        ),
     },
     default_args={"on_failure_callback": failure_callback(DATA_ROOT, "close"), "retries": 0},
 )
@@ -91,12 +97,13 @@ def cecl_quarterly_close() -> None:
         close_run.check_time_budget(datetime.now(TZ))
         ws = _ws()
         last = close_run.last_close(ws)
-        R = close_run.check_request(str(params["reserve_ym"]), datetime.now(TZ).date(), last)
+        rehearsal = bool(params.get("rehearsal", False))
+        R = close_run.check_request(str(params["reserve_ym"]), datetime.now(TZ).date(), last, rehearsal)
         reviews = close_run.check_overlay_review(DOCS / "governance" / "overlay_log.json", R)
         commit = close_run.vm_commit(GIT_DIR)
         close_run.check_deploys(ws, ENV.name, commit)
         newer_than = None
-        if last:
+        if last and not rehearsal:  # a rehearsal re-uses the files the booked quarter was built from
             rec = [
                 e
                 for e in ws.list_dir(f"{close_run.volume()}/results/close/{last}")
@@ -104,7 +111,7 @@ def cecl_quarterly_close() -> None:
             ]
             newer_than = datetime.fromtimestamp(rec[0]["last_modified"] / 1000, UTC) if rec else None
         freddie = close_run.check_freddie(ws, range(1999, int(R[:4]) + 1), newer_than)
-        return {"R": R, "prior": last, "commit": commit, "years": f"1999-{R[:4]}",
+        return {"R": R, "prior": last, "commit": commit, "years": f"1999-{R[:4]}", "rehearsal": rehearsal,
                 "release": str(params["freddie_release"]), "freddie": freddie, "overlay_reviews": reviews}  # fmt: skip
 
     @task
@@ -113,6 +120,11 @@ def cecl_quarterly_close() -> None:
 
         task_preflight()
         ws = _ws()
+        if info[
+            "rehearsal"
+        ]:  # tested up to the upload; the booked economy stays, so the reserve must reproduce
+            sent = close_run.upload_macro(ws, DATA_ROOT, target="macro_silver_rehearsal")
+            return {"run_id": 0, "minutes": 0.0, "tables": sent, "loaded": False}
         sent = close_run.upload_macro(ws, DATA_ROOT)
         return ws.run_and_wait(_job("load_macro_tables"), {"tables": ",".join(sent)}) | {"tables": sent}
 
@@ -172,12 +184,14 @@ def cecl_quarterly_close() -> None:
         started = context["dag_run"].start_date
         if started is not None:
             record.started_at = started.astimezone(UTC).replace(microsecond=0).isoformat()
-        record.details = {"commit": info["commit"], "freddie": info["freddie"],
+        record.details = {"commit": info["commit"], "freddie": info["freddie"], "rehearsal": info["rehearsal"],
                           "databricks_minutes": {j["run_id"]: j["minutes"] for j in jobs},
                           "total_allowance": rec["dates"][info["R"]]["total_allowance"], "controls": rec["controls"]}  # fmt: skip
         run_log.finish(record)
         flagged = bool(mon.get("alerts")) or bool((mon.get("retrain") or {}).get("due"))
         text = close_run.summary_line(rec, mon) + "".join(f"\n- {a}" for a in mon.get("alerts", [])[:10])
+        if info["rehearsal"]:
+            text = f"REHEARSAL (re-close of the booked {info['R']}; economy not reloaded) " + text
         record.alerts = alerts.send(alerts.success_text(context["dag"].dag_id, context["run_id"],
                                                         record.duration_seconds, text, warning=flagged))  # fmt: skip
         run_log.write(DATA_ROOT, record)

@@ -35,6 +35,15 @@ def test_check_request() -> None:
         close_run.check_request("202612", today, "202606")
 
 
+def test_rehearsal_recloses_only_the_last_booked_quarter() -> None:
+    today = date(2026, 11, 24)
+    assert close_run.check_request("202606", today, "202606", rehearsal=True) == "202606"
+    with pytest.raises(close_run.CloseRefused, match="rehearsal re-closes the last booked quarter"):
+        close_run.check_request("202603", today, "202606", rehearsal=True)
+    with pytest.raises(close_run.CloseRefused, match="not after the last close"):
+        close_run.check_request("202606", today, "202606")
+
+
 def test_time_budget() -> None:
     ok = datetime(2027, 1, 27, 14, 0, tzinfo=UTC)  # Wednesday 08:00 Chicago
     close_run.check_time_budget(ok)
@@ -127,6 +136,8 @@ def test_upload_macro_and_projection_params(tmp_path: Path) -> None:
         (macro / f"{t}.parquet").write_bytes(b"x")
     sent = close_run.upload_macro(ws, tmp_path)  # type: ignore[arg-type]
     assert "household_monthly" in sent and f"{VOL}/macro_silver/fed_paths.parquet" in ws.uploads
+    close_run.upload_macro(ws, tmp_path, target="macro_silver_rehearsal")  # type: ignore[arg-type]
+    assert f"{VOL}/macro_silver_rehearsal/fed_paths.parquet" in ws.uploads
     p = close_run.projection_params(ws, "202609")  # type: ignore[arg-type]
     assert p["plan"] == "202609@202609,202609@202606" and json.loads(p["runs"])["30"] == "run-30"
 

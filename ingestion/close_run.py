@@ -43,14 +43,19 @@ def volume() -> str:
     return "/Volumes/" + environment.databricks_schema("bronze").replace(".", "/") + "/raw"
 
 
-def check_request(reserve_ym: str, today: date, last_close: str | None) -> str:
+def check_request(reserve_ym: str, today: date, last_close: str | None, rehearsal: bool = False) -> str:
     """The quarter-end to close: a quarter-end month, at least one full month in the past (Freddie's data for
-    a quarter arrives months later), and after the last close."""
+    a quarter arrives months later), and after the last close. A **rehearsal** re-closes the last booked quarter
+    instead (the whole chain in prod; it must reproduce the booked allowance, or the controls stop it)."""
     R = str(reserve_ym).strip()
     if not close.is_quarter_end(R):
         raise CloseRefused(f"reserve_ym must be a quarter-end month (YYYYMM), got {R!r}")
     if R >= f"{today.year}{today.month:02d}":
         raise CloseRefused(f"{R} has not ended yet")
+    if rehearsal:
+        if R != last_close:
+            raise CloseRefused(f"a rehearsal re-closes the last booked quarter ({last_close}), not {R}")
+        return R
     if last_close and R <= last_close:
         raise CloseRefused(f"{R} is not after the last close ({last_close}); a re-run of a past quarter is a "
                            "separate, deliberate step (runbook: re-running a past quarter)")  # fmt: skip
@@ -132,13 +137,15 @@ def check_freddie(ws: dbx.Workspace, years: Iterable[int], newer_than: datetime 
     return {"files": len(want), "bytes": sum(entries[w]["size"] for w in want)}
 
 
-def upload_macro(ws: dbx.Workspace, data_root: Path) -> list[str]:
+def upload_macro(ws: dbx.Workspace, data_root: Path, target: str = "macro_silver") -> list[str]:
+    """The VM's economic tables to the volume folder the `load_macro_tables` job reads (`macro_silver`); a
+    rehearsal sends them to `macro_silver_rehearsal` instead, so the booked economy is not replaced."""
     folder = Path(data_root) / "local" / "silver" / "macro"
     sent = []
     for t in MACRO_TABLES:
         f = folder / f"{t}.parquet"
         if f.exists():
-            ws.upload(f.read_bytes(), f"{volume()}/macro_silver/{t}.parquet")
+            ws.upload(f.read_bytes(), f"{volume()}/{target}/{t}.parquet")
             sent.append(t)
     if not {"state_monthly", "national_monthly", "long_run_averages", "fed_paths"} <= set(sent):
         raise CloseRefused(f"the VM's economic tables are incomplete ({sent}); run cecl_macro_data first")
