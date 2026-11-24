@@ -295,6 +295,10 @@ A failed control leaves `results/close/<R>/controls_failed.json` in the volume a
 cause and trigger again (every step is safe to repeat). Re-running a *past* quarter is not done by this DAG:
 rebuild it from its snapshot (the close record's Delta versions, model versions and commit).
 
+**Reminder:** `cecl_quarterly_reminder` posts to the `[CECL]` Slack and Discord channels at 14:00 Chicago on
+the 15th of January, April, July and October, with the quarter-end to close and these steps. It only reminds;
+it never checks Freddie's site or downloads anything (ADR-001). Keep it unpaused.
+
 ## Model monitoring (Phase 8, ADR-012)
 
 `cecl_weekly_monitoring` runs on Wednesdays at 09:00. It reports each source's freshness from what the VM holds.
