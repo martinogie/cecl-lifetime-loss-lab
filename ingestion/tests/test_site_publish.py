@@ -124,3 +124,54 @@ def test_written_date_is_chicago_not_utc() -> None:
 
     assert site_export.written_on(datetime(2026, 11, 23, 3, 30, tzinfo=UTC)) == "2026-11-22"
     assert site_export.written_on(datetime(2026, 11, 23, 15, 0, tzinfo=UTC)) == "2026-11-23"
+
+
+def test_a_successful_close_becomes_the_site_headline(tmp_path: Path) -> None:
+    """ADR-012 decision: after a close, the site shows the new quarter (newest date, its rollforward and bridge,
+    its disclosures and explorer groups); a close whose controls failed is never published."""
+    import copy
+    import json
+
+    from ingestion import site_export
+
+    base = json.loads(
+        (Path(__file__).resolve().parents[2] / "docs/phase4/reserve_2026Q2.json").read_text(encoding="utf-8")
+    )
+    groups = json.loads(
+        (Path(__file__).resolve().parents[2] / site_export.BY_GROUP).read_text(encoding="utf-8")
+    )
+    d = copy.deepcopy(base["dates"]["202606"])
+    d["total_allowance"] = 301_234_567.89
+    disc = {k: v for k, v in base["disclosures"].items() if "gross_write_offs" not in k}
+    disc["gross_write_offs_by_origination_year_q3_2026"] = {"2023": 400_000.0}
+    disc["gross_write_offs_by_origination_year_ytd_2026"] = {"2023": 1_300_000.0}
+    rec = {"reserve_ym": "202609", "prior_ym": "202606", "dates": {"202606": base["dates"]["202606"], "202609": d},
+           "rollforward": base["rollforward_q2_2026"], "bridge": base["bridge_q1_to_q2_2026"], "disclosures": disc,
+           "benchmarks": base["benchmarks"], "controls": {"all_pass": True},
+           "site_explorer": {k: v for k, v in groups.items() if k not in ("dataAsOf", "status")}}  # fmt: skip
+    (tmp_path / "close" / "202609").mkdir(parents=True)
+    (tmp_path / "close" / "202609" / "close.json").write_text(json.dumps(rec))
+    failed = rec | {"reserve_ym": "202612", "prior_ym": "202609", "controls": {"all_pass": False}}
+    (tmp_path / "close" / "202612").mkdir()
+    (tmp_path / "close" / "202612" / "close.json").write_text(json.dumps(failed))
+    try:
+        docs = site_export.build(tmp_path)
+        assert sp.validate(docs) == []
+        o, x = docs["overview.json"], docs["disclosures.json"]
+        assert o["latest"] == "202609" and o["dateOrder"] == ["202512", "202603", "202606", "202609"]
+        assert (
+            o["dates"]["202609"]["totalM"] == 301.235
+            and o["dates"]["202609"]["longLabel"] == "30 September 2026"
+        )
+        assert (
+            o["dataAsOf"]["reserveDate"] == "2026-09-30"
+            and docs["methods.json"]["dataAsOf"]["reserveDate"] == "2026-09-30"
+        )
+        assert [q["key"] for q in x["quarters"]] == ["q1_2026", "q2_2026", "q3_2026"]
+        assert x["quarters"][-1]["bridgeTitle"] == "30 Jun to 30 Sep 2026" and x["quarterLabel"] == "Q3 2026"
+        assert x["writeOffsQuarter"] == {"2023": 0.4} and x["ytdLabel"] == "January - September 2026"
+        assert x["creditQualityDate"] == "30 September 2026" and "202612" not in o["dates"]
+        assert docs["explorer.json"]["dataAsOf"]["reserveDate"] == "2026-09-30"
+    finally:
+        site_export.build(tmp_path / "none")  # reset the module's reserve date for other tests
+    assert site_export.span("202512", "202603") == "31 Dec 2025 to 31 Mar 2026"

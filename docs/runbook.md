@@ -245,6 +245,12 @@ in the **private** R2 bucket `cecl-data`, checks every object, and switches `cur
 reads that pointer, so the site refreshes **without a rebuild or deploy**. Until the first publish (or if a
 file is ever missing) the router serves the copy built into the Pages site.
 
+**What a publish shows** (`site_export.build`): the committed Phase 4 closes (31 December 2025 to 30 June 2026)
+plus every live close the VM has fetched into `data/close/<R>/close.json` whose controls all passed. The newest
+one is the headline and the reserve date on every page; each live close adds its quarter's rollforward and
+bridge; its disclosures and Loss-explorer groups (saved in the close record as aggregates) replace the older
+ones. The pages read the dates and quarters from the data, so a new quarter needs no page change.
+
 - **One-off set-up (Martins):** create the R2 bucket `cecl-data` (Cloudflare → R2 → Create bucket); create an
   R2 API token with **Object Read & Write on `cecl-data` only**; put `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
   and `R2_ENDPOINT` (`https://<account id>.r2.cloudflarestorage.com`) in the CECL stack's secrets on the VM
@@ -278,10 +284,12 @@ Each quarter, after Freddie's release (never Monday before 13:00 or with 02:30 w
    another commit).
 4. **Trigger** `cecl_quarterly_close` in the VM's Airflow with `reserve_ym` (e.g. `202609`) and Freddie's release
    number. It takes about 2.5 to 3 hours; a failed step alerts and stops (heavy jobs never retry by themselves).
-5. **Review**: the VM holds `data/close/<R>/close.json`, `monitoring.json` and `committee_pack.md`. They go into
+5. **Website** (automatic, ADR-012 decision): once every control has passed, the close triggers
+   `cecl_publish_site`; the site shows the new quarter within a minute (newest date, its rollforward and bridge,
+   disclosures and Loss explorer). Keep `cecl_publish_site` unpaused. A failed close publishes nothing.
+6. **Review**: the VM holds `data/close/<R>/close.json`, `monitoring.json` and `committee_pack.md`. They go into
    `docs/governance/committee_packs/<YYYYQn>/` through a PR; the maker and checker sign on different days;
    the merge commit is tagged `cecl-<YYYYQn>-close`.
-6. **Publish** the site (`cecl_publish_site`) after the merge.
 
 A failed control leaves `results/close/<R>/controls_failed.json` in the volume and nothing booked. Fix the
 cause and trigger again (every step is safe to repeat). Re-running a *past* quarter is not done by this DAG:

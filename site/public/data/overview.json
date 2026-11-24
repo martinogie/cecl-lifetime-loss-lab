@@ -1,7 +1,7 @@
 {
  "dataAsOf": {
   "reserveDate": "2026-06-30",
-  "updated": "2026-11-21"
+  "updated": "2026-11-24"
  },
  "status": {
   "model": "Model v2 (challenger)",
@@ -9,9 +9,16 @@
   "overlay": "No overlay (Option B): the LGD model's conservatism (1.64x the real loss per default, L-033) more than offsets the default shortfall (0.74 in loss terms). The +34% default uplift is shown as a sensitivity.",
   "framing": "Educational model on Freddie Mac conforming mortgages (sample book). Not an audited bank reserve and not accounting advice."
  },
+ "latest": "202606",
+ "dateOrder": [
+  "202512",
+  "202603",
+  "202606"
+ ],
  "dates": {
   "202512": {
    "label": "31 Dec 2025",
+   "longLabel": "31 December 2025",
    "loans": 340358,
    "balanceM": 80546.011,
    "performingM": 301.968,
@@ -23,6 +30,7 @@
   },
   "202603": {
    "label": "31 Mar 2026",
+   "longLabel": "31 March 2026",
    "loans": 341291,
    "balanceM": 81024.442,
    "performingM": 262.728,
@@ -34,6 +42,7 @@
   },
   "202606": {
    "label": "30 Jun 2026",
+   "longLabel": "30 June 2026",
    "loans": 350495,
    "balanceM": 84623.563,
    "performingM": 268.322,
@@ -66,6 +75,7 @@
   "adverse": 0.3,
   "severely_adverse": 0.1
  },
+ "componentsDate": "202606",
  "components": {
   "baseline": {
    "lifetimePd": 0.0229008419860292,
@@ -111,6 +121,7 @@
    0.028
   ]
  },
+ "peerPeriod": "2026-06-30",
  "peers": [
   {
    "group": "$1-10bn",

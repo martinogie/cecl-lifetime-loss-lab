@@ -30,10 +30,10 @@
     "overview": {
       "allOf": [{"$ref": "#/$defs/header"}],
       "type": "object",
-      "required": ["dates", "scenarios", "weights", "components", "benchmarks", "ratios", "stress", "peers"],
+      "required": ["latest", "dateOrder", "dates", "scenarios", "weights", "components", "benchmarks", "ratios", "stress", "peers"],
       "properties": {
         "dates": {
-          "type": "object", "required": ["202512", "202603", "202606"],
+          "type": "object", "minProperties": 3, "propertyNames": {"pattern": "^\\d{4}(03|06|09|12)$"},
           "additionalProperties": {
             "type": "object",
             "required": ["label", "loans", "balanceM", "performingM", "defaultedM", "totalM", "ratio", "totalWithUpliftM", "fedScenarioYear"],
@@ -76,10 +76,10 @@
     "disclosures": {
       "allOf": [{"$ref": "#/$defs/header"}],
       "type": "object",
-      "required": ["rollforward", "bridge", "creditQualityFico", "creditQualityLtv", "writeOffsQ2", "writeOffsYtd"],
+      "required": ["rollforward", "bridge", "quarters", "creditQualityFico", "creditQualityLtv", "writeOffsQuarter", "writeOffsYtd"],
       "properties": {
         "rollforward": {
-          "type": "object", "required": ["q1_2026", "q2_2026"],
+          "type": "object", "minProperties": 2, "propertyNames": {"pattern": "^q[1-4]_\\d{4}$"},
           "additionalProperties": {"type": "object", "required": ["rows", "total", "reconciles", "totalCents"],
                                    "properties": {"reconciles": {"const": true}}}
         }

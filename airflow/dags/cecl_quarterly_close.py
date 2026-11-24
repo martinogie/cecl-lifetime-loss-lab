@@ -16,10 +16,12 @@ Paused when first loaded.
 | `pricing` | uploads the committed overlay log; job `close_pricing`: pricing, weighting, rollforward from the previous close's booked frame, bridge, disclosures, live rolling backtest, quarter-end snapshot; any failed control stops it | writes only its own quarter's folder |
 | `monitoring` | job `monitoring` (quarterly): calibration per transition, AUC, trend, retrain check | its quarter's record replaced |
 | `finish` | copies the close record and monitoring to the VM, drafts the committee pack, writes the run log, sends the alert (WARNING when monitoring flags a cell or a retrain) | files overwritten |
+| `publish_site` | triggers `cecl_publish_site`: the website shows the new quarter (ADR-012 decision: automatic, as today) | each publish is its own run folder |
 
 Heavy jobs never retry automatically: a failure alerts and stops, so nothing runs on top of a problem. The
-results reach the public repo through a reviewed PR (committee pack with the sign-off page); the site is
-published after that (`cecl_publish_site`). Needs `DATABRICKS_HOST` and `DATABRICKS_TOKEN` in the stack's .env
+results reach the public repo through a reviewed PR (committee pack with the sign-off page); the website is
+published automatically once every control has passed (`cecl_publish_site`; ADR-012 decision). Needs
+`DATABRICKS_HOST` and `DATABRICKS_TOKEN` in the stack's .env
 (Martins adds them; never printed or logged). Only aggregates come back to the VM.
 
 **Schedule rules (shared VM):** no task starts on a Monday before 13:00 Chicago or between 02:30 and 04:00
@@ -34,6 +36,7 @@ from pathlib import Path
 from typing import Any
 
 import pendulum
+from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.sdk import Param, dag, task
 
 from cecl import environment
@@ -188,7 +191,12 @@ def cecl_quarterly_close() -> None:
     pr = projection(info, p)
     c = pricing(info, pr)
     mo = monitoring(info, c)
-    finish(info, [m, b, p, pr, c, mo])
+    done = finish(info, [m, b, p, pr, c, mo])
+    # ADR-012 decision (Martins, 24 Nov 2026): the website publishes automatically after a successful close, as
+    # it does today. It runs only if every task above succeeded (every control passed).
+    publish = TriggerDagRunOperator(task_id="publish_site", trigger_dag_id="cecl_publish_site",
+                                    wait_for_completion=False)  # fmt: skip
+    done >> publish
 
 
 cecl_quarterly_close()
