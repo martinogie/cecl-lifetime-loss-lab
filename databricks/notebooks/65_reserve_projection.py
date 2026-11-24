@@ -78,8 +78,12 @@ for R, E in plan:
     if R not in books:
         books[R] = reserve_book(R)
     start, history = books[R]
-    # B4b weights: the book's balance by state at the reserve date of the economy's book
-    w_book = books[E][0] if E in books else start
+    # B4b weights: the book's balance by state at the reserve date of the economy's book. When that book is not
+    # projected in this run (the close's plan R@R,R@P), it is loaded for its state mix only: falling back to the
+    # R book would give a different economy than the booked one (found in the Phase 8 dev check, 23 Nov 2026).
+    if E not in books:
+        books[E] = reserve_book(E)
+    w_book = books[E][0]
     weights = w_book.groupby("property_state")["upb_start"].sum().to_dict()
     overlap = set(weights) & set(state_m["state"].unique())
     if not overlap or sum(weights[s] for s in overlap) <= 0:

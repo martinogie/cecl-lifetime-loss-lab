@@ -66,7 +66,7 @@ def cecl_weekly_monitoring() -> None:
             record.started_at = started.astimezone(UTC).replace(microsecond=0).isoformat()
         latest = monitor_run.latest_months(DATA_ROOT)
         scored = None
-        if monitoring.needs_scoring(latest.get("fred_national"), monitor_run.last_scored(DATA_ROOT)):
+        if monitoring.needs_scoring(monitor_run.economy_month(latest), monitor_run.last_scored(DATA_ROOT)):
             out = databricks_api.workspace().run_and_wait(
                 databricks_api.job_name("monitoring", ENV.name), {"mode": "weekly"}
             )

@@ -39,7 +39,7 @@ def money(x: float | str) -> str:
 
 
 def mill(x: float) -> str:
-    return f"${x / 1e6:,.1f}m"
+    return f"-${-x / 1e6:,.1f}m" if x < 0 else f"${x / 1e6:,.1f}m"
 
 
 def render(rec: Mapping[str, Any], mon: Mapping[str, Any]) -> str:

@@ -25,6 +25,7 @@ import hashlib
 import json
 import os
 import pickle
+from pathlib import Path
 
 for name, default in (("env", ""), ("layout", "catalogs"), ("reserve_ym", ""), ("code_version", "unknown")):
     dbutils.widgets.text(name, default)
@@ -79,35 +80,56 @@ inp = {"lgd": lgd_model, "curtail": curtail,
        "fed": {y: spark.table(f"{SILVER}.macro_{scenarios.FED_TABLES[y]}").toPandas() for y in years},
        "long_run": spark.table(f"{SILVER}.macro_long_run_averages").toPandas()}  # fmt: skip
 
+# Priced files are kept in a work folder and reused by a re-run while the projection file is unchanged (as the
+# PC caches them): a failure after the 15-minute pricing does not cost the pricing again.
+WORK = f"{CLOSE}/{R}/work"
+os.makedirs(WORK, exist_ok=True)
 runs = {}
 for s in SC:
     runs[(P, P, s)] = pd.read_parquet(f"{PRIOR}/priced_{P}_{P}_{s}.parquet")
     for E in (R, P):
-        src = f"{RES}/book_{R}_{E}_{s}.parquet"
-        book = pd.read_parquet(src)
-        close.check_settings(book, src)
-        weights = close.state_weights(book if E == R else runs[(P, P, s)])  # the E book's state mix
-        runs[(R, E, s)] = close.price(book, R, E, s, inp, weights)
+        src, cache = f"{RES}/book_{R}_{E}_{s}.parquet", f"{WORK}/priced_{R}_{E}_{s}.parquet"
+        if os.path.exists(cache) and os.path.getmtime(cache) > os.path.getmtime(src):
+            runs[(R, E, s)] = pd.read_parquet(cache)
+        else:
+            book = pd.read_parquet(src)
+            close.check_settings(book, src)
+            weights = close.state_weights(book if E == R else runs[(P, P, s)])  # the E book's state mix
+            runs[(R, E, s)] = close.price(book, R, E, s, inp, weights)
+            runs[(R, E, s)].to_parquet(cache, index=False)
         print(R, E, s, f"{runs[(R, E, s)]['total'].sum():,.2f}", flush=True)
 
 # COMMAND ----------
 
 # Loss data: small frames from the prod tables, then the PC's SQL through DuckDB.
+
+
+def to_pandas(sdf):
+    """Spark -> pandas with exact decimals as doubles: DuckDB would otherwise guess a decimal width from the
+    first values and fail on larger ones (found in the Phase 8 dev check, 23 Nov 2026)."""
+    from pyspark.sql import functions as F
+    from pyspark.sql.types import DecimalType
+
+    cols = [F.col(f.name).cast("double").alias(f.name) if isinstance(f.dataType, DecimalType) else F.col(f.name)
+            for f in sdf.schema.fields]  # fmt: skip
+    return sdf.select(*cols).toPandas()
+
+
 codes = ", ".join(f"'{c}'" for c in close.LOSS_CODES)
 cols = ("loan_id, period, current_upb, delinquency_status, zero_balance_code, zero_balance_date, "
         "zero_balance_removal_upb, actual_loss, mi_recoveries, non_mi_recoveries")  # fmt: skip
-perf = spark.sql(f"""select {cols} from {BRONZE}.freddie_performance
+perf = to_pandas(spark.sql(f"""select {cols} from {BRONZE}.freddie_performance
     where zero_balance_code in ({codes})
        or (period in ('{P}', '{R}') and zero_balance_code is null
-           and (delinquency_status = 'RA' or try_cast(delinquency_status as int) >= 3))""").toPandas()  # fmt: skip
+           and (delinquency_status = 'RA' or try_cast(delinquency_status as int) >= 3))"""))  # fmt: skip
 spark.sql(f"select loan_id, period_ym, status, current_upb from {GOLD}.loan_panel where status = 'defaulted'"
           ).createOrReplaceTempView("cecl_close_defaults")  # fmt: skip
-panel_def = spark.table("cecl_close_defaults").toPandas()
-perf_def = spark.sql(f"""select p.loan_id, p.period, p.zero_balance_code, p.zero_balance_date, p.delinquency_status,
+panel_def = to_pandas(spark.table("cecl_close_defaults"))
+perf_def = to_pandas(spark.sql(f"""select p.loan_id, p.period, p.zero_balance_code, p.zero_balance_date, p.delinquency_status,
         p.actual_loss, p.zero_balance_removal_upb
-    from {BRONZE}.freddie_performance p left semi join cecl_close_defaults d on p.loan_id = d.loan_id""").toPandas()  # fmt: skip
-orig = spark.sql(f"""select loan_id, property_state, orig_upb, orig_ltv, mi_pct, credit_score, occupancy_status,
-        first_payment_date from {BRONZE}.freddie_origination""").toPandas()  # fmt: skip
+    from {BRONZE}.freddie_performance p left semi join cecl_close_defaults d on p.loan_id = d.loan_id"""))  # fmt: skip
+orig = to_pandas(spark.sql(f"""select loan_id, property_state, orig_upb, orig_ltv, mi_pct, credit_score, occupancy_status,
+        first_payment_date from {BRONZE}.freddie_origination"""))  # fmt: skip
 con = duckdb.connect()
 for name, frame in (("perf_close", perf), ("perf_def", perf_def), ("panel_def", panel_def), ("orig_t", orig),
                     ("state_m", inp["state"])):  # fmt: skip
@@ -122,7 +144,7 @@ print(
 
 # COMMAND ----------
 
-log, assessed = overlays.load(OVERLAY_LOG)
+log, assessed = overlays.load(Path(OVERLAY_LOG))
 frames = {s: runs[(R, R, s)] for s in SC}
 modelled = close.weighted({s: float(f["total"].sum()) for s, f in frames.items()})
 pipe = close.defaulted_pipeline(con, rel, R, lgd_model)
@@ -146,8 +168,8 @@ br = close.finish_bridge(close.bridge(runs, P, R), dP, dR)
 
 year_before = f"{int(R[:4]) - 1}12"
 lev = close.losses(con, rel, "199901", year_before)
-bal = spark.sql(f"select substr(period_ym, 1, 4) as year, sum(current_upb) / 12.0 as avg_balance from {GOLD}.loan_panel "
-                f"where period_ym <= '{year_before}' group by 1").toPandas().set_index("year")["avg_balance"]  # fmt: skip
+bal = to_pandas(spark.sql(f"select substr(period_ym, 1, 4) as year, sum(current_upb) / 12.0 as avg_balance from {GOLD}.loan_panel "
+                f"where period_ym <= '{year_before}' group by 1")).set_index("year")["avg_balance"]  # fmt: skip
 ob = con.sql("select cast(substr(first_payment_date, 1, 4) as int) as vintage_year, sum(orig_upb) as orig_balance "
              "from orig_t group by 1").df().set_index("vintage_year")["orig_balance"]  # fmt: skip
 bench = close.benchmarks(lev, bal, orig_year, ob, pd.read_parquet(f"{RES}/book_{R}_{R}_baseline.parquet"), R)

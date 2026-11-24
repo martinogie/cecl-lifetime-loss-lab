@@ -52,13 +52,16 @@ os.makedirs(f"{OUT}/quarterly", exist_ok=True)
 STEPS = ("current", "30", "60")
 mlflow.set_registry_uri("databricks-uc")
 models, versions = {}, {}
+client = mlflow.MlflowClient()
 for step in STEPS:
     name = environment.registered_model(f"pd_v2_transition_{step}")
-    uri = f"models:/{name}@{environment.CHALLENGER}"
-    models[fx.STATES.index(step)] = mlflow.pyfunc.load_model(uri).unwrap_python_model().inner.model
-    versions[name] = str(
-        mlflow.MlflowClient().get_model_version_by_alias(name, environment.CHALLENGER).version
+    v = client.get_model_version_by_alias(name, environment.CHALLENGER)
+    # Loaded from the version's training run, as the reserve projection does: serverless compute may not read
+    # model files from Unity Catalog storage here (found in the Phase 8 dev check, 23 Nov 2026).
+    models[fx.STATES.index(step)] = (
+        mlflow.pyfunc.load_model(f"runs:/{v.run_id}/model").unwrap_python_model().inner.model
     )
+    versions[name] = str(v.version)
 state_m = spark.table(f"{SILVER}.macro_state_monthly").toPandas()
 nat_m = spark.table(f"{SILVER}.macro_national_monthly").toPandas()
 long_run = spark.table(f"{SILVER}.macro_long_run_averages").toPandas()
@@ -111,7 +114,11 @@ if MODE == "weekly":
         print("baseline saved from", b_ym)
     baseline = json.load(open(base_path))
     m0 = rb.latest_month(spark)
-    economy = str(nat_m["month"].max())[:7].replace("-", "")
+    # The latest month every economic input has (FHFA's state index lags FRED by months): the scenario needs
+    # each state's values at the economy month (found in the Phase 8 dev check, 23 Nov 2026).
+    lasts = [nat_m[nat_m["variable"] == v]["month"].max() for v in nat_m["variable"].unique()]
+    lasts += [state_m[state_m["variable"] == v]["month"].max() for v in state_m["variable"].unique()]
+    economy = min(str(x)[:7].replace("-", "") for x in lasts)
     _, got = scores(m0, economy if economy > m0 else None, paths=8)
     psis = {
         t: monitoring.psi(baseline["profiles"][t], v)

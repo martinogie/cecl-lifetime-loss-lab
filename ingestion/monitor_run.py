@@ -46,10 +46,20 @@ def latest_months(data_root: Path) -> dict[str, str | None]:
     return {
         "freddie_performance": closes[-1] if closes else SEEDED_FREDDIE_MONTH,
         "fred_national": _max_month(macro / "national_monthly.parquet"),
-        "fred_state_unemployment": _max_month(macro / "state_monthly.parquet", "unemployment"),
+        "fred_state_unemployment": _max_month(macro / "state_monthly.parquet", "unemployment_rate"),
         "fhfa_hpi": _max_month(macro / "state_monthly.parquet", "hpi"),
         "ffiec_call_reports": periods[-1].replace("-", "")[:6] if periods else None,
     }
+
+
+ECONOMY_SOURCES = ("fred_national", "fred_state_unemployment", "fhfa_hpi")
+
+
+def economy_month(latest: dict[str, str | None]) -> str | None:
+    """The latest month every economic input has (FHFA's state index lags FRED by months): the month the weekly
+    scoring can use, so a new month counts only when all of them have it. The same rule as notebook 69."""
+    months = [latest.get(s) for s in ECONOMY_SOURCES]
+    return min(m for m in months if m) if all(months) else None
 
 
 def state_path(data_root: Path) -> Path:
@@ -67,13 +77,13 @@ def record(
     """The week's monitoring record (aggregates only), saved on the VM; the state moves on only when scored."""
     fresh = monitoring.freshness(latest, today)
     rec = monitoring.weekly_status(fresh, (scored or {}).get("psi") if scored else None)
-    rec |= {"date": today.isoformat(), "economy_month": latest.get("fred_national"),
+    rec |= {"date": today.isoformat(), "economy_month": economy_month(latest),
             "book_month": (scored or {}).get("book_month"), "models": (scored or {}).get("models")}  # fmt: skip
     out = Path(data_root) / "monitoring" / "weekly"
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{today.isoformat()}.json").write_text(json.dumps(rec, indent=1, default=float), encoding="utf-8")
     if scored:
-        state_path(data_root).write_text(json.dumps({"economy_month": latest.get("fred_national"),
+        state_path(data_root).write_text(json.dumps({"economy_month": economy_month(latest),
                                                      "date": today.isoformat()}), encoding="utf-8")  # fmt: skip
     return rec
 

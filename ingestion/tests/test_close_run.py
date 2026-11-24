@@ -177,6 +177,7 @@ def test_committee_pack_renders_every_section() -> None:
     assert "**$300,000,000.00**" in md and "| Maker (prepared the close) | | | |" in md
     assert "DRAFT for review" in md and "not an audited bank reserve" in md
     assert committee_pack.quarter_folder("202609") == "2026Q3"
+    assert committee_pack.mill(-14.0e6) == "-$14.0m" and committee_pack.money(-865575) == "-$865,575.00"
 
 
 # ---------------------------------------------------------------- Databricks client
@@ -270,7 +271,7 @@ def test_latest_months_and_weekly_record(tmp_path: Path) -> None:
         pa.table({"month": [date(2026, 9, 1), date(2026, 10, 1)], "value": [1.0, 2.0]}),
         macro / "national_monthly.parquet",
     )
-    pq.write_table(pa.table({"month": [date(2026, 9, 1), date(2026, 7, 1)], "variable": ["unemployment", "hpi"],
+    pq.write_table(pa.table({"month": [date(2026, 9, 1), date(2026, 7, 1)], "variable": ["unemployment_rate", "hpi"],
                              "value": [4.0, 300.0]}), macro / "state_monthly.parquet")  # fmt: skip
     latest = monitor_run.latest_months(tmp_path)
     assert latest == {"freddie_performance": "202606", "fred_national": "202610", "fred_state_unemployment": "202609",
@@ -280,6 +281,8 @@ def test_latest_months_and_weekly_record(tmp_path: Path) -> None:
     rec = monitor_run.record(
         tmp_path, date(2026, 11, 25), latest, {"psi": {"current->default": 0.02}, "book_month": "202606"}
     )
-    assert rec["scored"] and monitor_run.last_scored(tmp_path) == "202610"
+    assert monitor_run.economy_month(latest) == "202607"  # FHFA's state index is the latest-arriving input
+    assert monitor_run.economy_month(latest | {"fhfa_hpi": None}) is None
+    assert rec["scored"] and monitor_run.last_scored(tmp_path) == "202607"
     assert "PSI: current->default 0.02" in monitor_run.summary_line(rec)
     assert (tmp_path / "monitoring" / "weekly" / "2026-11-25.json").exists()
