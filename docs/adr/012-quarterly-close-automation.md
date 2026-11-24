@@ -1,6 +1,6 @@
 # ADR-012: Quarterly close automation and model monitoring (Phase 8)
 
-- **Status:** proposed, 22 November 2026 (Martins's choices recorded below; the Decision section is his to write)
+- **Status:** accepted, 24 November 2026 (proposed 22 November 2026; verified in dev 23 November 2026)
 - **Related:** ADR-001 (tools and data sizing: Freddie files by hand), ADR-004 (environments and the shared
   VM), ADR-005 (weights), ADR-006 (overlays), ADR-009 (calibration bars), the controls matrix, the roadmap v2
   changes ("Phase 8: drift and performance monitoring", approved 18 November 2026)
@@ -48,31 +48,54 @@ versions and training runs of the models, the hashes of the LGD model and the ov
 commit; the PR that commits the record is tagged `cecl-<YYYYQn>-close`. Together they rebuild the quarter.
 
 **Monitoring.** Weekly (Wednesdays, after the economic data): freshness from what the VM already holds; when a
-new economic month has arrived, the live book is scored with the latest economy and each transition's score
-distribution is compared by PSI with a stored baseline profile (deciles and shares only). Quarterly (part of the
-close): predicted / actual per transition by year, origination year and starting state with the ADR-009 bar,
-AUC, a trend point and the written retrain rule (`cecl.monitoring.retrain_due`).
+new economic month has arrived for **every** input (FHFA's state house-price index lags FRED by months, so the
+usable month is the latest one all inputs have), the live book is scored with that economy and each transition's
+score distribution is compared by PSI with a stored baseline profile (deciles and shares only). Quarterly (part
+of the close): predicted / actual per transition by year, origination year and starting state with the ADR-009
+bar, AUC, a trend point and the written retrain rule (`cecl.monitoring.retrain_due`).
 
-## Points for Martins to confirm in the Decision
+**Databricks specifics found in the dev check (23 November 2026).** Serverless compute may neither write nor read
+model files in Unity Catalog storage here: models are registered from the PC, and the jobs load them from their
+training runs (`runs:/<run>/model`), looked up through the registry alias. The PC-fitted LGD model is uploaded as
+a portable copy (`cecl.lgd.portable`: scikit-learn's fit-time numpy generator removed, which Databricks' older
+numpy cannot load), only after its predictions are checked identical on all 52,425 default events.
+
+**Verified in dev (23 November 2026, under Martins's one-day dated exception).** From the seeded 31 March close,
+the close job reproduced the 30 June 2026 allowance, **$297,497,504.04**, with the Q2 rollforward (overall and by
+loan group), bridge, benchmarks and disclosures identical to the committed results field by field, and every
+control passing; the projection books were identical to Phase 4 loan by loan; both monitoring modes ran.
+
+## Points put to Martins for the Decision
 
 1. **The weekly PSI baseline** is the book at 30 June 2026 scored one month ahead (the reserve the v2 models
    first served), not the training sample: the training rows are sampled and weighted months from 1999-2016,
    a different population from a live book. Alternative: profile the training rows instead.
 2. **Quarterly calibration groups** are year, origination year and starting state (current / 30 / 60). The
    ADR-009 late-history bands are not rebuilt for the live quarter in this version.
-3. **The site follows a close** only after the PR is merged (the site pages and schemas still name the 2026
-   dates; making them date-generic is the next Phase 8 step). Until then the close does not publish.
+3. **When the site follows a close:** as proposed, only after the committee-pack PR is merged; or automatically
+   after a successful close, as the site is refreshed today.
 4. **The VM needs `DATABRICKS_HOST` and `DATABRICKS_TOKEN`** in its .env (a token that can run the CECL jobs
-   and read and write the CECL volume, nothing else).
+   and read and write the CECL volume, nothing else). Confirmed present on 24 November 2026 (names only checked).
 
 ## Decision
 
-*(Martins writes this section in his own words.)*
+**Martins, 24 November 2026:** "My ADR-012 decision is automatic website publish just as it is currently. Every
+other thing you did I agree with."
+
+So:
+- **The website publishes automatically after every successful close**, as it does today: the close DAG triggers
+  `cecl_publish_site` once every control has passed, and the site refreshes from the close's aggregates without a
+  rebuild or a manual step. The committee pack, the close record and the snapshot still reach the public repo
+  through a reviewed PR with the sign-off page (the PR no longer gates the website).
+- Everything else as designed and verified above: pricing as a Databricks job on the PC's code, rollforward from
+  the previous booked frame, the controls before booking, a manual trigger after Freddie's release, the
+  30 June 2026 PSI baseline, the quarterly calibration groups, and the weekly and quarterly monitoring.
 
 ## Consequences
 
 - The prod reserve no longer depends on the PC; the PC remains the independent check of the pricing.
 - A failed control stops the close before anything is booked or published, and alerts.
+- The website shows each new quarter as soon as its close passes every control; a failed control publishes nothing.
 - Every quarter's close record, committee pack and snapshot are committed through a reviewed PR.
-- Databricks minutes per close: about 140-160 (Freddie reload about 55, panel about 40, projection about 20,
-  pricing about 15, monitoring about 15); weekly scoring about 3-5 when a new economic month arrives.
+- Databricks minutes per close: about 140-160 (Freddie reload about 55, panel about 40, projection about 10-20,
+  pricing about 18, quarterly monitoring about 5); weekly scoring about 2-5 when a new economic month arrives.
