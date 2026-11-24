@@ -9,7 +9,7 @@ import Layout from "../../layouts/Layout.astro";
     </aside>
     <article class="stack" style="gap:64px;min-width:0">
       <header class="stack" style="gap:14px">
-        <span class="eyebrow accent">Aggregates only · Q1 and Q2 2026</span>
+        <span class="eyebrow accent" data-eyebrow>Aggregates only · Q1 and Q2 2026</span>
         <h1 class="h1" style="font-size:clamp(36px,4.8vw,60px);line-height:1.05">The allowance, the way a bank discloses it</h1>
         <p class="lede">The tables a bank's quarterly report carries for its credit-loss allowance: what changed it, why it changed, the credit quality of the loans behind it, and what was written off.</p>
       </header>
@@ -17,10 +17,7 @@ import Layout from "../../layouts/Layout.astro";
       <section id="rollforward" class="sec stack" style="gap:18px">
         <div class="head-row rule-top" style="padding-top:12px">
           <h2 class="h2" style="font-size:30px">Rollforward by loan group</h2>
-          <div role="group" aria-label="Quarter" class="toggles" data-q>
-            <button type="button" class="btn" data-k="q1_2026" aria-pressed="false">Q1 2026</button>
-            <button type="button" class="btn" data-k="q2_2026" aria-pressed="true">Q2 2026</button>
-          </div>
+          <div role="group" aria-label="Quarter" class="toggles" data-q></div>
         </div>
         <p style="color:var(--ink-2)">Start + provision − gross write-offs + recoveries = end, on the total allowance. The provision is the balancing figure, as in a bank's books.</p>
         <div class="table-scroll" tabindex="0" role="region" aria-label="Rollforward (scrolls sideways on small screens)" style="border-top:2px solid var(--ink)">
@@ -39,7 +36,7 @@ import Layout from "../../layouts/Layout.astro";
 
       <section id="quality" class="sec stack" style="gap:18px">
         <div class="head-row rule-top" style="padding-top:12px">
-          <h2 class="h2" style="font-size:30px">Credit quality by origination year, 30 June 2026</h2>
+          <h2 class="h2" style="font-size:30px" data-cq-title>Credit quality by origination year, 30 June 2026</h2>
           <div role="group" aria-label="Measure" class="toggles" data-cq>
             <button type="button" class="btn" data-k="creditQualityFico" aria-pressed="true">Credit score</button>
             <button type="button" class="btn" data-k="creditQualityLtv" aria-pressed="false">Loan-to-value today</button>
@@ -55,11 +52,11 @@ import Layout from "../../layouts/Layout.astro";
         <h2 class="h2 rule-top" style="font-size:30px">Gross write-offs by origination year</h2>
         <div class="table-scroll" tabindex="0" role="region" aria-label="Gross write-offs (scrolls sideways)" style="border-top:2px solid var(--ink)">
           <table style="min-width:420px;font-size:14px">
-            <thead><tr><th scope="col">Origination year</th><th scope="col" class="r">Q2 2026</th><th scope="col" class="r">January - June 2026</th></tr></thead>
+            <thead><tr><th scope="col">Origination year</th><th scope="col" class="r" data-wo-q>Q2 2026</th><th scope="col" class="r" data-wo-ytd>January - June 2026</th></tr></thead>
             <tbody data-wo></tbody>
           </table>
         </div>
-        <p class="small muted">Freddie Mac reports losses about three months after a property is sold, so Q2 2026 write-offs not yet reported are estimated and trued up at the next close.</p>
+        <p class="small muted" data-wo-note>Freddie Mac reports losses about three months after a property is sold, so Q2 2026 write-offs not yet reported are estimated and trued up at the next close.</p>
         <div class="status-box" data-status></div>
       </section>
     </article>
@@ -81,15 +78,27 @@ import Layout from "../../layouts/Layout.astro";
       document.querySelector("[data-rf-note]")!.textContent =
         `To the cent: ${cents(t.start)} + ${cents(t.provision)} − ${cents(String(-Number(t.write_offs)))} + ${cents(t.recoveries)} = ${cents(t.end)}. Reconciles: ${rf.reconciles ? "yes" : "no"}. Loss dispositions in the quarter: ${rf.writeOffEvents}, of which ${rf.estimatedWriteOffEvents} estimated.`;
     };
+    // Quarters come from the data (each successful close adds one, ADR-012); the fixed pair is the layout
+    // before the first live close. The buttons show the newest four quarters, the newest selected.
+    const quarters: { key: string; label: string; bridgeTitle: string }[] = x.quarters ?? [
+      { key: "q1_2026", label: "Q1 2026", bridgeTitle: "31 Dec 2025 to 31 Mar 2026" },
+      { key: "q2_2026", label: "Q2 2026", bridgeTitle: "31 Mar to 30 Jun 2026" },
+    ];
+    const shown = quarters.slice(-4);
+    const latest = shown[shown.length - 1];
+    document.querySelector("[data-q]")!.innerHTML = shown.map((q) =>
+      `<button type="button" class="btn" data-k="${esc(q.key)}" aria-pressed="${q.key === latest.key}">${esc(q.label)}</button>`).join("");
+    const earlier = shown.slice(0, -1).map((q) => q.label);
+    document.querySelector("[data-eyebrow]")!.textContent = `Aggregates only · ${earlier.length ? earlier.join(", ") + " and " : ""}${latest.label}`;
     document.querySelectorAll<HTMLButtonElement>("[data-q] button").forEach((b) => b.addEventListener("click", () => {
       document.querySelectorAll("[data-q] button").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
       drawRf(b.dataset.k!);
     }));
-    drawRf("q2_2026");
+    drawRf(latest.key);
 
     const names: Record<string, string> = { start: "Start", exits: "Loans that left", new_loans: "New loans", credit_quality_and_ageing: "Credit quality and ageing", economic_forecast: "Economic forecast", model_changes: "Model changes", overlays: "Overlays", defaulted_loan_reserve_change: "Defaulted-loan reserve", end: "End" };
-    document.querySelector("[data-bridge]")!.innerHTML = [["q1_2026", "31 Dec 2025 to 31 Mar 2026"], ["q2_2026", "31 Mar to 30 Jun 2026"]].map(([k, title]) => {
-      const b = x.bridge[k];
+    document.querySelector("[data-bridge]")!.innerHTML = quarters.slice(-2).map(({ key, bridgeTitle: title }) => {
+      const b = x.bridge[key];
       return `<div class="stack" style="gap:8px"><h3 style="font-size:18px">${title}</h3><table style="font-size:14px"><tbody>${b.steps.map((s: any) =>
         `<tr><th scope="row">${names[s.step] ?? esc(s.step)}</th><td class="r num">${s.step === "start" || s.step === "end" ? `<strong>${money(s.amountM)}</strong>` : signedMoney(s.amountM)}</td></tr>`).join("")}</tbody></table><span class="small muted">Reconciles: ${b.reconciles ? "yes" : "no"}; ties to the booked allowance: ${b.tiesToTotalAllowance ? "yes" : "no"}.</span></div>`;
     }).join("");
@@ -107,9 +116,15 @@ import Layout from "../../layouts/Layout.astro";
     }));
     drawCq("creditQualityFico");
 
-    const years = [...new Set([...Object.keys(x.writeOffsQ2), ...Object.keys(x.writeOffsYtd)])].sort();
+    const woQ: Record<string, number> = x.writeOffsQuarter ?? x.writeOffsQ2;
+    const qLabel: string = x.quarterLabel ?? "Q2 2026";
+    document.querySelector("[data-wo-q]")!.textContent = qLabel;
+    document.querySelector("[data-wo-ytd]")!.textContent = x.ytdLabel ?? "January - June 2026";
+    document.querySelector("[data-wo-note]")!.textContent = `Freddie Mac reports losses about three months after a property is sold, so ${qLabel} write-offs not yet reported are estimated and trued up at the next close.`;
+    document.querySelector("[data-cq-title]")!.textContent = `Credit quality by origination year, ${x.creditQualityDate ?? "30 June 2026"}`;
+    const years = [...new Set([...Object.keys(woQ), ...Object.keys(x.writeOffsYtd)])].sort();
     document.querySelector("[data-wo]")!.innerHTML = years.map((y) =>
-      `<tr><th scope="row">${y}</th><td class="r num">${money(x.writeOffsQ2[y] ?? 0)}</td><td class="r num">${money(x.writeOffsYtd[y] ?? 0)}</td></tr>`).join("");
+      `<tr><th scope="row">${y}</th><td class="r num">${money(woQ[y] ?? 0)}</td><td class="r num">${money(x.writeOffsYtd[y] ?? 0)}</td></tr>`).join("");
     document.querySelector("[data-status]")!.innerHTML = statusBox(x.status);
   });
 </script>

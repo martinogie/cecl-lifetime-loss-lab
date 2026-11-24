@@ -80,10 +80,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   import { loadJson, fmtInt, pct, money, hbar, statusBox, SCENARIO_NAMES } from "../lib/site";
 
   loadJson("overview.json").then((o) => {
-    const q2 = o.dates["202606"];
-    document.querySelector("[data-hero-eyebrow]")!.textContent = `30 June 2026 · ${fmtInt(q2.loans)} loans · ${money(q2.balanceM)}`;
+    // The newest quarter-end comes from the data (each successful close publishes it, ADR-012); the fixed list
+    // is the layout before the first live close.
+    const order: string[] = o.dateOrder ?? ["202512", "202603", "202606"];
+    const q2 = o.dates[o.latest ?? order[order.length - 1]];
+    const latestLabel: string = q2.longLabel ?? "30 June 2026";
+    document.querySelector("[data-hero-eyebrow]")!.textContent = `${latestLabel} · ${fmtInt(q2.loans)} loans · ${money(q2.balanceM)}`;
     document.querySelector("[data-figures]")!.innerHTML = [
-      [money(q2.totalM), "total allowance, 30 June 2026"],
+      [money(q2.totalM), `total allowance, ${latestLabel}`],
       [pct(q2.ratio), "of the book's balance"],
       [money(o.scenarios.severely_adverse.reserveM), "if the Fed's severely adverse path happened"],
       [pct(o.stress.severeNineQuarterLossRate), `9-quarter severe loss rate (Fed stress test banks: ${pct(o.stress.dfastAggregate, 1)})`],
@@ -97,7 +101,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       ["baseline", "adverse", "severely_adverse", "weighted"].map((k) => hbar(SCENARIO_NAMES[k], sc[k], max, money(sc[k]), colors[k])).join("") +
       `<p class="small muted">Performing loans only; the reserve on loans already in default (${money(q2.defaultedM)}) is added for the total allowance.</p>`;
 
-    document.querySelector("[data-dates]")!.innerHTML = ["202512", "202603", "202606"].map((k) => {
+    document.querySelector("[data-dates]")!.innerHTML = order.map((k) => {
       const d = o.dates[k];
       return `<tr><td>${d.label}<span class="sub">Fed ${d.fedScenarioYear} scenarios</span></td><td class="r num">${fmtInt(d.loans)}</td><td class="r num">${money(d.balanceM)}</td><td class="r num">${money(d.performingM)}</td><td class="r num">${money(d.defaultedM)}</td><td class="r num"><strong>${money(d.totalM)}</strong></td><td class="r num">${pct(d.ratio)}</td><td class="r num">${money(d.totalWithUpliftM)}</td></tr>`;
     }).join("");
@@ -110,7 +114,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     if (all) {
       html += hbar(`Banks $1bn+: median (${fmtInt(all.banks)})`, all.median, top, pct(all.median)) +
               `<p class="small" style="color:var(--ink-2)">Banks' middle half: ${pct(all.p25)} to ${pct(all.p75)}; 10th to 90th percentile: ${pct(all.p10)} to ${pct(all.p90)}.</p>`;
-      document.querySelector("[data-peer-source]")!.textContent = "FFIEC call reports, Schedule RI-C (residential real estate allowance / residential real estate loans), banks with $1bn or more in assets, 30 June 2026. Freddie Mac: Q2 2026 earnings release.";
+      const pp = o.peerPeriod ? new Date(`${o.peerPeriod}T12:00:00Z`) : null;
+      const ppText = pp ? `${pp.getUTCDate()} ${pp.toLocaleString("en-US", { month: "long", timeZone: "UTC" })} ${pp.getUTCFullYear()}` : "30 June 2026";
+      document.querySelector("[data-peer-source]")!.textContent = `FFIEC call reports, Schedule RI-C (residential real estate allowance / residential real estate loans), banks with $1bn or more in assets, ${ppText}. Freddie Mac: Q2 2026 earnings release.`;
     } else {
       document.querySelector("[data-peer-source]")!.textContent = "Bank ranges from the FFIEC call reports are being loaded. Freddie Mac: Q2 2026 earnings release.";
     }

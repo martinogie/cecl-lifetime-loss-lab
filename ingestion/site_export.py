@@ -68,55 +68,144 @@ def written_on(now: datetime | None = None) -> str:
     return (now or datetime.now(TZ)).astimezone(TZ).date().isoformat()
 
 
+BASE = "docs/phase4/reserve_2026Q2.json"  # the Phase 4 closes (31 Dec 2025 - 30 Jun 2026), committed
+BASE_LATEST = "202606"
+_latest = BASE_LATEST  # the newest reserve date being published; set by build()
+MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+          "November", "December")  # fmt: skip
+MONTH_END = {3: 31, 6: 30, 9: 30, 12: 31}
+
+
+def iso(ym: str) -> str:
+    return f"{ym[:4]}-{ym[4:]}-{MONTH_END[int(ym[4:])]:02d}"
+
+
+def label(ym: str, long: bool = False) -> str:
+    """'30 Jun 2026', or '30 June 2026' when long."""
+    name = MONTHS[int(ym[4:]) - 1]
+    return f"{MONTH_END[int(ym[4:])]} {name if long else name[:3]} {ym[:4]}"
+
+
+def span(a: str, b: str) -> str:
+    """'31 Mar to 30 Jun 2026', or '31 Dec 2025 to 31 Mar 2026' across a year end."""
+    first = label(a) if a[:4] != b[:4] else label(a).rsplit(" ", 1)[0]
+    return f"{first} to {label(b)}"
+
+
+def quarter_label(ym: str) -> str:
+    return f"Q{int(ym[4:]) // 3} {ym[:4]}"
+
+
 def header() -> dict[str, Any]:
-    return {"dataAsOf": {"reserveDate": "2026-06-30", "updated": written_on()}, "status": STATUS}
+    return {"dataAsOf": {"reserveDate": iso(_latest), "updated": written_on()}, "status": STATUS}
+
+
+def live_closes(data_root: Path) -> list[dict[str, Any]]:
+    """The quarterly closes the VM has fetched (data/close/<R>/close.json) after the Phase 4 closes, oldest
+    first; only closes whose every control passed (a failed close is never published, ADR-012)."""
+    from cecl import close
+
+    folder = Path(data_root) / "close"
+    recs = []
+    for f in sorted(folder.glob("*/close.json")) if folder.exists() else []:
+        rec = json.loads(f.read_text(encoding="utf-8"))
+        R = str(rec.get("reserve_ym", ""))
+        if close.is_quarter_end(R) and R > BASE_LATEST and rec.get("controls", {}).get("all_pass"):
+            recs.append(rec)
+    return sorted(recs, key=lambda r: r["reserve_ym"])
+
+
+def history(data_root: Path) -> dict[str, Any]:
+    """The committed Phase 4 closes plus every live close: all reserve dates, every quarter's rollforward and
+    bridge, and the newest close's disclosures, benchmarks and Loss-explorer groups."""
+    from cecl import close
+
+    base = read(BASE)
+    dates = dict(base["dates"])
+    quarters = [{"key": "q1_2026", "from": "202512", "to": "202603", "rollforward": base["rollforward_q1_2026"],
+                 "bridge": base["bridge_q4_2025_to_q1_2026"]},
+                {"key": "q2_2026", "from": "202603", "to": "202606", "rollforward": base["rollforward_q2_2026"],
+                 "bridge": base["bridge_q1_to_q2_2026"]}]  # fmt: skip
+    latest = {
+        "ym": BASE_LATEST,
+        "disclosures": base["disclosures"],
+        "benchmarks": base["benchmarks"],
+        "explorer": None,
+    }
+    for rec in live_closes(data_root):
+        R = rec["reserve_ym"]
+        dates[R] = rec["dates"][R]
+        quarters.append({"key": close.quarter_tag(R), "from": rec["prior_ym"], "to": R,
+                         "rollforward": rec["rollforward"], "bridge": rec["bridge"]})  # fmt: skip
+        latest = {"ym": R, "disclosures": rec["disclosures"], "benchmarks": rec["benchmarks"],
+                  "explorer": rec.get("site_explorer")}  # fmt: skip
+    return {"dates": dates, "quarters": quarters, "latest": latest}
 
 
 def overview(
-    r: dict[str, Any], comp: dict[str, Any], stress: dict[str, Any], peer: dict[str, Any]
+    h: dict[str, Any], comp: dict[str, Any], stress: dict[str, Any], peer: dict[str, Any]
 ) -> dict[str, Any]:
+    order = sorted(h["dates"])
     dates = {}
-    for k, label in (("202512", "31 Dec 2025"), ("202603", "31 Mar 2026"), ("202606", "30 Jun 2026")):
-        d = r["dates"][k]
-        dates[k] = {"label": label, "loans": d["book"]["loans"], "balanceM": m(d["book"]["balance"]),
-                    "performingM": m(d["weighted_reserve"]), "defaultedM": m(d["defaulted_pipeline"]["reserve"]),
-                    "totalM": m(d["total_allowance"]), "ratio": d["total_allowance_ratio"],
-                    "totalWithUpliftM": m(d["total_allowance_with_uplift"]), "fedScenarioYear": d["fed_scenario_year"]}  # fmt: skip
-    q2 = r["dates"]["202606"]
+    for k in order:
+        d = h["dates"][k]
+        dates[k] = {"label": label(k), "longLabel": label(k, long=True), "loans": d["book"]["loans"],
+                    "balanceM": m(d["book"]["balance"]), "performingM": m(d["weighted_reserve"]),
+                    "defaultedM": m(d["defaulted_pipeline"]["reserve"]), "totalM": m(d["total_allowance"]),
+                    "ratio": d["total_allowance_ratio"], "totalWithUpliftM": m(d["total_allowance_with_uplift"]),
+                    "fedScenarioYear": d["fed_scenario_year"]}  # fmt: skip
+    L = h["latest"]["ym"]
+    q = h["dates"][L]
+    bench = h["latest"]["benchmarks"]
     scen = {s: {"reserveM": m(v["reserve"]), "lifetimePd": v["lifetime_pd_weighted_by_balance"],
-                "withUpliftM": m(v["reserve_with_uplift"])} for s, v in q2["scenarios"].items()}  # fmt: skip
-    pipe = q2["defaulted_pipeline"]
+                "withUpliftM": m(v["reserve_with_uplift"])} for s, v in q["scenarios"].items()}  # fmt: skip
+    pipe = q["defaulted_pipeline"]
     out: dict[str, Any] = header() | {
+        "latest": L,
+        "dateOrder": order,
         "dates": dates,
         "scenarios": scen,
         "weights": WEIGHTS,
+        "componentsDate": BASE_LATEST,  # the PD x LGD x EAD decomposition was made for 30 June 2026
         "components": {s: {"lifetimePd": c["reconciling_chain"]["lifetime_pd"], "eadRatio": c["reconciling_chain"]["ead_ratio"],
                            "lgd": c["reconciling_chain"]["lgd"], "reserveM": m(c["reserve"])}
                        for s, c in comp.get("scenarios", {}).items()},
-        "benchmarks": {"lossRateM": m(r["benchmarks"]["loss_rate_method"]["reserve"]),
-                       "vintageM": m(r["benchmarks"]["vintage_method"]["reserve"]),
-                       "freddieRatio": FREDDIE_RATIO, "freddieOnOurBookM": m(FREDDIE_RATIO * q2["book"]["balance"])},
-        "ratios": {"total": q2["total_allowance_ratio"],
-                   "baselineOnly": (q2["scenarios"]["baseline"]["reserve"] + pipe["reserve"]) / (q2["book"]["balance"] + pipe["balance"]),
-                   "lgdConservatismRemoved": q2["total_allowance_ratio"] / 1.64},
+        "benchmarks": {"lossRateM": m(bench["loss_rate_method"]["reserve"]),
+                       "vintageM": m(bench["vintage_method"]["reserve"]),
+                       "freddieRatio": FREDDIE_RATIO, "freddieOnOurBookM": m(FREDDIE_RATIO * q["book"]["balance"])},
+        "ratios": {"total": q["total_allowance_ratio"],
+                   "baselineOnly": (q["scenarios"]["baseline"]["reserve"] + pipe["reserve"]) / (q["book"]["balance"] + pipe["balance"]),
+                   "lgdConservatismRemoved": q["total_allowance_ratio"] / 1.64},
         "stress": {"severeNineQuarterLossRate": stress["benchmark"]["ours_severely_adverse_9q_loss_rate_of_average_balance"],
                    "dfastAggregate": stress["benchmark"]["dfast_2026"]["aggregate_32_banks"],
                    "dfastRange": stress["benchmark"]["dfast_2026"]["range"]},
     }  # fmt: skip
-    agg = [a for a in peer.get("aggregates", []) if a["period"] == "2026-06-30"]
+    # the newest bank period on or before the reserve date (call reports arrive about 45 days after a quarter)
+    periods = sorted({a["period"] for a in peer.get("aggregates", []) if a["period"] <= iso(L)})
+    agg = [a for a in peer.get("aggregates", []) if periods and a["period"] == periods[-1]]
+    out["peerPeriod"] = periods[-1] if periods else None
     out["peers"] = [{"group": a["size_group"], "banks": a["banks"], "p10": a["p10"], "p25": a["p25"], "median": a["median"],
                      "p75": a["p75"], "p90": a["p90"], "pooled": a["pooled"]} for a in agg]  # fmt: skip
     return out
 
 
-def explorer(data_root: Path = DATA_ROOT) -> dict[str, Any]:
-    """Reserve by loan group at 30 June 2026 (weighted and per scenario), from the priced loan files."""
+def explorer(data_root: Path = DATA_ROOT, ym: str = BASE_LATEST) -> dict[str, Any]:
+    """Reserve by loan group at a reserve date (weighted and per scenario), from the PC's priced loan files."""
     import pandas as pd
 
     reserve_dir = Path(data_root) / "local" / "reserve"
-    frames = {s: pd.read_parquet(reserve_dir / f"priced_202606_202606_{s}.parquet",
+    frames = {s: pd.read_parquet(reserve_dir / f"priced_{ym}_{ym}_{s}.parquet",
                                  columns=["loan_id", "vintage_year", "property_state", "credit_score", "current_ltv",
                                           "upb_start", "total", "lifetime_pd"]) for s in WEIGHTS}  # fmt: skip
+    return header() | explorer_from(frames)
+
+
+def explorer_from(frames: dict[str, Any]) -> dict[str, Any]:
+    """The Loss explorer's groups from one date's priced books (aggregates only; any group with fewer than
+    MIN_LOANS loans is folded into "Other"). The prod close job saves this in its record (`site_explorer`), so
+    the VM publishes it without loan-level files."""
+    import pandas as pd
+
     base = frames["baseline"]
     for s, f in frames.items():
         if not np.array_equal(f["loan_id"].to_numpy(), base["loan_id"].to_numpy()):
@@ -133,7 +222,7 @@ def explorer(data_root: Path = DATA_ROOT) -> dict[str, Any]:
         "currentLtv": np.select([ltv <= 60, ltv <= 80, ltv <= 90], ["60% or less", "60-80%", "80-90%"], "Over 90%"),
         "state": base["property_state"].astype(str).to_numpy(),
     }  # fmt: skip
-    out: dict[str, Any] = header() | {"minLoansPerGroup": MIN_LOANS, "dimensions": {}}
+    out: dict[str, Any] = {"minLoansPerGroup": MIN_LOANS, "dimensions": {}}
     total_w = res["weighted"].sum()
     for dim, g in groups.items():
         keys = pd.Series(g)
@@ -192,7 +281,9 @@ def scenarios(stress: dict[str, Any]) -> dict[str, Any]:
                                      "source": b["dfast_2026"]["source"]}}  # fmt: skip
 
 
-def disclosures(r: dict[str, Any]) -> dict[str, Any]:
+def disclosures(h: dict[str, Any]) -> dict[str, Any]:
+    from cecl import close
+
     def rf(x: dict[str, Any]) -> dict[str, Any]:
         conv = lambda row: {k: (row[k] if k == "group" else round(float(row[k]) / 1e6, 3)) for k in row}  # noqa: E731
         return {"rows": [conv(g) for g in x["by_group"]], "total": conv({"group": "Total", **x["total"]}),
@@ -204,20 +295,28 @@ def disclosures(r: dict[str, Any]) -> dict[str, Any]:
         return {"steps": [{"step": k, "amountM": m(v)} for k, v in x["steps"].items()], "reconciles": x["reconciles"],
                 "tiesToTotalAllowance": x.get("ties_to_total_allowance", False)}  # fmt: skip
 
-    d = r["disclosures"]
+    L = h["latest"]["ym"]
+    d = h["latest"]["disclosures"]
     table = lambda t: {band: {y: m(v) for y, v in row.items()} for band, row in t.items()}  # noqa: E731
+    wo_q = {
+        y: round(v / 1e6, 4)
+        for y, v in d[f"gross_write_offs_by_origination_year_{close.quarter_tag(L)}"].items()
+    }
     return header() | {
-        "rollforward": {"q1_2026": rf(r["rollforward_q1_2026"]), "q2_2026": rf(r["rollforward_q2_2026"])},
-        "bridge": {"q1_2026": br(r["bridge_q4_2025_to_q1_2026"]), "q2_2026": br(r["bridge_q1_to_q2_2026"])},
+        "latestQuarter": close.quarter_tag(L),
+        "quarters": [{"key": q["key"], "label": quarter_label(q["to"]), "bridgeTitle": span(q["from"], q["to"])}
+                     for q in h["quarters"]],
+        "rollforward": {q["key"]: rf(q["rollforward"]) for q in h["quarters"]},
+        "bridge": {q["key"]: br(q["bridge"]) for q in h["quarters"]},
+        "creditQualityDate": label(L, long=True),
         "creditQualityFico": table(d["credit_quality_fico_by_origination_year"]),
         "creditQualityLtv": table(d["credit_quality_current_ltv_by_origination_year"]),
-        "writeOffsQ2": {
-            y: round(v / 1e6, 4) for y, v in d["gross_write_offs_by_origination_year_q2_2026"].items()
-        },
-        "writeOffsYtd": {
-            y: round(v / 1e6, 4) for y, v in d["gross_write_offs_by_origination_year_ytd_2026"].items()
-        },
-    }
+        "quarterLabel": quarter_label(L),
+        "ytdLabel": f"January - {MONTHS[int(L[4:]) - 1]} {L[:4]}",
+        "writeOffsQuarter": wo_q,
+        "writeOffsQ2": wo_q,  # the name the pages used before this release (kept so old pages still work)
+        "writeOffsYtd": {y: round(v / 1e6, 4) for y, v in d[f"gross_write_offs_by_origination_year_ytd_{L[:4]}"].items()},
+    }  # fmt: skip
 
 
 def methods(bt: dict[str, Any], l043: dict[str, Any]) -> dict[str, Any]:
@@ -297,8 +396,11 @@ def pipeline() -> dict[str, Any]:
 
 
 def build(data_root: Path = DATA_ROOT) -> dict[str, dict[str, Any]]:
-    """Every site data file, by file name (aggregates only)."""
-    r = read("docs/phase4/reserve_2026Q2.json")
+    """Every site data file, by file name (aggregates only). The newest reserve date is the latest live close
+    the VM has fetched (data/close/), or 30 June 2026 before the first live close (ADR-012)."""
+    global _latest
+    h = history(data_root)
+    _latest = h["latest"]["ym"]
     comp = read("docs/phase4/reserve_components_2026Q2.json")
     stress = read("docs/phase5/stress_2026Q2.json")
     peer, bt, l043 = (
@@ -306,14 +408,14 @@ def build(data_root: Path = DATA_ROOT) -> dict[str, dict[str, Any]]:
         read("docs/phase6/backtests.json"),
         read("docs/phase6/l043_breakdown.json"),
     )
-    saved = read(BY_GROUP)
-    expl = (
-        (header() | {k: v for k, v in saved.items() if k not in ("dataAsOf", "status")})
-        if saved
-        else explorer(data_root)
-    )
-    return {"overview.json": overview(r, comp, stress, peer), "explorer.json": expl,
-            "scenarios.json": scenarios(stress), "disclosures.json": disclosures(r), "methods.json": methods(bt, l043),
+    if h["latest"]["explorer"]:
+        expl = header() | h["latest"]["explorer"]
+    elif _latest == BASE_LATEST and read(BY_GROUP):
+        expl = header() | {k: v for k, v in read(BY_GROUP).items() if k not in ("dataAsOf", "status")}
+    else:
+        expl = explorer(data_root, _latest)
+    return {"overview.json": overview(h, comp, stress, peer), "explorer.json": expl,
+            "scenarios.json": scenarios(stress), "disclosures.json": disclosures(h), "methods.json": methods(bt, l043),
             "pipeline.json": pipeline()}  # fmt: skip
 
 

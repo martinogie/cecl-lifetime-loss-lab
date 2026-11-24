@@ -1,7 +1,7 @@
 {
  "dataAsOf": {
   "reserveDate": "2026-06-30",
-  "updated": "2026-11-21"
+  "updated": "2026-11-24"
  },
  "status": {
   "model": "Model v2 (challenger)",
@@ -9,6 +9,19 @@
   "overlay": "No overlay (Option B): the LGD model's conservatism (1.64x the real loss per default, L-033) more than offsets the default shortfall (0.74 in loss terms). The +34% default uplift is shown as a sensitivity.",
   "framing": "Educational model on Freddie Mac conforming mortgages (sample book). Not an audited bank reserve and not accounting advice."
  },
+ "latestQuarter": "q2_2026",
+ "quarters": [
+  {
+   "key": "q1_2026",
+   "label": "Q1 2026",
+   "bridgeTitle": "31 Dec 2025 to 31 Mar 2026"
+  },
+  {
+   "key": "q2_2026",
+   "label": "Q2 2026",
+   "bridgeTitle": "31 Mar to 30 Jun 2026"
+  }
+ ],
  "rollforward": {
   "q1_2026": {
    "rows": [
@@ -205,6 +218,7 @@
    "tiesToTotalAllowance": true
   }
  },
+ "creditQualityDate": "30 June 2026",
  "creditQualityFico": {
   "620-679": {
    "1999": 0.661,
@@ -538,6 +552,24 @@
    "2025": 5.612,
    "2026": 1.959
   }
+ },
+ "quarterLabel": "Q2 2026",
+ "ytdLabel": "January - June 2026",
+ "writeOffsQuarter": {
+  "1999": 0.0044,
+  "2007": 0.0001,
+  "2011": 0.0001,
+  "2012": 0.0079,
+  "2014": 0.0058,
+  "2016": 0.0085,
+  "2017": 0.0076,
+  "2018": 0.0234,
+  "2019": 0.0089,
+  "2020": 0.0046,
+  "2021": 0.0448,
+  "2022": 0.1885,
+  "2023": 0.2957,
+  "2024": 0.2652
  },
  "writeOffsQ2": {
   "1999": 0.0044,

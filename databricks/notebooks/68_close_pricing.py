@@ -37,6 +37,7 @@ import mlflow
 import pandas as pd
 
 from cecl import close, environment, lgd, overlays, scenarios
+from ingestion import site_export
 
 environment.require_airflow_env()
 BRONZE, SILVER, GOLD = (environment.databricks_schema(x) for x in ("bronze", "silver", "gold"))
@@ -239,7 +240,9 @@ res = {"note": "Aggregates only. Educational model on Freddie Mac conforming mor
        "reserve_ym": R, "prior_ym": P, "weights": close.WEIGHTS, "uplift_sensitivity": close.UPLIFT,
        "forecast_months": close.FORECAST_MONTHS, "reversion_months": close.REVERSION_MONTHS,
        "dates": {P: dP, R: dR}, "rollforward": rf, "bridge": br, "disclosures": disc, "benchmarks": bench,
-       "reserve_adequacy": adequacy, "snapshot": snapshot, "controls": controls}  # fmt: skip
+       "reserve_adequacy": adequacy, "snapshot": snapshot, "controls": controls,
+       # the Loss explorer's groups (aggregates only), so the VM publishes the site without loan-level files
+       "site_explorer": site_export.explorer_from(frames)}  # fmt: skip
 for s in SC:
     for E in (R, P):
         runs[(R, E, s)].to_parquet(f"{CLOSE}/{R}/priced_{R}_{E}_{s}.parquet", index=False)
